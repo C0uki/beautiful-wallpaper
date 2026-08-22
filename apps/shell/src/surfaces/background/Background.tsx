@@ -109,12 +109,16 @@ export function Background() {
         <WidgetCanvas items={items} editing={editing} grid={widgets.grid} />
       ) : null}
 
-      {/* The desktop's own controls: wallpaper picker, shuffle, edit mode. */}
+      {/* The desktop's own controls: wallpaper picker, shuffle, edit mode.
+          Offset past the bar when it is along the bottom edge, so the two do
+          not sit on top of each other. */}
       <div
         style={{
           position: "absolute",
           right: 18,
-          bottom: 18,
+          bottom:
+            18 +
+            (config.bar.enable && config.bar.bottom ? config.bar.height : 0),
           display: "flex",
           gap: 6,
           padding: 6,

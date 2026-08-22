@@ -50,14 +50,19 @@ and any scripts written against them still mean something here.
   be dragged and snapped to a grid.
 - **The wallpaper picker**: the local folder with history and thumbnails, plus
   Wallhaven, Unsplash and Pexels.
+- **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
+  keep clear of it. Four styles, horizontal or vertical, with workspaces,
+  active window, clock, weather, tray, battery, network, resources, media and
+  utility buttons — laid out by `bar.left/center/right`.
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
   shell follows.
 - **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
   hotkeys and scripts.
 - **Fourteen locales' worth of plumbing**, with English and Japanese filled in.
 
-Bars, sidebars, notifications, the launcher and the settings UI are the next
-phases; see [docs/roadmap.md](docs/roadmap.md).
+Sidebars, notifications, the launcher and the settings UI are the next phases;
+see [docs/roadmap.md](docs/roadmap.md) for those and for what is still missing
+from the bar.
 
 ## Install
 

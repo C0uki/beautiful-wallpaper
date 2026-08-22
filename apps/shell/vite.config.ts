@@ -30,6 +30,7 @@ export default defineConfig({
       input: {
         index: surface("index"),
         background: surface("background"),
+        bar: surface("bar"),
         wallpaperSelector: surface("wallpaperSelector"),
       },
     },

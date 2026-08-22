@@ -408,3 +408,105 @@ mod tests {
         assert!(parse_glazewm("not json").is_err());
     }
 }
+
+/// Network throughput, derived from the interface counters.
+#[derive(Debug, Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkReading {
+    /// Bytes per second, averaged over the interval since the last sample.
+    pub down: f64,
+    pub up: f64,
+    pub total_received: u64,
+    pub total_sent: u64,
+}
+
+/// Samples throughput. Windows reports cumulative octets, so a rate needs the
+/// previous reading and the time between the two.
+pub struct Network {
+    #[cfg(windows)]
+    previous: Option<(crate::platform::win::NetworkCounters, std::time::Instant)>,
+}
+
+impl Default for Network {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Network {
+    pub fn new() -> Self {
+        Self {
+            #[cfg(windows)]
+            previous: None,
+        }
+    }
+
+    #[cfg(windows)]
+    pub fn sample(&mut self) -> NetworkReading {
+        let counters = crate::platform::win::network_counters();
+        let now = std::time::Instant::now();
+
+        let rate = match self.previous {
+            // The first sample has nothing to compare against, so it reports the
+            // totals and a rate of zero rather than a spike.
+            None => (0.0, 0.0),
+            Some((before, at)) => {
+                let seconds = now.duration_since(at).as_secs_f64();
+                if seconds <= 0.0 {
+                    (0.0, 0.0)
+                } else {
+                    (
+                        counters.received.saturating_sub(before.received) as f64 / seconds,
+                        counters.sent.saturating_sub(before.sent) as f64 / seconds,
+                    )
+                }
+            }
+        };
+
+        self.previous = Some((counters, now));
+        NetworkReading {
+            down: rate.0,
+            up: rate.1,
+            total_received: counters.received,
+            total_sent: counters.sent,
+        }
+    }
+
+    #[cfg(not(windows))]
+    pub fn sample(&mut self) -> NetworkReading {
+        NetworkReading::default()
+    }
+}
+
+/// The window the user is working in, for the bar's active-window widget.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveWindow {
+    pub title: String,
+    pub class: String,
+}
+
+#[cfg(windows)]
+pub fn active_window() -> ActiveWindow {
+    let reading = crate::platform::win::active_window();
+    ActiveWindow {
+        title: reading.title,
+        class: reading.class,
+    }
+}
+
+#[cfg(not(windows))]
+pub fn active_window() -> ActiveWindow {
+    ActiveWindow::default()
+}
+
+/// The notification area's icons.
+#[cfg(windows)]
+pub fn tray_icons() -> Vec<crate::platform::tray::TrayIcon> {
+    crate::platform::tray::icons()
+}
+
+#[cfg(not(windows))]
+pub fn tray_icons() -> Vec<serde_json::Value> {
+    Vec::new()
+}

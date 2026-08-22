@@ -95,8 +95,27 @@ const SHOTS = [
       await page.getByRole("button", { name: "Edit widgets" }).click();
     },
   },
-  { name: "07-background-surface", url: "/background.html" },
-  { name: "08-wallpaper-selector-surface", url: "/wallpaperSelector.html" },
+  {
+    name: "07-bar-styles",
+    url: "/index.html",
+    setup: async (page) => {
+      await selectView(page, "Desktop");
+      await page.getByLabel("Bar style").selectOption("islands");
+    },
+  },
+  {
+    name: "08-bar-at-the-bottom",
+    url: "/index.html",
+    setup: async (page) => {
+      await selectView(page, "Desktop");
+      await page.getByRole("button", { name: /^top$/ }).click();
+    },
+  },
+  { name: "09-background-surface", url: "/background.html" },
+  // The bar window is only as tall as the bar itself, so previewing it in a
+  // full-height viewport would be misleading.
+  { name: "10-bar-surface", url: "/bar.html", viewport: { width: 1600, height: 48 } },
+  { name: "11-wallpaper-selector-surface", url: "/wallpaperSelector.html" },
 ];
 
 async function selectView(page, label) {
@@ -137,7 +156,7 @@ async function main() {
   try {
     for (const shot of SHOTS) {
       const context = await browser.newContext({
-        viewport: { width: 1600, height: 900 },
+        viewport: shot.viewport ?? { width: 1600, height: 900 },
         deviceScaleFactor: 2,
         locale: "en-US",
       });

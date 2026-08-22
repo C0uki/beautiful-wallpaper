@@ -19,6 +19,9 @@ import {
   type WallpaperPage,
   type WeatherState,
   type WorkspaceState,
+  type ActiveWindow,
+  type NetworkReading,
+  type TrayIcon,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -173,7 +176,7 @@ function sampleTheme(mode: "light" | "dark"): GeneratedTheme {
 
 export function mockBackend(): Backend {
   const listeners = new Map<EventName, Set<Handler>>();
-  const config: Config = structuredClone(defaultConfig);
+  let config: Config = structuredClone(defaultConfig);
   const states: GlobalStates = { ...defaultStates };
   let theme = sampleTheme("dark");
 
@@ -256,10 +259,31 @@ export function mockBackend(): Backend {
     })),
   };
 
+  const activeWindow: ActiveWindow = {
+    title: "beautiful-wallpaper — README.md",
+    class: "Chrome_WidgetWin_1",
+  };
+
+  const network = (): NetworkReading => ({
+    // A gentle wobble, so the bar's throughput widget has something to show.
+    down: 240_000 + Math.sin(Date.now() / 3000) * 180_000,
+    up: 42_000 + Math.cos(Date.now() / 2500) * 30_000,
+    totalReceived: 18_400_000_000,
+    totalSent: 2_100_000_000,
+  });
+
+  const tray: TrayIcon[] = [
+    { window: "0x10a2c", id: 1, tooltip: "Sync client", hidden: false },
+    { window: "0x2f110", id: 2, tooltip: "Audio mixer", hidden: false },
+    { window: "0x3c884", id: 1, tooltip: "Update service", hidden: false },
+    { window: "0x4a190", id: 7, tooltip: "Background task", hidden: true },
+  ];
+
   // Push the periodic events the real backend sends.
   const timers: ReturnType<typeof setInterval>[] = [];
   if (typeof window !== "undefined") {
     timers.push(setInterval(() => emit(Event.Resources, resources()), 2000));
+    timers.push(setInterval(() => emit(Event.Network, network()), 2000));
     timers.push(setInterval(() => emit(Event.Media, media()), 1000));
   }
 
@@ -307,11 +331,17 @@ export function mockBackend(): Backend {
 
         case Command.SetConfigValue: {
           const path = String(args["path"] ?? "");
+          // A fresh object every time, matching the real backend, which
+          // serialises the config afresh. Mutating in place would leave every
+          // nested reference identical, so a store selector returning an object
+          // slice — `state.config.bar`, say — would never see the change.
+          const next = structuredClone(config);
           setByPath(
-            config as unknown as Record<string, unknown>,
+            next as unknown as Record<string, unknown>,
             path,
             args["value"],
           );
+          config = next;
           emit(Event.ConfigChanged, config);
           return config as T;
         }
@@ -337,6 +367,7 @@ export function mockBackend(): Backend {
 
         case Command.ApplyWallpaper: {
           const path = String(args["path"] ?? "");
+          config = structuredClone(config);
           config.background.wallpaperPath = path;
           // Re-tint the mock theme so applying a wallpaper visibly re-themes the
           // UI, the way the real generator does.
@@ -362,6 +393,7 @@ export function mockBackend(): Backend {
         case Command.SetMode: {
           const mode = args["mode"] === "light" ? "light" : "dark";
           theme = retint(sampleTheme(mode), config.background.wallpaperPath);
+          config = structuredClone(config);
           config.appearance.palette.mode = mode;
           emit(Event.ThemeChanged, theme);
           return undefined as T;
@@ -374,7 +406,23 @@ export function mockBackend(): Backend {
           return "C:/Users/you/Pictures/Wallpapers/downloaded.jpg" as T;
 
         case Command.MediaCommand:
+        case Command.SetTaskbarVisible:
+        case Command.SetApiKey:
           return undefined as T;
+
+        case Command.GetMonitors:
+          return [
+            {
+              name: "\\\\.\\DISPLAY1",
+              x: 0,
+              y: 0,
+              width: 1920,
+              height: 1080,
+              workWidth: 1920,
+              workHeight: 1040,
+              primary: true,
+            },
+          ] as T;
 
         default:
           throw new Error(`the mock backend has no command \`${command}\``);
@@ -396,6 +444,9 @@ export function mockBackend(): Backend {
         if (event === Event.Battery) handler(battery as T);
         if (event === Event.Weather) handler(weather as T);
         if (event === Event.Workspaces) handler(workspaces as T);
+        if (event === Event.ActiveWindow) handler(activeWindow as T);
+        if (event === Event.Network) handler(network() as T);
+        if (event === Event.Tray) handler(tray as T);
       });
 
       return () => {

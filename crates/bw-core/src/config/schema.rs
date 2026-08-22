@@ -211,7 +211,14 @@ config_struct! {
         pub style: String = s("m3"),
         pub left: Vec<String> = vec![s("media")],
         pub center: Vec<String> = vec![s("workspaces"), s("activeWindow")],
-        pub right: Vec<String> = vec![s("tray"), s("resources"), s("network"), s("battery"), s("clock")],
+        pub right: Vec<String> = vec![
+            s("tray"),
+            s("resources"),
+            s("network"),
+            s("battery"),
+            s("utilButtons"),
+            s("clock"),
+        ],
     }
 }
 

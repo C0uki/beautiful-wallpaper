@@ -17,16 +17,36 @@ The background surface, wallpaper transitions, the drag-and-snap widget canvas
 with six widgets, and the wallpaper picker with local browsing and three online
 providers.
 
-## Phase 2 — The bar
+## Phase 2 — The bar (mostly done)
 
-Screen-space reservation through `SHAppBarMessage`, horizontal and vertical
-variants, and the bar widgets: workspaces (GlazeWM/komorebi), active window,
-clock, weather, tray, battery, network throughput, resources, media, visualiser,
-utility buttons. Hover popups and the bar layout editor.
+Done: screen-space reservation through `SHAppBarMessage` — held in a value whose
+`Drop` gives the edge back, so exiting never leaves the work area shrunk — the
+four bar styles (`m3`, `hug`, `float`, `islands`), horizontal and vertical
+variants, hover popups, and ten widgets: workspaces (GlazeWM), active window,
+clock, weather, tray, battery, network throughput, resources, media and the
+utility buttons. The layout comes from `bar.left/center/right`, as upstream.
 
-The tray is the awkward one. Windows has no StatusNotifierItem equivalent, so
-hosting other applications' tray icons means reading the real notification area
-out of `Shell_TrayWnd` across processes — the approach Zebar and yasb both take.
+The tray was the awkward one, as expected. Windows has no StatusNotifierItem
+equivalent, so the icons are read out of Explorer's own toolbar across the
+process boundary — `VirtualAllocEx` a `TBBUTTON` inside Explorer, `TB_GETBUTTON`
+into it, `ReadProcessMemory` it back. It is undocumented and unverifiable
+without a real Explorer, so it degrades to "no icons" on any failure.
+
+Still to do:
+
+- **Tray icon bitmaps.** Only the presence and owner of each icon is read; the
+  widget shows dots rather than the icons themselves. The `HICON` is in the
+  struct that is already being read, and icon handles are session-wide, so
+  `DrawIconEx` into a bitmap should work — untested.
+- **Tray interaction.** Clicking an icon should forward the owner's registered
+  callback message to its window.
+- **The audio visualiser**, which needs a WASAPI loopback capture the shell does
+  not have yet.
+- **The bar layout editor.** The three slots are configurable, but only by
+  editing `config.json`; the drag-and-drop editor is part of Phase 5's settings
+  UI.
+- **Auto-hide**, and **one bar per monitor** — the config keys exist, the
+  behaviour does not.
 
 ## Phase 3 — Sidebars, notifications, OSD, dock
 

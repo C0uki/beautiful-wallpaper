@@ -23,6 +23,9 @@ pub mod event {
     pub const BATTERY: &str = "bw://battery";
     pub const WEATHER: &str = "bw://weather";
     pub const WORKSPACES: &str = "bw://workspaces";
+    pub const ACTIVE_WINDOW: &str = "bw://active-window";
+    pub const NETWORK: &str = "bw://network";
+    pub const TRAY: &str = "bw://tray";
 }
 
 #[tauri::command]
@@ -180,6 +183,42 @@ pub async fn download_wallpaper(
 #[tauri::command]
 pub fn set_api_key(provider: String, key: String) -> Result<(), String> {
     services::wallpaper::set_api_key(&provider, &key)
+}
+
+/// The monitors, so a surface can position itself against the same geometry the
+/// backend used.
+#[tauri::command]
+pub fn get_monitors() -> Vec<MonitorInfo> {
+    monitors()
+}
+
+#[cfg(windows)]
+type MonitorInfo = crate::platform::win::Monitor;
+
+#[cfg(not(windows))]
+type MonitorInfo = serde_json::Value;
+
+#[cfg(windows)]
+fn monitors() -> Vec<MonitorInfo> {
+    crate::platform::win::monitors()
+}
+
+#[cfg(not(windows))]
+fn monitors() -> Vec<MonitorInfo> {
+    Vec::new()
+}
+
+/// Shows or hides the stock Windows taskbar.
+///
+/// Only ever called from the settings toggle; the shell never does this on its
+/// own, and restores the taskbar when the setting is turned back off.
+#[tauri::command]
+pub fn set_taskbar_visible(_visible: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    unsafe {
+        crate::platform::win::set_taskbar_visible(_visible);
+    }
+    Ok(())
 }
 
 #[tauri::command]

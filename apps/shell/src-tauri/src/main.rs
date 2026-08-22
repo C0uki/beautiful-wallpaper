@@ -10,7 +10,7 @@
 use std::time::Duration;
 
 use bw_shell::commands::{self, event};
-use bw_shell::providers::Resources;
+use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::AppState;
 use bw_shell::{cli, surfaces};
@@ -51,6 +51,7 @@ fn main() {
             },
         ))
         .manage(state.clone())
+        .manage(surfaces::Reservations::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::set_config_value,
@@ -67,6 +68,8 @@ fn main() {
             commands::download_wallpaper,
             commands::set_api_key,
             commands::media_command,
+            commands::get_monitors,
+            commands::set_taskbar_visible,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -110,8 +113,10 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
         let app = app.clone();
         std::thread::spawn(move || {
             let mut resources = Resources::new();
+            let mut network = Network::new();
             loop {
                 let _ = app.emit(event::RESOURCES, resources.sample());
+                let _ = app.emit(event::NETWORK, network.sample());
                 let _ = app.emit(event::BATTERY, bw_shell::providers::battery());
                 std::thread::sleep(resource_interval);
             }
@@ -122,7 +127,20 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
         let app = app.clone();
         std::thread::spawn(move || loop {
             let _ = app.emit(event::MEDIA, bw_shell::providers::media());
+            // The title bar changes as fast as the user alt-tabs, so this is
+            // sampled at the same rate as the transport state.
+            let _ = app.emit(event::ACTIVE_WINDOW, bw_shell::providers::active_window());
             std::thread::sleep(Duration::from_secs(1));
+        });
+    }
+
+    // Reading the notification area means poking at Explorer across a process
+    // boundary, which is far too expensive to do every second.
+    {
+        let app = app.clone();
+        std::thread::spawn(move || loop {
+            let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+            std::thread::sleep(Duration::from_secs(5));
         });
     }
 

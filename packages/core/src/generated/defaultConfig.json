@@ -107,7 +107,7 @@
     "style": "m3",
     "left": ["media"],
     "center": ["workspaces", "activeWindow"],
-    "right": ["tray", "resources", "network", "battery", "clock"]
+    "right": ["tray", "resources", "network", "battery", "utilButtons", "clock"]
   },
   "dock": {
     "enable": false,

@@ -25,10 +25,10 @@ use windows::Win32::UI::Shell::{
     ABM_SETPOS, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, FindWindowExW, FindWindowW, GetWindowLongPtrW, SendMessageTimeoutW, SetParent,
-    SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT,
+    EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
+    GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+    GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -171,10 +171,19 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
     );
 }
 
-/// A registered app bar, which keeps its reserved edge until dropped.
+/// WM_APP plus an offset of our choosing, for the shell's app bar callbacks.
+const APPBAR_CALLBACK: u32 = 0x0400 + 0xB0;
+
+/// A registered app bar. Reserving screen space is not a one-shot call: the
+/// registration lives until it is removed, and a process that exits without
+/// removing it leaves the work area permanently shrunk. Holding the registration
+/// in a value with a `Drop` is what guarantees the edge is given back.
+#[must_use = "dropping the AppBar immediately gives the reserved edge back"]
 pub struct AppBar {
     hwnd: HWND,
-    callback_message: u32,
+    /// The rectangle Windows actually granted, which may differ from the one
+    /// asked for when another app bar already owns part of the edge.
+    pub granted: RECT,
 }
 
 // SAFETY: an HWND is just a handle; the app bar is only ever used from the
@@ -184,9 +193,8 @@ unsafe impl Send for AppBar {}
 impl AppBar {
     /// Reserves `thickness` pixels along `edge` for this window.
     ///
-    /// Windows may hand back a different rectangle than the one asked for — when
-    /// another app bar already owns part of the edge — so the granted rectangle
-    /// is what gets returned and the window must move to it.
+    /// The caller must move the window to [`AppBar::granted`]: Windows reserves
+    /// the rectangle it returns, not the one it was asked for.
     ///
     /// # Safety
     /// `hwnd` must be a live top-level window owned by this process.
@@ -195,13 +203,11 @@ impl AppBar {
         edge: Edge,
         thickness: i32,
         monitor: &Monitor,
-    ) -> Option<RECT> {
-        const CALLBACK: u32 = 0x0400 + 0xB0; // WM_APP + an offset of our choosing.
-
+    ) -> Option<Self> {
         let mut data = APPBARDATA {
             cbSize: std::mem::size_of::<APPBARDATA>() as u32,
             hWnd: hwnd,
-            uCallbackMessage: CALLBACK,
+            uCallbackMessage: APPBAR_CALLBACK,
             uEdge: edge.as_abe(),
             rc: RECT::default(),
             lParam: LPARAM(0),
@@ -243,7 +249,10 @@ impl AppBar {
         SHAppBarMessage(ABM_QUERYPOS, &mut data);
         SHAppBarMessage(ABM_SETPOS, &mut data);
 
-        Some(data.rc)
+        Some(Self {
+            hwnd,
+            granted: data.rc,
+        })
     }
 }
 
@@ -252,7 +261,7 @@ impl Drop for AppBar {
         let mut data = APPBARDATA {
             cbSize: std::mem::size_of::<APPBARDATA>() as u32,
             hWnd: self.hwnd,
-            uCallbackMessage: self.callback_message,
+            uCallbackMessage: APPBAR_CALLBACK,
             uEdge: ABE_TOP,
             rc: RECT::default(),
             lParam: LPARAM(0),
@@ -396,4 +405,111 @@ unsafe fn add_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
 unsafe fn remove_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
     let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current & !(style.0 as isize));
+}
+
+/// The window the user is currently working in.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveWindow {
+    pub title: String,
+    /// The window class, which is the closest Windows has to an app id.
+    pub class: String,
+}
+
+/// Reads the foreground window's title and class.
+///
+/// Returns an empty reading when the desktop itself has focus, which is a normal
+/// state rather than a failure.
+pub fn active_window() -> ActiveWindow {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return ActiveWindow::default();
+        }
+
+        let mut title = [0u16; 512];
+        let written = GetWindowTextW(hwnd, &mut title);
+        let mut class = [0u16; 256];
+        let class_written = GetClassNameW(hwnd, &mut class);
+
+        ActiveWindow {
+            title: String::from_utf16_lossy(&title[..written.max(0) as usize]),
+            class: String::from_utf16_lossy(&class[..class_written.max(0) as usize]),
+        }
+    }
+}
+
+/// Shows or hides the stock taskbar.
+///
+/// Only ever called when the user asks for it: a shell that hides the taskbar
+/// without being told, and leaves it hidden if it crashes, is a bad neighbour.
+/// The secondary taskbars on other monitors are handled too.
+///
+/// # Safety
+/// Changes global desktop state; the caller must restore it before exiting.
+pub unsafe fn set_taskbar_visible(visible: bool) {
+    let command = if visible { SW_SHOW } else { SW_HIDE };
+
+    if let Ok(primary) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) {
+        let _ = ShowWindow(primary, command);
+    }
+
+    // Secondary taskbars each get their own window of this class.
+    let mut previous = HWND::default();
+    while let Ok(secondary) = FindWindowExW(
+        HWND::default(),
+        previous,
+        w!("Shell_SecondaryTrayWnd"),
+        PCWSTR::null(),
+    ) {
+        if secondary.0.is_null() {
+            break;
+        }
+        let _ = ShowWindow(secondary, command);
+        previous = secondary;
+    }
+}
+
+/// Bytes sent and received across all interfaces since boot.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NetworkCounters {
+    pub received: u64,
+    pub sent: u64,
+}
+
+/// Reads the interface table and sums the physical, connected interfaces.
+///
+/// Loopback and tunnel interfaces are excluded: counting them would double every
+/// byte that never left the machine.
+pub fn network_counters() -> NetworkCounters {
+    use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
+    use windows::Win32::NetworkManagement::Ndis::{IfOperStatusUp, NET_IF_CONNECTION_DEDICATED};
+
+    let mut totals = NetworkCounters::default();
+    unsafe {
+        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+        if GetIfTable2(&mut table).is_err() || table.is_null() {
+            return totals;
+        }
+
+        let rows =
+            std::slice::from_raw_parts((*table).Table.as_ptr(), (*table).NumEntries as usize);
+        for row in rows {
+            // `InterfaceAndOperStatusFlags` is a packed bitfield; bit 0 is
+            // HardwareInterface, which excludes the loopback, tunnel and virtual
+            // adapters that would otherwise double-count local traffic.
+            let hardware_interface = row.InterfaceAndOperStatusFlags._bitfield & 1 != 0;
+            if row.OperStatus != IfOperStatusUp
+                || row.ConnectionType != NET_IF_CONNECTION_DEDICATED
+                || !hardware_interface
+            {
+                continue;
+            }
+            totals.received = totals.received.saturating_add(row.InOctets);
+            totals.sent = totals.sent.saturating_add(row.OutOctets);
+        }
+
+        FreeMibTable(table.cast());
+    }
+    totals
 }

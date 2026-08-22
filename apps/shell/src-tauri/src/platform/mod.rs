@@ -5,6 +5,8 @@
 //! crate is only ever built for Windows.
 
 #[cfg(windows)]
+pub mod tray;
+#[cfg(windows)]
 pub mod wallpaper;
 #[cfg(windows)]
 pub mod win;

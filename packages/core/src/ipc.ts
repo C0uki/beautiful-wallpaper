@@ -23,6 +23,12 @@ export const Event = {
   Weather: "bw://weather",
   /** Workspaces from GlazeWM or komorebi, or `null` when neither is running. */
   Workspaces: "bw://workspaces",
+  /** The window the user is currently working in. */
+  ActiveWindow: "bw://active-window",
+  /** Network throughput. */
+  Network: "bw://network",
+  /** The notification area's icons. */
+  Tray: "bw://tray",
 } as const;
 
 export type EventName = (typeof Event)[keyof typeof Event];
@@ -43,6 +49,9 @@ export const Command = {
   SetState: "set_state",
   GetStates: "get_states",
   MediaCommand: "media_command",
+  GetMonitors: "get_monitors",
+  SetTaskbarVisible: "set_taskbar_visible",
+  SetApiKey: "set_api_key",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -125,4 +134,38 @@ export interface WorkspaceState {
   /** `"glazewm"`, `"komorebi"`, or `null` when no window manager was found. */
   source: string | null;
   workspaces: Workspace[];
+}
+
+export interface ActiveWindow {
+  title: string;
+  /** The window class, the closest Windows has to an application id. */
+  class: string;
+}
+
+export interface NetworkReading {
+  /** Bytes per second since the previous sample. */
+  down: number;
+  up: number;
+  totalReceived: number;
+  totalSent: number;
+}
+
+export interface TrayIcon {
+  /** The owning window handle, as a hex string. */
+  window: string;
+  id: number;
+  tooltip: string;
+  /** Whether Explorer keeps this icon in the overflow flyout. */
+  hidden: boolean;
+}
+
+export interface MonitorInfo {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  workWidth: number;
+  workHeight: number;
+  primary: boolean;
 }

@@ -16,7 +16,10 @@ import {
   type GlobalStates,
   type MediaState,
   type ResourceReading,
+  type ActiveWindow,
+  type NetworkReading,
   type StateFlagName,
+  type TrayIcon,
   type WeatherState,
   type WorkspaceState,
 } from "@bw/core";
@@ -33,8 +36,13 @@ export interface ShellState {
   battery: BatteryState | null;
   weather: WeatherState | null;
   workspaces: WorkspaceState | null;
+  activeWindow: ActiveWindow | null;
+  network: NetworkReading | null;
+  tray: TrayIcon[];
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
+  /** Ticked once a second, so every clock in a surface stays in step. */
+  now: Date;
 }
 
 const initial: ShellState = {
@@ -47,7 +55,11 @@ const initial: ShellState = {
   battery: null,
   weather: null,
   workspaces: null,
+  activeWindow: null,
+  network: null,
+  tray: [],
   wallpaper: { path: "", blanked: false },
+  now: new Date(),
 };
 
 export const useShell = create<ShellState>(() => initial);
@@ -74,6 +86,11 @@ export function connect(): Promise<void> {
       api.listen<WorkspaceState>(Event.Workspaces, (workspaces) =>
         set({ workspaces }),
       ),
+      api.listen<ActiveWindow>(Event.ActiveWindow, (activeWindow) =>
+        set({ activeWindow }),
+      ),
+      api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
+      api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
       api.listen<{ path: string; blanked: boolean }>(
         Event.WallpaperChanged,
         (wallpaper) => set({ wallpaper }),
@@ -95,9 +112,23 @@ export function connect(): Promise<void> {
       ready: true,
       wallpaper: { path: config.background.wallpaperPath, blanked: false },
     });
+
+    startClock();
   })();
 
   return connected;
+}
+
+/** Ticks `now` on the second boundary, so a minute never appears to change late. */
+function startClock(): void {
+  const schedule = () => {
+    const delay = 1000 - (Date.now() % 1000);
+    setTimeout(() => {
+      set({ now: new Date() });
+      schedule();
+    }, delay);
+  };
+  schedule();
 }
 
 /** Resets the connection, for tests. */

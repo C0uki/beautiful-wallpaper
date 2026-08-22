@@ -9,6 +9,7 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./design/ThemeProvider";
 import { Background } from "./surfaces/background/Background";
+import { Bar } from "./surfaces/bar/Bar";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
@@ -40,6 +41,7 @@ function Harness() {
 
   const showDesktop = view === "desktop" || view === "both";
   const showSelector = view === "wallpapers" || view === "both" || selectorOpen;
+  const barHeight = config.bar.enable ? config.bar.height : 0;
 
   return (
     <div
@@ -119,6 +121,7 @@ function Harness() {
         >
           <Symbol name="autorenew" size={16} />
           <select
+            aria-label="Wallpaper transition"
             value={config.background.wallpaperAnimation}
             onChange={(event) =>
               void actions.setConfigValue(
@@ -145,12 +148,67 @@ function Harness() {
         <Button icon="shuffle" onClick={() => void actions.randomWallpaper()}>
           Next wallpaper
         </Button>
+
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: "0.86em",
+          }}
+        >
+          <Symbol name="view_list" size={16} />
+          <select
+            aria-label="Bar style"
+            value={config.bar.style}
+            onChange={(event) =>
+              void actions.setConfigValue("bar.style", event.target.value)
+            }
+            style={{
+              background: "var(--layer3)",
+              color: "var(--on-surface)",
+              border: 0,
+              borderRadius: 999,
+              padding: "6px 10px",
+            }}
+          >
+            {["m3", "hug", "float", "islands"].map((name) => (
+              <option key={name} value={name}>
+                bar: {name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <Button
+          icon={config.bar.bottom ? "expand_more" : "expand_less"}
+          onClick={() =>
+            void actions.setConfigValue("bar.bottom", !config.bar.bottom)
+          }
+        >
+          {config.bar.bottom ? "bottom" : "top"}
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {showDesktop ? (
           <div style={{ flex: 3, minWidth: 0, position: "relative" }}>
             <Background />
+            {/* On Windows the bar is its own window along a reserved edge; here
+                it is overlaid on the desktop pane so both can be seen at once. */}
+            {config.bar.enable ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  [config.bar.bottom ? "bottom" : "top"]: 0,
+                  height: barHeight,
+                }}
+              >
+                <Bar />
+              </div>
+            ) : null}
           </div>
         ) : null}
 
