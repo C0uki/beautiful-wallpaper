@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # The shell only ever ships for Windows; TLS goes through schannel there, which
+  # keeps the whole dependency tree free of C toolchain requirements and lets the
+  # Linux job type-check the Win32 code without a cross compiler.
+  WINDOWS_TARGET: x86_64-pc-windows-msvc
+
+jobs:
+  check:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup target add "$WINDOWS_TARGET"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Regenerate the shared types
+        run: pnpm gen:types
+
+      - name: Fail if the generated types are stale
+        run: |
+          if ! git diff --quiet -- packages/core/src/generated; then
+            echo "::error::packages/core/src/generated is out of date; run 'pnpm gen:types' and commit the result."
+            git --no-pager diff -- packages/core/src/generated
+            exit 1
+          fi
+
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @bw/shell build
+
+      - name: Render the surfaces and check for console errors
+        run: pnpm --filter @bw/shell screenshots
+        env:
+          # The runner has no preinstalled Chromium at the usual path, so
+          # Playwright's own download is used instead.
+          BW_CHROMIUM: /nonexistent
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surface-screenshots
+          path: screenshots/
+          if-no-files-found: warn
+
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p bw-core
+
+      - name: Type-check the Windows code
+        run: cargo clippy --target "$WINDOWS_TARGET" --all-targets -- -D warnings
+
+  build:
+    name: Build the Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+      - run: cargo test --all
+
+      - name: Build
+        run: pnpm exec tauri build
+        working-directory: apps/shell
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beautiful-wallpaper-windows
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+            target/release/beautiful-wallpaper.exe
+          if-no-files-found: error

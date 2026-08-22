@@ -1,0 +1,50 @@
+beautiful-wallpaper
+Copyright (C) 2026 the beautiful-wallpaper contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE for the full text.
+
+
+Third-party material
+====================
+
+Material Symbols Rounded
+------------------------
+apps/shell/public/fonts/MaterialSymbolsRounded.woff2
+
+Copyright 2022 Google LLC, licensed under the Apache License, Version 2.0.
+Obtain a copy of the licence at http://www.apache.org/licenses/LICENSE-2.0.
+
+The bundled file is a subset: the axes the shell does not vary are pinned and
+only the icons listed in assets/fonts/icons.txt are retained. See
+scripts/subset-icons.py for the exact transformation. No other change was made.
+
+
+Design and behaviour derived from illogical-impulse / end4-pC
+-------------------------------------------------------------
+This project reimplements, for Windows, the desktop experience of
+
+  end4-pC          https://github.com/pctrade/end4-pC          (GPL-3.0)
+  illogical-impulse https://github.com/end-4/dots-hyprland     (GPL-3.0)
+
+No QML is copied — the original targets Quickshell and Wayland, neither of which
+exists on Windows — but the layout, the interaction model and several algorithms
+follow those projects closely, in particular:
+
+  * the layer/state token derivation in modules/common/Appearance.qml
+  * ColorUtils.solveOverlayColor, and the wallpaper-vibrancy transparency curve
+  * the wallpaper → Material 3 pipeline of scripts/colors/switchwall.sh
+  * the online wallpaper provider normalisation of services/OnlineWallpapers.qml
+  * the GlobalStates surface-flag model and the IpcHandler target vocabulary
+
+The user-interface translations in apps/shell/src/i18n/locales are taken from
+end4-pC's translations/ directory.
+
+
+Not included
+------------
+end4-pC's assets/icons/ (third-party brand and distribution logos) and its
+default wallpaper are deliberately not redistributed here: neither carries
+provenance or licence information in the upstream repository.

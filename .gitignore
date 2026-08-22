@@ -1,0 +1,23 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Build output
+apps/shell/dist/
+apps/shell/src-tauri/gen/
+
+# Test and tooling output
+screenshots/
+playwright-report/
+test-results/
+*.staged.ttf
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

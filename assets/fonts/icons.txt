@@ -1,0 +1,11 @@
+wallpaper image palette dark_mode light_mode search shuffle refresh folder folder_open
+arrow_back arrow_forward arrow_upward arrow_downward close settings download upload
+check done chevron_left chevron_right expand_more expand_less more_vert more_horiz
+drag_indicator push_pin visibility visibility_off tune apps grid_view view_list
+open_in_new content_copy delete add remove edit note star favorite bolt
+schedule calendar_month today event history timer
+cloud sunny rainy thunderstorm weather_snowy foggy water_drop air bedtime wb_sunny
+memory developer_board storage speed monitoring desktop_windows
+play_arrow pause skip_next skip_previous music_note lyrics album volume_up volume_off
+person account_circle battery_full battery_charging_full wifi wifi_off bluetooth
+error warning info help autorenew photo_library collections public link
