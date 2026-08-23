@@ -275,16 +275,24 @@ fn hex(color: Argb) -> String {
     format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue)
 }
 
-fn parse_hex(text: &str) -> Result<Argb, ThemeError> {
+/// Parses `#rrggbb` or a bare `rrggbb` into its channels.
+///
+/// Public because the shell needs the raw channels to write the OS accent
+/// colour, and colour parsing should have one implementation rather than one
+/// per caller.
+pub fn rgb_channels(text: &str) -> Option<(u8, u8, u8)> {
     let digits = text.strip_prefix('#').unwrap_or(text);
     if digits.len() != 6 {
-        return Err(ThemeError::BadColor(text.to_owned()));
+        return None;
     }
-    let channel = |from: usize| {
-        u8::from_str_radix(&digits[from..from + 2], 16)
-            .map_err(|_| ThemeError::BadColor(text.to_owned()))
-    };
-    Ok(Argb::new(255, channel(0)?, channel(2)?, channel(4)?))
+    let channel = |from: usize| u8::from_str_radix(&digits[from..from + 2], 16).ok();
+    Some((channel(0)?, channel(2)?, channel(4)?))
+}
+
+fn parse_hex(text: &str) -> Result<Argb, ThemeError> {
+    let (red, green, blue) =
+        rgb_channels(text).ok_or_else(|| ThemeError::BadColor(text.to_owned()))?;
+    Ok(Argb::new(255, red, green, blue))
 }
 
 fn parse_variant(name: &str) -> Result<Variant, ThemeError> {
@@ -417,5 +425,23 @@ mod tests {
     fn hex_round_trips() {
         assert_eq!(hex(parse_hex("#7C4DFF").unwrap()), "#7c4dff");
         assert_eq!(hex(parse_hex("7c4dff").unwrap()), "#7c4dff");
+    }
+
+    #[test]
+    fn channels_parse_with_or_without_the_hash() {
+        assert_eq!(rgb_channels("#ff8000"), Some((255, 128, 0)));
+        assert_eq!(rgb_channels("ff8000"), Some((255, 128, 0)));
+        assert_eq!(rgb_channels("#FF8000"), Some((255, 128, 0)));
+    }
+
+    #[test]
+    fn channels_reject_anything_that_is_not_six_hex_digits() {
+        // Shorthand is not expanded: accepting it silently would mean
+        // `#fff` and `#ffffff` disagreeing about which one was meant.
+        assert_eq!(rgb_channels("#fff"), None);
+        assert_eq!(rgb_channels("nope"), None);
+        assert_eq!(rgb_channels(""), None);
+        assert_eq!(rgb_channels("#ff80000"), None);
+        assert_eq!(rgb_channels("#gggggg"), None);
     }
 }

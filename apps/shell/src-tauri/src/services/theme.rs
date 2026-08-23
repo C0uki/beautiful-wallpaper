@@ -110,7 +110,11 @@ fn persist(theme: &GeneratedTheme) {
 
 #[cfg(windows)]
 fn sync_system(theme: &GeneratedTheme) {
-    let Some(accent) = theme.colors.get("primary").and_then(|hex| parse_hex(hex)) else {
+    let Some(accent) = theme
+        .colors
+        .get("primary")
+        .and_then(|hex| bw_core::theme::rgb_channels(hex))
+    else {
         return;
     };
     if let Err(error) =
@@ -122,15 +126,6 @@ fn sync_system(theme: &GeneratedTheme) {
 
 #[cfg(not(windows))]
 fn sync_system(_theme: &GeneratedTheme) {}
-
-fn parse_hex(hex: &str) -> Option<(u8, u8, u8)> {
-    let digits = hex.strip_prefix('#')?;
-    if digits.len() != 6 {
-        return None;
-    }
-    let channel = |at: usize| u8::from_str_radix(&digits[at..at + 2], 16).ok();
-    Some((channel(0)?, channel(2)?, channel(4)?))
-}
 
 /// Adds a `beautiful-wallpaper` colour scheme to Windows Terminal.
 ///
@@ -220,14 +215,6 @@ fn windows_terminal_settings() -> Option<std::path::PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn hex_parses_to_channels() {
-        assert_eq!(parse_hex("#ff8000"), Some((255, 128, 0)));
-        assert_eq!(parse_hex("ff8000"), Some((255, 128, 0)));
-        assert_eq!(parse_hex("#fff"), None);
-        assert_eq!(parse_hex("nope"), None);
-    }
 
     #[test]
     fn explicit_modes_win_over_the_system_preference() {

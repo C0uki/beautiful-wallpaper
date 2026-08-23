@@ -13,7 +13,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
     "test": "pnpm -r test",
     "screenshots": "pnpm --filter @bw/shell screenshots",
-    "gen:types": "TS_RS_EXPORT_DIR=$PWD/packages/core/src/generated cargo test -p bw-core --quiet && cargo run -q -p bw-core --example emit_defaults -- packages/core/src/generated/defaultConfig.json"
+    "gen:types": "TS_RS_EXPORT_DIR=$PWD/packages/core/src/generated cargo test -p bw-core --quiet && cargo run -q -p bw-core --example emit_defaults -- packages/core/src/generated/defaultConfig.json && pnpm exec prettier --write --log-level warn packages/core/src/generated"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
