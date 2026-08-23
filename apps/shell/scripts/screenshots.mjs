@@ -30,17 +30,47 @@ const outDir = path.resolve(appDir, "../../screenshots");
 const docsDir = path.resolve(appDir, "../../docs/images");
 const DOC_SHOTS = new Set(["03-both", "01-desktop"]);
 const PORT = 4173;
-const BASE = `http://127.0.0.1:${PORT}`;
+const HOST = "127.0.0.1";
+const BASE = `http://${HOST}:${PORT}`;
 
 /** Starts `vite preview` and resolves once it is answering. */
 async function startPreview() {
-  const server = spawn("pnpm", ["exec", "vite", "preview", "--port", String(PORT), "--strictPort"], {
-    cwd: appDir,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  server.stderr.on("data", (chunk) => process.stderr.write(chunk));
+  const server = spawn(
+    "pnpm",
+    [
+      "exec",
+      "vite",
+      "preview",
+      "--port",
+      String(PORT),
+      "--strictPort",
+      // Bind exactly where the probe below looks. Vite's default is
+      // `localhost`, which can resolve to ::1 only — the server then comes up
+      // fine and every request to 127.0.0.1 is refused until the deadline.
+      "--host",
+      HOST,
+    ],
+    { cwd: appDir, stdio: ["ignore", "pipe", "pipe"] },
+  );
 
-  const deadline = Date.now() + 30_000;
+  // Both streams must be drained: a full pipe buffer blocks the child mid-write,
+  // and the output is the only evidence of why a start failed.
+  let output = "";
+  for (const stream of [server.stdout, server.stderr]) {
+    stream.setEncoding("utf8");
+    stream.on("data", (chunk) => {
+      output += chunk;
+    });
+  }
+
+  let exit = null;
+  server.on("exit", (code, signal) => {
+    exit = signal ? `signal ${signal}` : `exit code ${code}`;
+  });
+
+  // Generous, because a cold CI runner is much slower than a warm checkout and
+  // the cost of waiting is only paid when something is actually wrong.
+  const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${BASE}/index.html`);
@@ -48,10 +78,15 @@ async function startPreview() {
     } catch {
       // Not up yet.
     }
+    // A server that has already quit is never going to answer, and its output
+    // says why — far better than spending the rest of the deadline on it.
+    if (exit !== null) {
+      throw new Error(`vite preview quit before serving (${exit})\n${output.trim()}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   server.kill();
-  throw new Error("vite preview did not start within 30s");
+  throw new Error(`vite preview did not answer on ${BASE} within 60s\n${output.trim()}`);
 }
 
 /** Waits for the surface to have painted its theme and its wallpaper. */
@@ -177,7 +212,6 @@ async function main() {
 
       const file = path.join(outDir, `${shot.name}.png`);
       await page.screenshot({ path: file });
-
 
       if (consoleErrors.length > 0) {
         failures.push(`${shot.name}: ${consoleErrors.join(" | ")}`);
