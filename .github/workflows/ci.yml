@@ -56,11 +56,16 @@ jobs:
       - run: pnpm test
       - run: pnpm --filter @bw/shell build
 
+      # The runner has no browser Playwright can drive, and installing one is
+      # not implied by `pnpm install` — the package only brings the client.
+      - name: Install Playwright's browser
+        run: pnpm --filter @bw/shell exec playwright install --with-deps chromium
+
       - name: Render the surfaces and check for console errors
         run: pnpm --filter @bw/shell screenshots
         env:
-          # The runner has no preinstalled Chromium at the usual path, so
-          # Playwright's own download is used instead.
+          # No preinstalled Chromium at the path used in development, so the
+          # script falls back to the copy installed just above.
           BW_CHROMIUM: /nonexistent
 
       - uses: actions/upload-artifact@v4
