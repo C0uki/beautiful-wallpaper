@@ -151,6 +151,14 @@ const SHOTS = [
   // full-height viewport would be misleading.
   { name: "10-bar-surface", url: "/bar.html", viewport: { width: 1600, height: 48 } },
   { name: "11-wallpaper-selector-surface", url: "/wallpaperSelector.html" },
+  // Both windows are sized to their content on Windows, so the viewports here
+  // match the fraction of the screen each surface declares.
+  { name: "12-osd", url: "/osd.html", viewport: { width: 420, height: 110 } },
+  {
+    name: "13-notification-toasts",
+    url: "/notifications.html",
+    viewport: { width: 460, height: 460 },
+  },
 ];
 
 async function selectView(page, label) {

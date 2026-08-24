@@ -6,17 +6,7 @@
 import { Card, IconButton, ProgressRing, Symbol } from "../../../widgets";
 import { tr } from "../../../i18n";
 import { actions, useShell } from "../../../shell/store";
-
-function formatBytes(bytes: number): string {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 1)} ${units[unit]}`;
-}
+import { formatBytes } from "../../../lib/format";
 
 export function WeatherWidget() {
   const weather = useShell((state) => state.weather);

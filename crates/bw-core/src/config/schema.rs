@@ -52,11 +52,14 @@ config_struct! {
     /// Root of `config.json`.
     pub struct Config {
         pub appearance: Appearance = Appearance::default(),
+        pub audio: Audio = Audio::default(),
         pub background: Background = Background::default(),
         pub bar: Bar = Bar::default(),
         pub dock: Dock = Dock::default(),
         pub hacks: Hacks = Hacks::default(),
         pub language: Language = Language::default(),
+        pub notifications: Notifications = Notifications::default(),
+        pub osd: Osd = Osd::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
         pub time: Time = Time::default(),
@@ -228,6 +231,56 @@ config_struct! {
         pub pinned_apps: Vec<String> = Vec::new(),
         pub auto_hide: bool = true,
         pub icon_size: u32 = 44,
+    }
+}
+
+config_struct! {
+    /// The transient readout shown when volume or brightness changes.
+    pub struct Osd {
+        pub enable: bool = true,
+        /// Milliseconds the readout stays up after the last change.
+        pub timeout: u32 = 1000,
+        /// `"top"` or `"bottom"`. The readout clears the bar on whichever edge
+        /// the bar occupies, so this is only about which end of the screen.
+        pub position: String = s("top"),
+        pub volume: bool = true,
+        /// Brightness is unavailable on some displays; the readout is simply
+        /// not shown when the platform cannot report a level.
+        pub brightness: bool = true,
+    }
+}
+
+config_struct! {
+    pub struct Notifications {
+        pub enable: bool = true,
+        /// Milliseconds a toast stays up. Urgent notifications ignore this.
+        pub timeout: u32 = 7000,
+        /// One of `top_left`, `top_center`, `top_right`, `bottom_left`,
+        /// `bottom_center`, `bottom_right`.
+        pub position: String = s("top_right"),
+        /// Toasts beyond this stay in the centre without ever popping up.
+        pub max_visible: u32 = 4,
+        /// Suppresses toasts without discarding the notifications themselves.
+        pub do_not_disturb: bool = false,
+        pub width: u32 = 380,
+    }
+}
+
+config_struct! {
+    pub struct Audio {
+        /// Percentage points per volume step.
+        pub step: u32 = 5,
+        pub protection: HearingProtection = HearingProtection::default(),
+    }
+}
+
+config_struct! {
+    /// Guards against the volume jumping to something painful, which the
+    /// original shell also does.
+    pub struct HearingProtection {
+        pub enable: bool = true,
+        /// Volume is not allowed above this by the shell's own controls.
+        pub max_volume: u32 = 100,
     }
 }
 

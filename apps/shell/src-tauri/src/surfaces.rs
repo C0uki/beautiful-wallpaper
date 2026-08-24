@@ -49,7 +49,54 @@ pub const WALLPAPER_SELECTOR: Surface = Surface {
     size: Some((0.62, 0.7)),
 };
 
-pub const ALL: &[Surface] = &[BACKGROUND, BAR, WALLPAPER_SELECTOR];
+/// The volume and brightness readout. Small, transient, never focused.
+pub const OSD: Surface = Surface {
+    label: "osd",
+    page: "osd.html",
+    layer: Layer::Overlay,
+    size: Some((0.24, 0.09)),
+};
+
+/// The toast stack. Covers its corner of the screen and passes clicks through
+/// everywhere a toast is not.
+pub const NOTIFICATIONS: Surface = Surface {
+    label: "notifications",
+    page: "notifications.html",
+    layer: Layer::Overlay,
+    size: Some((0.28, 0.85)),
+};
+
+pub const ALL: &[Surface] = &[BACKGROUND, BAR, WALLPAPER_SELECTOR, OSD, NOTIFICATIONS];
+
+/// Which surface a `GlobalStates` flag governs.
+///
+/// Without this the flags were only ever a message to the frontend, and the
+/// overlay windows — created hidden — had no path to being shown at all.
+pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
+    match flag {
+        "wallpaperSelectorOpen" => Some(WALLPAPER_SELECTOR.label),
+        _ => None,
+    }
+}
+
+/// Applies every flag to its surface.
+pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
+    let Ok(value) = serde_json::to_value(states) else {
+        return;
+    };
+    let Some(flags) = value.as_object() else {
+        return;
+    };
+
+    for (flag, open) in flags {
+        let Some(label) = surface_for_flag(flag) else {
+            continue;
+        };
+        if let Err(error) = set_visible(app, label, open.as_bool().unwrap_or(false)) {
+            tracing::warn!(%error, surface = label, "could not change a surface's visibility");
+        }
+    }
+}
 
 /// Holds the bar's app-bar registration for the life of the process.
 ///
@@ -76,16 +123,7 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let (x, y, width, height) = match surface.layer {
         Layer::Background => (0.0, 0.0, screen.0, screen.1),
         Layer::Bar => bar_geometry(&config, screen),
-        Layer::Overlay => {
-            let (w, h) = surface.size.unwrap_or((0.5, 0.5));
-            let (width, height) = (screen.0 * w, screen.1 * h);
-            (
-                (screen.0 - width) / 2.0,
-                (screen.1 - height) / 2.0,
-                width,
-                height,
-            )
-        }
+        Layer::Overlay => overlay_geometry(surface, &config, screen),
     };
 
     let mut builder =
@@ -110,6 +148,80 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let window = builder.build()?;
     apply_layer(app, &window, surface.layer, &config);
     Ok(())
+}
+
+/// Where an overlay sits.
+///
+/// Most overlays are centred, but the two transient ones are not: the readout
+/// hugs the edge opposite the bar, and the toasts sit in the corner the user
+/// chose. Both keep clear of the bar rather than sliding under it.
+fn overlay_geometry(
+    surface: &Surface,
+    config: &bw_core::Config,
+    screen: (f64, f64),
+) -> (f64, f64, f64, f64) {
+    let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
+    let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
+    let bar = if config.bar.enable {
+        f64::from(config.bar.height)
+    } else {
+        0.0
+    };
+    let margin = 8.0;
+
+    if surface.label == OSD.label {
+        // The readout goes to the top unless the bar is there, in which case it
+        // goes below it — the original does the same.
+        let y = if config.bar.bottom {
+            margin
+        } else {
+            bar + margin
+        };
+        let y = if config.osd.position == "bottom" {
+            screen.1
+                - height
+                - if config.bar.bottom {
+                    bar + margin
+                } else {
+                    margin
+                }
+        } else {
+            y
+        };
+        return ((screen.0 - width) / 2.0, y, width, height);
+    }
+
+    if surface.label == NOTIFICATIONS.label {
+        let position = config.notifications.position.as_str();
+        let x = if position.ends_with("left") {
+            margin
+        } else if position.ends_with("center") {
+            (screen.0 - width) / 2.0
+        } else {
+            screen.0 - width - margin
+        };
+        let y = if position.starts_with("bottom") {
+            screen.1
+                - height
+                - if config.bar.bottom {
+                    bar + margin
+                } else {
+                    margin
+                }
+        } else if config.bar.bottom {
+            margin
+        } else {
+            bar + margin
+        };
+        return (x, y, width, height);
+    }
+
+    (
+        (screen.0 - width) / 2.0,
+        (screen.1 - height) / 2.0,
+        width,
+        height,
+    )
 }
 
 /// The bar's rectangle before the shell has had a chance to negotiate it.
@@ -236,11 +348,20 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
     if visible {
         window.show()?;
         // An overlay only takes focus when the user opened it deliberately.
-        window.set_focus()?;
+        // The readout and the toasts never do — taking focus from whatever the
+        // user is typing into would be worse than the information is worth.
+        if takes_focus(label) {
+            window.set_focus()?;
+        }
     } else {
         window.hide()?;
     }
     Ok(())
+}
+
+/// Whether showing this surface should also focus it.
+fn takes_focus(label: &str) -> bool {
+    !matches!(label, l if l == OSD.label || l == NOTIFICATIONS.label)
 }
 
 #[cfg(test)]

@@ -23,6 +23,13 @@
     },
     "roundingScale": 1.0
   },
+  "audio": {
+    "step": 5,
+    "protection": {
+      "enable": true,
+      "maxVolume": 100
+    }
+  },
   "background": {
     "wallpaperPath": "",
     "thumbnailPath": "",
@@ -120,6 +127,21 @@
   },
   "language": {
     "ui": "auto"
+  },
+  "notifications": {
+    "enable": true,
+    "timeout": 7000,
+    "position": "top_right",
+    "maxVisible": 4,
+    "doNotDisturb": false,
+    "width": 380
+  },
+  "osd": {
+    "enable": true,
+    "timeout": 1000,
+    "position": "top",
+    "volume": true,
+    "brightness": true
   },
   "policies": {
     "ai": 1,

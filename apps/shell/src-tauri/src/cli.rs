@@ -118,6 +118,7 @@ fn toggle_surface(app: &AppHandle, flag: &str, action: &str) -> Result<(), Strin
     }
     .ok_or_else(|| format!("there is no surface flag called `{flag}`"))?;
 
+    crate::surfaces::apply_states(app, &states);
     let _ = app.emit(event::STATE_CHANGED, &states);
     Ok(())
 }

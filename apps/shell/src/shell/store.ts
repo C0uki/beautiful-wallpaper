@@ -17,6 +17,7 @@ import {
   type MediaState,
   type ResourceReading,
   type ActiveWindow,
+  type Notification,
   type NetworkReading,
   type StateFlagName,
   type TrayIcon,
@@ -39,6 +40,7 @@ export interface ShellState {
   activeWindow: ActiveWindow | null;
   network: NetworkReading | null;
   tray: TrayIcon[];
+  notifications: Notification[];
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
   /** Ticked once a second, so every clock in a surface stays in step. */
@@ -58,6 +60,7 @@ const initial: ShellState = {
   activeWindow: null,
   network: null,
   tray: [],
+  notifications: [],
   wallpaper: { path: "", blanked: false },
   now: new Date(),
 };
@@ -91,6 +94,9 @@ export function connect(): Promise<void> {
       ),
       api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
       api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
+      api.listen<Notification[]>(Event.Notifications, (notifications) =>
+        set({ notifications }),
+      ),
       api.listen<{ path: string; blanked: boolean }>(
         Event.WallpaperChanged,
         (wallpaper) => set({ wallpaper }),
@@ -160,5 +166,17 @@ export const actions = {
   },
   mediaCommand(action: "playPause" | "next" | "previous") {
     return backend().invoke<void>(Command.MediaCommand, { action });
+  },
+  dismissNotification(id: number) {
+    return backend().invoke<void>(Command.DismissNotification, { id });
+  },
+  clearNotifications() {
+    return backend().invoke<void>(Command.ClearNotifications);
+  },
+  setVolume(percent: number) {
+    return backend().invoke<void>(Command.SetVolume, { percent });
+  },
+  setMuted(muted: boolean) {
+    return backend().invoke<void>(Command.SetMuted, { muted });
   },
 };

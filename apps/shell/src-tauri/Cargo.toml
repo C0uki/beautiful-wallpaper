@@ -46,6 +46,7 @@ keyring = "4.1.6"
 bw-core = { version = "0.1.0", path = "../../../crates/bw-core" }
 
 [target.'cfg(windows)'.dependencies]
+windows-core = "0.58"
 windows-registry = "0.5"
 windows = { version = "0.58", features = [
   "Foundation",
@@ -72,6 +73,7 @@ windows = { version = "0.58", features = [
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",
+  "Win32_UI_Shell_PropertiesSystem",
   "Win32_UI_WindowsAndMessaging",
   "implement",
 ] }

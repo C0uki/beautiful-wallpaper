@@ -510,3 +510,25 @@ pub fn tray_icons() -> Vec<crate::platform::tray::TrayIcon> {
 pub fn tray_icons() -> Vec<serde_json::Value> {
     Vec::new()
 }
+
+/// The output level, in the shape the readout surface reads.
+///
+/// Defined here rather than in `platform::audio` so the type exists on every
+/// host and the commands do not need to be `#[cfg]`-gated.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeReading {
+    /// 0–100.
+    pub percent: f32,
+    pub muted: bool,
+}
+
+#[cfg(windows)]
+impl From<crate::platform::audio::VolumeReading> for VolumeReading {
+    fn from(reading: crate::platform::audio::VolumeReading) -> Self {
+        Self {
+            percent: reading.percent,
+            muted: reading.muted,
+        }
+    }
+}

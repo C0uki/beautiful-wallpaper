@@ -203,3 +203,68 @@ mod tests {
         assert!(json.get("widget_edit_mode").is_none());
     }
 }
+
+/// The notification history, managed so commands can reach it.
+pub struct NotificationStore(pub bw_core::notifications::Store);
+
+impl Default for NotificationStore {
+    fn default() -> Self {
+        Self(bw_core::notifications::Store::load(
+            bw_core::notifications::history_path(),
+        ))
+    }
+}
+
+/// The volume watcher, or nothing when audio is unavailable.
+///
+/// A machine with no output device is a normal state — a headless VM, or a
+/// dock that has just been unplugged — so the shell keeps working and simply
+/// reports silence rather than refusing to start.
+#[derive(Default)]
+pub struct VolumeHandle {
+    #[cfg(windows)]
+    watcher: Option<crate::platform::audio::VolumeWatcher>,
+}
+
+impl VolumeHandle {
+    #[cfg(windows)]
+    pub fn new(watcher: Option<crate::platform::audio::VolumeWatcher>) -> Self {
+        Self { watcher }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    #[cfg(windows)]
+    pub fn read(&self) -> crate::providers::VolumeReading {
+        self.watcher
+            .as_ref()
+            .map(|watcher| watcher.read())
+            .unwrap_or_default()
+    }
+
+    #[cfg(not(windows))]
+    pub fn read(&self) -> crate::providers::VolumeReading {
+        crate::providers::VolumeReading::default()
+    }
+
+    pub fn set_percent(&self, _percent: f32, _ceiling: f32) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(watcher) = self.watcher.as_ref() {
+            return watcher
+                .set_percent(_percent, _ceiling)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn set_muted(&self, _muted: bool) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(watcher) = self.watcher.as_ref() {
+            return watcher.set_muted(_muted).map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+}

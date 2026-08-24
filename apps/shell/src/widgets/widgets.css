@@ -242,3 +242,106 @@
   pointer-events: none;
   box-shadow: 0 4px 16px var(--shadow);
 }
+
+/* A popup entering under its trigger. Lives here rather than in one surface's
+   stylesheet so any surface using HoverPopup gets the animation. */
+@keyframes bw-popup-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+.bw-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  color: var(--on-surface);
+}
+
+.bw-slider[data-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.bw-slider-track {
+  position: relative;
+  flex: 1;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--layer3);
+  overflow: hidden;
+}
+
+.bw-slider-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width var(--duration-fast) var(--ease-effects-default);
+}
+
+/* The real control, laid over the painted track and invisible. */
+.bw-slider-track input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.bw-list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: calc(var(--rounding-normal) * var(--rounding-scale, 1));
+  color: var(--on-surface);
+  overflow: hidden;
+}
+
+.bw-list-row[data-interactive="true"] {
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-list-row[data-interactive="true"]:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-list-row[data-selected="true"] {
+  background: var(--primary-container, var(--layer3));
+}
+
+.bw-list-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.bw-list-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-list-row-detail {
+  font-size: 0.82em;
+  color: var(--on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-scroll-area {
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Keeps the scrollbar from shifting content when it appears. */
+  scrollbar-gutter: stable;
+  min-height: 0;
+}

@@ -2,7 +2,7 @@
 //
 // The set mirrors the widgets end4-pC reaches for most often: a card, the three
 // button variants, an icon button with a ripple, a progress bar and ring, a
-// segmented control and a search field.
+// segmented control, a search field, a slider, a list row and a scroll area.
 
 import {
   useCallback,
@@ -20,7 +20,7 @@ export { Symbol };
 export type { SymbolProps } from "./Symbol";
 
 /** Expanding-circle feedback on press, as Material specifies. */
-function useRipple() {
+export function useRipple() {
   const [ripples, setRipples] = useState<
     Array<{ id: number; style: CSSProperties }>
   >([]);
@@ -272,5 +272,120 @@ export function SearchField({
         />
       ) : null}
     </label>
+  );
+}
+
+/** A value the user can drag, for volume and brightness. */
+export interface SliderProps {
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  label: string;
+  icon?: string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}
+
+export function Slider({
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  label,
+  icon,
+  disabled = false,
+  onChange,
+}: SliderProps) {
+  const clamped = Math.min(Math.max(value, min), max);
+  const fraction = max === min ? 0 : (clamped - min) / (max - min);
+
+  return (
+    <div className="bw-slider" data-disabled={disabled}>
+      {icon ? <Symbol name={icon} size={18} /> : null}
+      <div className="bw-slider-track">
+        <div
+          className="bw-slider-fill"
+          style={{ width: `${fraction * 100}%` }}
+        />
+        {/* The native input carries the interaction and the accessibility;
+            the painted track above is decoration sitting under it. */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={clamped}
+          disabled={disabled}
+          aria-label={label}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** One row of a list: an icon, a title with optional detail, a trailing slot. */
+export interface ListRowProps {
+  icon?: string;
+  title: string;
+  detail?: string;
+  trailing?: ReactNode;
+  selected?: boolean;
+  onClick?: () => void;
+}
+
+export function ListRow({
+  icon,
+  title,
+  detail,
+  trailing,
+  selected,
+  onClick,
+}: ListRowProps) {
+  const ripple = useRipple();
+  const interactive = Boolean(onClick);
+
+  return (
+    <div
+      className="bw-list-row"
+      data-selected={selected}
+      data-interactive={interactive}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onPointerDown={interactive ? ripple.spawn : undefined}
+      onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+    >
+      {icon ? <Symbol name={icon} size={20} /> : null}
+      <div className="bw-list-row-text">
+        <span className="bw-list-row-title">{title}</span>
+        {detail ? <span className="bw-list-row-detail">{detail}</span> : null}
+      </div>
+      {trailing}
+      {interactive ? ripple.layer : null}
+    </div>
+  );
+}
+
+/** A scrolling region that keeps its scrollbar out of the layout. */
+export function ScrollArea({
+  children,
+  style,
+  ...rest
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
+  return (
+    <div className="bw-scroll-area" style={style} {...rest}>
+      {children}
+    </div>
   );
 }

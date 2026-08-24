@@ -4,13 +4,16 @@
 //! IPC target vocabulary matches end4-pC's `IpcHandler` targets so scripts and
 //! muscle memory carry over.
 
-use bw_core::{wallpaper::online::WallpaperPage, Config, GeneratedTheme};
+use bw_core::{
+    wallpaper::online::WallpaperPage, Config, GeneratedTheme, NewNotification, Notification,
+    Urgency,
+};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::providers::{self, MediaAction};
 use crate::services;
-use crate::state::{AppState, GlobalStates};
+use crate::state::{AppState, GlobalStates, NotificationStore, VolumeHandle};
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
 pub mod event {
@@ -26,6 +29,11 @@ pub mod event {
     pub const ACTIVE_WINDOW: &str = "bw://active-window";
     pub const NETWORK: &str = "bw://network";
     pub const TRAY: &str = "bw://tray";
+    pub const NOTIFICATIONS: &str = "bw://notifications";
+    pub const VOLUME: &str = "bw://volume";
+    pub const BRIGHTNESS: &str = "bw://brightness";
+    /// Asks the readout surface to appear, carrying what to show.
+    pub const OSD: &str = "bw://osd";
 }
 
 #[tauri::command]
@@ -90,6 +98,7 @@ pub fn toggle_state(
     let states = state
         .toggle_state(&name)
         .ok_or_else(|| format!("there is no surface flag called `{name}`"))?;
+    crate::surfaces::apply_states(&app, &states);
     let _ = app.emit(event::STATE_CHANGED, &states);
     Ok(states)
 }
@@ -104,6 +113,7 @@ pub fn set_state(
     let states = state
         .set_state(&name, value)
         .ok_or_else(|| format!("there is no surface flag called `{name}`"))?;
+    crate::surfaces::apply_states(&app, &states);
     let _ = app.emit(event::STATE_CHANGED, &states);
     Ok(states)
 }
@@ -226,4 +236,103 @@ pub fn media_command(action: String) -> Result<(), String> {
     let action =
         MediaAction::parse(&action).ok_or_else(|| format!("unknown media action `{action}`"))?;
     providers::media_command(action)
+}
+
+// --- Notifications ---------------------------------------------------------
+
+/// The notification history, newest first.
+#[tauri::command]
+pub fn get_notifications(store: State<'_, NotificationStore>) -> Vec<Notification> {
+    store.0.list()
+}
+
+/// Records a notification and shows it. Used by the shell's own actions today,
+/// and by a notification listener once the shell has package identity.
+#[tauri::command]
+pub fn post_notification(
+    app: AppHandle,
+    store: State<'_, NotificationStore>,
+    summary: String,
+    body: Option<String>,
+    app_name: Option<String>,
+    urgency: Option<String>,
+) -> Notification {
+    let notification = store.0.post(NewNotification {
+        app_name: app_name.unwrap_or_else(|| "beautiful-wallpaper".to_owned()),
+        summary,
+        body: body.unwrap_or_default(),
+        urgency: parse_urgency(urgency.as_deref()),
+        ..NewNotification::default()
+    });
+    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    notification
+}
+
+#[tauri::command]
+pub fn dismiss_notification(app: AppHandle, store: State<'_, NotificationStore>, id: u32) {
+    if store.0.dismiss(id) {
+        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    }
+}
+
+#[tauri::command]
+pub fn clear_notifications(app: AppHandle, store: State<'_, NotificationStore>) {
+    store.0.clear();
+    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+}
+
+fn parse_urgency(name: Option<&str>) -> Urgency {
+    match name {
+        Some("low") => Urgency::Low,
+        Some("critical") => Urgency::Critical,
+        _ => Urgency::Normal,
+    }
+}
+
+// --- Volume ----------------------------------------------------------------
+
+/// The current output level, for a surface that has just opened.
+#[tauri::command]
+pub fn get_volume(volume: State<'_, VolumeHandle>) -> providers::VolumeReading {
+    volume.read()
+}
+
+#[tauri::command]
+pub fn set_volume(
+    state: State<'_, AppState>,
+    volume: State<'_, VolumeHandle>,
+    percent: f32,
+) -> Result<(), String> {
+    let ceiling = hearing_ceiling(&state.config());
+    volume.set_percent(percent, ceiling)
+}
+
+#[tauri::command]
+pub fn set_muted(volume: State<'_, VolumeHandle>, muted: bool) -> Result<(), String> {
+    volume.set_muted(muted)
+}
+
+/// Moves the volume by one configured step, clamped to the usable range.
+#[tauri::command]
+pub fn step_volume(
+    state: State<'_, AppState>,
+    volume: State<'_, VolumeHandle>,
+    up: bool,
+) -> Result<(), String> {
+    let config = state.config();
+    let step = config.audio.step as f32;
+    let ceiling = hearing_ceiling(&config);
+
+    let current = volume.read().percent;
+    let target = if up { current + step } else { current - step };
+    volume.set_percent(target.clamp(0.0, 100.0), ceiling)
+}
+
+/// The highest volume the shell's own controls will set.
+fn hearing_ceiling(config: &Config) -> f32 {
+    if config.audio.protection.enable {
+        config.audio.protection.max_volume as f32
+    } else {
+        100.0
+    }
 }

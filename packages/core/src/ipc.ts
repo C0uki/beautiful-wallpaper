@@ -29,6 +29,13 @@ export const Event = {
   Network: "bw://network",
   /** The notification area's icons. */
   Tray: "bw://tray",
+  /** The notification history, newest first. */
+  Notifications: "bw://notifications",
+  /** Output level, pushed by WASAPI rather than polled. */
+  Volume: "bw://volume",
+  Brightness: "bw://brightness",
+  /** Asks the readout to appear, carrying what to show. */
+  Osd: "bw://osd",
 } as const;
 
 export type EventName = (typeof Event)[keyof typeof Event];
@@ -52,6 +59,14 @@ export const Command = {
   GetMonitors: "get_monitors",
   SetTaskbarVisible: "set_taskbar_visible",
   SetApiKey: "set_api_key",
+  GetNotifications: "get_notifications",
+  PostNotification: "post_notification",
+  DismissNotification: "dismiss_notification",
+  ClearNotifications: "clear_notifications",
+  GetVolume: "get_volume",
+  SetVolume: "set_volume",
+  SetMuted: "set_muted",
+  StepVolume: "step_volume",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -157,6 +172,19 @@ export interface TrayIcon {
   tooltip: string;
   /** Whether Explorer keeps this icon in the overflow flyout. */
   hidden: boolean;
+}
+
+export interface VolumeReading {
+  /** 0–100. */
+  percent: number;
+  muted: boolean;
+}
+
+/** What the backend asks the readout to show. */
+export interface OsdReading {
+  kind: "volume" | "brightness";
+  value: number;
+  muted: boolean;
 }
 
 export interface MonitorInfo {

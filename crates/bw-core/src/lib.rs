@@ -9,9 +9,11 @@
 //! a Windows machine in the loop.
 
 pub mod config;
+pub mod notifications;
 pub mod paths;
 pub mod theme;
 pub mod wallpaper;
 
 pub use config::Config;
+pub use notifications::{NewNotification, Notification, Urgency};
 pub use theme::{GeneratedTheme, Mode};

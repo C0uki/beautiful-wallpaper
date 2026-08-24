@@ -5,13 +5,6 @@
  * and `m3` is a single rounded surface.
  */
 
-@keyframes bw-popup-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-4px);
-  }
-}
-
 .bw-bar {
   display: flex;
   align-items: center;

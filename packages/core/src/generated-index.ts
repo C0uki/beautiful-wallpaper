@@ -2,6 +2,7 @@
 // `pnpm gen:types`. Everything else in this package is hand-written contract.
 
 export type { Appearance } from "./generated/Appearance";
+export type { Audio } from "./generated/Audio";
 export type { Background } from "./generated/Background";
 export type { Bar } from "./generated/Bar";
 export type { Config } from "./generated/Config";
@@ -12,10 +13,15 @@ export type { Fonts } from "./generated/Fonts";
 export type { GeneratedTheme } from "./generated/GeneratedTheme";
 export type { GlazeWm } from "./generated/GlazeWm";
 export type { Hacks } from "./generated/Hacks";
+export type { HearingProtection } from "./generated/HearingProtection";
 export type { Komorebi } from "./generated/Komorebi";
 export type { Language } from "./generated/Language";
 export type { Mode } from "./generated/Mode";
+export type { Notification } from "./generated/Notification";
+export type { NotificationAction } from "./generated/NotificationAction";
+export type { Notifications } from "./generated/Notifications";
 export type { OnlineWallpapers } from "./generated/OnlineWallpapers";
+export type { Osd } from "./generated/Osd";
 export type { Palette } from "./generated/Palette";
 export type { Parallax } from "./generated/Parallax";
 export type { Policies } from "./generated/Policies";
@@ -24,6 +30,7 @@ export type { Query } from "./generated/Query";
 export type { Resources } from "./generated/Resources";
 export type { Time } from "./generated/Time";
 export type { Transparency } from "./generated/Transparency";
+export type { Urgency } from "./generated/Urgency";
 export type { WallpaperItem } from "./generated/WallpaperItem";
 export type { WallpaperPage } from "./generated/WallpaperPage";
 export type { WallpaperSelector } from "./generated/WallpaperSelector";

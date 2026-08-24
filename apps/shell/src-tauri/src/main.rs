@@ -12,9 +12,9 @@ use std::time::Duration;
 use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
-use bw_shell::state::AppState;
+use bw_shell::state::{AppState, NotificationStore, VolumeHandle};
 use bw_shell::{cli, surfaces};
-use tauri::{Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -52,6 +52,7 @@ fn main() {
         ))
         .manage(state.clone())
         .manage(surfaces::Reservations::default())
+        .manage(NotificationStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::set_config_value,
@@ -70,6 +71,14 @@ fn main() {
             commands::media_command,
             commands::get_monitors,
             commands::set_taskbar_visible,
+            commands::get_notifications,
+            commands::post_notification,
+            commands::dismiss_notification,
+            commands::clear_notifications,
+            commands::get_volume,
+            commands::set_volume,
+            commands::set_muted,
+            commands::step_volume,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -92,6 +101,8 @@ fn main() {
             // Kept alive for the life of the app; dropping it stops the watch.
             let watcher = services::config::watch(handle.clone(), state.clone());
             app.manage(WatcherHandle(watcher));
+
+            app.manage(start_volume_watch(&handle));
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -156,4 +167,85 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             }
         });
     }
+}
+
+/// Starts watching the output volume, and shows the readout on every change.
+///
+/// The watcher pushes rather than polls, so the readout appears on the same
+/// keypress that changed the volume. The very first reading is the current
+/// level rather than a change, so it is recorded without showing anything —
+/// otherwise the readout would flash on every launch.
+fn start_volume_watch(app: &AppHandle) -> VolumeHandle {
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let handle = app.clone();
+        let seen_first = AtomicBool::new(false);
+
+        let watcher = bw_shell::platform::audio::VolumeWatcher::new(move |reading| {
+            let reading: bw_shell::providers::VolumeReading = reading.into();
+            let _ = handle.emit(event::VOLUME, reading);
+
+            if seen_first.swap(true, Ordering::Relaxed) {
+                show_osd(&handle, "volume", reading.percent, reading.muted);
+            }
+        });
+
+        match watcher {
+            Ok(watcher) => VolumeHandle::new(Some(watcher)),
+            Err(error) => {
+                // No output device, or an audio service that will not talk to
+                // us. The shell runs; the readout simply has nothing to show.
+                tracing::warn!(%error, "could not watch the output volume");
+                VolumeHandle::new(None)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        VolumeHandle::new()
+    }
+}
+
+/// Shows the readout with a value, and lets it time itself out.
+///
+/// The timeout lives here rather than in the surface so that a burst of
+/// changes — holding a volume key — keeps the readout up instead of letting an
+/// early timer close it mid-press.
+#[cfg(windows)]
+fn show_osd(app: &AppHandle, kind: &str, value: f32, muted: bool) {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::OnceLock;
+
+    static GENERATION: OnceLock<AtomicU64> = OnceLock::new();
+    let generation = GENERATION.get_or_init(|| AtomicU64::new(0));
+
+    let state = app.state::<AppState>();
+    let config = state.config();
+    if !config.osd.enable {
+        return;
+    }
+
+    let _ = app.emit(
+        event::OSD,
+        serde_json::json!({ "kind": kind, "value": value, "muted": muted }),
+    );
+    if let Err(error) = surfaces::set_visible(app, surfaces::OSD.label, true) {
+        tracing::warn!(%error, "could not show the readout");
+        return;
+    }
+
+    // Only the newest change gets to close the readout.
+    let mine = generation.fetch_add(1, Ordering::Relaxed) + 1;
+    let handle = app.clone();
+    let timeout = Duration::from_millis(u64::from(config.osd.timeout));
+
+    std::thread::spawn(move || {
+        std::thread::sleep(timeout);
+        if generation.load(Ordering::Relaxed) == mine {
+            let _ = surfaces::set_visible(&handle, surfaces::OSD.label, false);
+        }
+    });
 }

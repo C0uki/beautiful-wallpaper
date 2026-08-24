@@ -50,14 +50,42 @@ Still to do:
 
 ## Phase 3 — Sidebars, notifications, OSD, dock
 
-The right sidebar (quick toggles, notification centre, calendar, to-do,
-pomodoro, volume mixer, Wi-Fi, Bluetooth), the left sidebar (AI chat, translator,
-booru browser), notification toasts, the volume and brightness OSD, and the dock.
+Split across several changes, because the original's version of this phase is
+over ten thousand lines: the right sidebar alone is 4,611.
 
-Reading other applications' notifications needs `UserNotificationListener`, which
-requires package identity. That means shipping an MSIX sparse package alongside
-the installer (Phase 5); without it the notification centre shows only the
-shell's own toasts.
+### Done: the OSD and notification toasts
+
+- **The readout.** Volume comes from WASAPI, and it is pushed rather than
+  polled — `IAudioEndpointVolumeCallback`, so the pill appears on the same
+  keypress that changed the level instead of up to a poll interval later. The
+  registration follows the default device, so plugging in headphones does not
+  leave it reporting a device nobody is listening to.
+- **Toasts.** Grouped by application, swipe to dismiss, and the history is
+  bounded and persisted. The store lives in `bw-core` and has one `post` entry
+  point, so a notification listener can feed it later without reshaping it.
+- **Flag-to-window plumbing.** `surfaces::set_visible` had no callers: overlay
+  windows were created hidden and nothing ever showed them, so the wallpaper
+  picker could not be opened on Windows at all. Flags now move windows.
+- **An icon subset that fails loudly.** The bundled font is subset to the icons
+  the shell draws; a name outside that set used to render as the literal word.
+  `pnpm gen:icons` rebuilds it from `apps/shell/scripts/icons.json`, and errors
+  if a listed name is not in the font.
+
+### Still to do
+
+- **Brightness in the readout.** The plumbing carries a `brightness` kind
+  already, but nothing reports a level yet: laptop panels need WMI
+  (`WmiMonitorBrightnessMethods`) and external displays need DDC/CI, which is
+  slow and not universally supported.
+- **The right sidebar** — quick toggles, notification centre, calendar, to-do,
+  pomodoro, volume mixer, Wi-Fi, Bluetooth. Needs per-application volume
+  (`IAudioSessionManager2`), `wlanapi` and WinRT Bluetooth, none of which the
+  platform layer wraps yet.
+- **The left sidebar** (AI chat, translator, booru browser) and **the dock**.
+- **Reading other applications' notifications**, which needs
+  `UserNotificationListener` and therefore package identity — the MSIX sparse
+  package in Phase 5. Until then the toasts show only what the shell itself
+  posts.
 
 ## Phase 4 — Overlays
 

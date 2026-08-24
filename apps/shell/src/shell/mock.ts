@@ -22,6 +22,9 @@ import {
   type ActiveWindow,
   type NetworkReading,
   type TrayIcon,
+  type Notification,
+  type OsdReading,
+  type VolumeReading,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -279,6 +282,42 @@ export function mockBackend(): Backend {
     { window: "0x4a190", id: 7, tooltip: "Background task", hidden: true },
   ];
 
+  let notifications: Notification[] = [
+    {
+      id: 3,
+      appName: "beautiful-wallpaper",
+      summary: "Wallpaper applied",
+      body: "dunes-at-dusk.jpg — the palette follows it.",
+      image: "",
+      urgency: "normal",
+      time: Math.floor(Date.now() / 1000) - 20,
+      actions: [],
+    },
+    {
+      id: 2,
+      appName: "Sync client",
+      summary: "3 files uploaded",
+      body: "Everything in Pictures/Wallpapers is up to date.",
+      image: "",
+      urgency: "low",
+      time: Math.floor(Date.now() / 1000) - 240,
+      actions: [],
+    },
+    {
+      id: 1,
+      appName: "Update service",
+      summary: "Restart required",
+      body: "An update is waiting for the next restart.",
+      image: "",
+      urgency: "critical",
+      time: Math.floor(Date.now() / 1000) - 3600,
+      actions: [],
+    },
+  ];
+
+  const volume: VolumeReading = { percent: 42, muted: false };
+  const osd: OsdReading = { kind: "volume", value: 42, muted: false };
+
   // Push the periodic events the real backend sends.
   const timers: ReturnType<typeof setInterval>[] = [];
   if (typeof window !== "undefined") {
@@ -408,7 +447,31 @@ export function mockBackend(): Backend {
         case Command.MediaCommand:
         case Command.SetTaskbarVisible:
         case Command.SetApiKey:
+        case Command.SetVolume:
+        case Command.SetMuted:
+        case Command.StepVolume:
           return undefined as T;
+
+        case Command.GetNotifications:
+          return notifications as T;
+
+        case Command.GetVolume:
+          return volume as T;
+
+        case Command.DismissNotification: {
+          const id = Number(args["id"]);
+          notifications = notifications.filter(
+            (notification) => notification.id !== id,
+          );
+          emit(Event.Notifications, notifications);
+          return undefined as T;
+        }
+
+        case Command.ClearNotifications: {
+          notifications = [];
+          emit(Event.Notifications, notifications);
+          return undefined as T;
+        }
 
         case Command.GetMonitors:
           return [
@@ -447,6 +510,9 @@ export function mockBackend(): Backend {
         if (event === Event.ActiveWindow) handler(activeWindow as T);
         if (event === Event.Network) handler(network() as T);
         if (event === Event.Tray) handler(tray as T);
+        if (event === Event.Notifications) handler(notifications as T);
+        if (event === Event.Volume) handler(volume as T);
+        if (event === Event.Osd) handler(osd as T);
       });
 
       return () => {

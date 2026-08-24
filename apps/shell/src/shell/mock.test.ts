@@ -72,6 +72,44 @@ describe("the mock backend", () => {
     expect(light.colors["surface"]).not.toBe(dark.colors["surface"]);
   });
 
+  it("dismissing a notification removes it and tells listeners", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<Array<{ id: number }>>(
+      Command.GetNotifications,
+    );
+    expect(before.length).toBeGreaterThan(0);
+
+    const seen: Array<Array<{ id: number }>> = [];
+    await backend.listen<Array<{ id: number }>>(Event.Notifications, (list) =>
+      seen.push(list),
+    );
+
+    await backend.invoke(Command.DismissNotification, { id: before[0]!.id });
+    const after = await backend.invoke<Array<{ id: number }>>(
+      Command.GetNotifications,
+    );
+
+    expect(after.map((n) => n.id)).not.toContain(before[0]!.id);
+    expect(seen.at(-1)?.length).toBe(before.length - 1);
+  });
+
+  it("clearing empties the history", async () => {
+    const backend = mockBackend();
+    await backend.invoke(Command.ClearNotifications);
+    const after = await backend.invoke<unknown[]>(Command.GetNotifications);
+    expect(after).toEqual([]);
+  });
+
+  it("serves a volume reading in the range the readout draws", async () => {
+    const backend = mockBackend();
+    const volume = await backend.invoke<{ percent: number; muted: boolean }>(
+      Command.GetVolume,
+    );
+    expect(volume.percent).toBeGreaterThanOrEqual(0);
+    expect(volume.percent).toBeLessThanOrEqual(100);
+    expect(typeof volume.muted).toBe("boolean");
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(

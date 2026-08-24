@@ -9,29 +9,7 @@ import { IconButton, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import { HoverPopup } from "./HoverPopup";
-
-/** Bytes per second, in the shortest form that stays readable. */
-function formatRate(bytesPerSecond: number): string {
-  const units = ["B", "K", "M", "G"];
-  let value = bytesPerSecond;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)}${units[unit]}`;
-}
-
-function formatBytes(bytes: number): string {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 1)} ${units[unit]}`;
-}
+import { formatBytes, formatRate } from "../../lib/format";
 
 export function ClockWidget() {
   const format = useShell((state) => state.config.time.format);
