@@ -1,0 +1,244 @@
+/* The Material 3 widget kit.
+ *
+ * Ported from end4-pC's modules/common/widgets. Everything binds to the CSS
+ * variables the theme provider sets, so a wallpaper change restyles the whole
+ * kit without a re-render.
+ */
+
+/* --- Card ------------------------------------------------------------- */
+
+.bw-card {
+  position: relative;
+  background: var(--layer2);
+  color: var(--on-surface);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
+  padding: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px var(--shadow);
+  transition:
+    background var(--duration-normal) var(--ease-effects-default),
+    box-shadow var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-card[data-translucent="true"] {
+  /* Panels over the wallpaper are translucent by the amount the palette says. */
+  background: color-mix(
+    in srgb,
+    var(--layer2) calc((1 - var(--background-transparency)) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(28px) saturate(1.3);
+}
+
+.bw-card[data-elevation="0"] {
+  box-shadow: none;
+}
+
+.bw-card[data-elevation="2"] {
+  box-shadow: 0 8px 28px var(--shadow);
+}
+
+/* --- Button ----------------------------------------------------------- */
+
+.bw-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 20px;
+  border-radius: calc(var(--rounding-full) * 1px);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  transition:
+    background var(--duration-fast) var(--ease-effects-default),
+    color var(--duration-fast) var(--ease-effects-default),
+    transform var(--duration-fast) var(--ease-spatial-fast);
+}
+
+.bw-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.bw-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.bw-button[data-variant="filled"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-button[data-variant="filled"]:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.bw-button[data-variant="tonal"] {
+  background: var(--layer3);
+  color: var(--on-surface);
+}
+
+.bw-button[data-variant="tonal"]:hover:not(:disabled) {
+  background: var(--layer3-hover);
+}
+
+.bw-button[data-variant="text"] {
+  background: transparent;
+  color: var(--primary);
+  padding: 0 12px;
+}
+
+.bw-button[data-variant="text"]:hover:not(:disabled) {
+  background: var(--layer2-hover);
+}
+
+.bw-button[data-active="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+/* --- Icon button ------------------------------------------------------ */
+
+.bw-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--on-surface-variant);
+  transition:
+    background var(--duration-fast) var(--ease-effects-default),
+    color var(--duration-fast) var(--ease-effects-default),
+    transform var(--duration-fast) var(--ease-spatial-fast);
+}
+
+.bw-icon-button:hover:not(:disabled) {
+  background: var(--layer2-hover);
+  color: var(--on-surface);
+}
+
+.bw-icon-button:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.bw-icon-button[data-active="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-icon-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* --- Ripple ----------------------------------------------------------- */
+
+.bw-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: currentColor;
+  opacity: 0.22;
+  transform: scale(0);
+  animation: bw-ripple-expand var(--duration-slower) var(--ease-effects-default)
+    forwards;
+}
+
+@keyframes bw-ripple-expand {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* --- Progress --------------------------------------------------------- */
+
+.bw-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--layer3);
+  overflow: hidden;
+}
+
+.bw-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width var(--duration-slow) var(--ease-effects-default);
+}
+
+/* --- Ring ------------------------------------------------------------- */
+
+.bw-ring {
+  transform: rotate(-90deg);
+}
+
+.bw-ring circle {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--duration-slow) var(--ease-effects-default);
+}
+
+/* --- Segmented control ------------------------------------------------ */
+
+.bw-segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--layer1);
+}
+
+/* --- Text field ------------------------------------------------------- */
+
+.bw-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--layer3);
+  color: var(--on-surface);
+  transition: background var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-field:focus-within {
+  background: var(--layer3-active);
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.bw-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  user-select: text;
+  cursor: text;
+}
+
+.bw-field input::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.7;
+}
+
+/* --- Tooltip ---------------------------------------------------------- */
+
+.bw-tooltip {
+  position: absolute;
+  z-index: 40;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--m3-inverse-surface, var(--layer4));
+  color: var(--m3-inverse-on-surface, var(--on-surface));
+  font-size: 0.82em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 16px var(--shadow);
+}

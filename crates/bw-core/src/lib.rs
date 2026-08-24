@@ -1,0 +1,17 @@
+//! Portable core of the beautiful-wallpaper shell.
+//!
+//! Everything here is free of Tauri and of Win32, so it builds and its tests run
+//! on any host. The Windows-specific half — window layering, the desktop
+//! wallpaper COM interface, WASAPI, SMTC and the rest — lives in the shell crate.
+//!
+//! The split exists so the parts most likely to be wrong (the Material 3 colour
+//! pipeline, the config schema, provider response parsing) can be tested without
+//! a Windows machine in the loop.
+
+pub mod config;
+pub mod paths;
+pub mod theme;
+pub mod wallpaper;
+
+pub use config::Config;
+pub use theme::{GeneratedTheme, Mode};

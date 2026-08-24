@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "beautiful-wallpaper",
+  "version": "0.1.0",
+  "identifier": "io.github.c0uki.beautiful-wallpaper",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @bw/shell dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm --filter @bw/shell build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$PICTURE/**", "$APPLOCALDATA/**", "$HOME/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "A Material 3 desktop shell for Windows",
+    "longDescription": "Wallpaper-driven Material 3 theming, desktop widgets and a wallpaper browser for Windows 10 and 11.",
+    "licenseFile": "../../../LICENSE",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

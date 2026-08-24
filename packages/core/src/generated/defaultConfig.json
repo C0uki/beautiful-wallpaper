@@ -1,0 +1,175 @@
+{
+  "appearance": {
+    "palette": {
+      "type": "auto",
+      "accentColor": null,
+      "mode": "dark"
+    },
+    "fonts": {
+      "main": "Segoe UI Variable Text, Segoe UI, sans-serif",
+      "title": "Segoe UI Variable Display, Segoe UI, sans-serif",
+      "monospace": "Cascadia Code, Consolas, monospace",
+      "reading": "Georgia, serif",
+      "expressive": "Segoe UI Variable Display, Segoe UI, sans-serif",
+      "pixelSize": 15.0
+    },
+    "transparency": {
+      "enable": true,
+      "extra": 0.0
+    },
+    "wallpaperTheming": {
+      "syncSystemAccent": true,
+      "syncWindowsTerminal": false
+    },
+    "roundingScale": 1.0
+  },
+  "background": {
+    "wallpaperPath": "",
+    "thumbnailPath": "",
+    "wallpaperAnimation": "circle",
+    "transitionDuration": 1200,
+    "centeredWallpaper": false,
+    "centeredWallpaperShape": "clover",
+    "centeredWallpaperSize": 0.55,
+    "parallax": {
+      "enable": true,
+      "zoom": 1.07,
+      "workspacePan": 0.6
+    },
+    "widgets": {
+      "enable": true,
+      "grid": 8,
+      "clock": {
+        "id": "clock",
+        "enable": true,
+        "x": 0.04,
+        "y": 0.06,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "media": {
+        "id": "media",
+        "enable": true,
+        "x": 0.04,
+        "y": 0.3,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "weather": {
+        "id": "weather",
+        "enable": true,
+        "x": 0.72,
+        "y": 0.05,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "resources": {
+        "id": "resources",
+        "enable": true,
+        "x": 0.72,
+        "y": 0.2,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "calendar": {
+        "id": "calendar",
+        "enable": false,
+        "x": 0.72,
+        "y": 0.45,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "userCard": {
+        "id": "userCard",
+        "enable": false,
+        "x": 0.72,
+        "y": 0.6,
+        "placementStrategy": "free",
+        "style": "default"
+      },
+      "notes": {
+        "id": "notes",
+        "enable": false,
+        "x": 0.04,
+        "y": 0.62,
+        "placementStrategy": "free",
+        "style": "default"
+      }
+    }
+  },
+  "bar": {
+    "enable": true,
+    "bottom": false,
+    "vertical": false,
+    "height": 40,
+    "reserveSpace": true,
+    "autoHide": false,
+    "style": "m3",
+    "left": ["media"],
+    "center": ["workspaces", "activeWindow"],
+    "right": ["tray", "resources", "network", "battery", "utilButtons", "clock"]
+  },
+  "dock": {
+    "enable": false,
+    "pinnedApps": [],
+    "autoHide": true,
+    "iconSize": 44
+  },
+  "hacks": {
+    "configReloadDelay": 50
+  },
+  "language": {
+    "ui": "auto"
+  },
+  "policies": {
+    "ai": 1,
+    "weeb": 0
+  },
+  "resources": {
+    "pollInterval": 2000,
+    "showSwap": false
+  },
+  "time": {
+    "format": "HH:mm",
+    "dateFormat": "ddd, dd/MM",
+    "weekStartsOnMonday": true
+  },
+  "wallpaperSelector": {
+    "userPath": "",
+    "columns": 4,
+    "showSearchbar": true,
+    "closeAfterSelection": true,
+    "changeInterval": 0,
+    "extensions": ["jpg", "jpeg", "png", "webp", "bmp", "gif"],
+    "online": {
+      "enable": true,
+      "defaultProvider": "wallhaven",
+      "resolution": "1080p",
+      "purity": "sfw",
+      "category": "general",
+      "downloadPath": ""
+    }
+  },
+  "weather": {
+    "enable": true,
+    "city": "",
+    "useUscUnits": false,
+    "refreshInterval": 900
+  },
+  "windows": {
+    "windowManager": "auto",
+    "glazewm": {
+      "port": 6123
+    },
+    "komorebi": {
+      "pipeName": "komorebi"
+    },
+    "hideSystemTaskbar": false,
+    "startWithWindows": false,
+    "backdrop": "auto"
+  },
+  "workSafety": {
+    "blankWallpaper": false,
+    "keywords": []
+  }
+}

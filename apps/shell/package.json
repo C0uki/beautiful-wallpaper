@@ -1,0 +1,35 @@
+{
+  "name": "@bw/shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "preview": "vite preview --port 4173 --strictPort",
+    "test": "vitest run",
+    "screenshots": "node scripts/screenshots.mjs",
+    "tauri": "tauri",
+    "app:dev": "tauri dev",
+    "app:build": "tauri build"
+  },
+  "dependencies": {
+    "@bw/core": "workspace:*",
+    "@bw/tokens": "workspace:*",
+    "@tauri-apps/api": "^2.9.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "@vitejs/plugin-react": "^5.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vitest": "^3.2.4",
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}
