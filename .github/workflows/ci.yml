@@ -79,6 +79,13 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo test -p bw-core
 
+      # Building for Windows makes Tauri's build script compile a resource file
+      # for the executable's icon and version info, and cross-compiling it
+      # reaches for llvm-rc. The runner has clang but not that binary, and
+      # without it the build script panics before any code is checked.
+      - name: Install a resource compiler for the Windows target
+        run: sudo apt-get update && sudo apt-get install -y llvm
+
       - name: Type-check the Windows code
         run: cargo clippy --target "$WINDOWS_TARGET" --all-targets -- -D warnings
 
