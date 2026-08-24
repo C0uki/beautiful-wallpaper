@@ -30,10 +30,11 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Installs whatever rust-toolchain.toml pins, with its components and
+      # targets. Pinning is what keeps this job's clippy identical to the one
+      # contributors run.
       - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --component rustfmt,clippy
-          rustup target add "$WINDOWS_TARGET"
+        run: rustup show
 
       - uses: Swatinem/rust-cache@v2
 
@@ -94,7 +95,7 @@ jobs:
           cache: pnpm
 
       - name: Install Rust
-        run: rustup toolchain install stable --profile minimal
+        run: rustup show
 
       - uses: Swatinem/rust-cache@v2
 

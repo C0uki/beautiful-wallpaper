@@ -106,6 +106,11 @@ That last one is the important one: it type-checks every Win32 and WinRT call
 without needing a Windows machine or a cross compiler. `cargo check` for the
 Windows target works from Linux and macOS too — only linking needs Windows.
 
+The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup installs the
+same compiler CI uses, along with clippy, rustfmt and the Windows target. That
+matters for `-D warnings`: on a different version, a lint the runner enforces
+may not exist locally, and the difference only shows up as a red CI job.
+
 ## Layout
 
 ```

@@ -46,12 +46,12 @@ pub fn colorfulness(rgb: &[u8]) -> Colorfulness {
     }
 
     let (mut sum_rg, mut sum_yb, mut sum_rg2, mut sum_yb2) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
-    for chunk in rgb.chunks_exact(3) {
-        let (r, g, b) = (
-            f64::from(chunk[0]),
-            f64::from(chunk[1]),
-            f64::from(chunk[2]),
-        );
+    // Fixed-size chunks, so each one is a `&[u8; 3]` and the channel reads below
+    // are checked at compile time rather than per pixel. A trailing partial
+    // pixel, if the caller passed one, is discarded either way.
+    let (pixels_rgb, _) = rgb.as_chunks::<3>();
+    for &[red, green, blue] in pixels_rgb {
+        let (r, g, b) = (f64::from(red), f64::from(green), f64::from(blue));
         let rg = r - g;
         let yb = 0.5 * (r + g) - b;
         sum_rg += rg;

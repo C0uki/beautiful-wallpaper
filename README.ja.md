@@ -98,6 +98,11 @@ cargo clippy --target x86_64-pc-windows-msvc --all-targets
 Win32 / WinRT 呼び出しを型検査できます。Windows ターゲットの `cargo check` は
 Linux でも macOS でも通り、Windows が要るのはリンクだけです。
 
+Rust のツールチェーンは `rust-toolchain.toml` で固定してあり、rustup が CI と
+同じコンパイラを clippy・rustfmt・Windows ターゲットごと入れます。これは
+`-D warnings` にとって重要です。バージョンが違うと、CI が強制するリントが手元に
+存在せず、その差が CI の赤としてしか現れません。
+
 ## 構成
 
 ```
