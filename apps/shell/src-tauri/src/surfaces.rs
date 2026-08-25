@@ -66,7 +66,24 @@ pub const NOTIFICATIONS: Surface = Surface {
     size: Some((0.28, 0.85)),
 };
 
-pub const ALL: &[Surface] = &[BACKGROUND, BAR, WALLPAPER_SELECTOR, OSD, NOTIFICATIONS];
+/// The control centre. Full height along the right edge, and unlike the two
+/// transient overlays it does take focus — the user opened it deliberately and
+/// will want to type into its search and to-do fields.
+pub const SIDEBAR_RIGHT: Surface = Surface {
+    label: "sidebarRight",
+    page: "sidebarRight.html",
+    layer: Layer::Overlay,
+    size: Some((0.26, 1.0)),
+};
+
+pub const ALL: &[Surface] = &[
+    BACKGROUND,
+    BAR,
+    WALLPAPER_SELECTOR,
+    OSD,
+    NOTIFICATIONS,
+    SIDEBAR_RIGHT,
+];
 
 /// Which surface a `GlobalStates` flag governs.
 ///
@@ -75,6 +92,7 @@ pub const ALL: &[Surface] = &[BACKGROUND, BAR, WALLPAPER_SELECTOR, OSD, NOTIFICA
 pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
     match flag {
         "wallpaperSelectorOpen" => Some(WALLPAPER_SELECTOR.label),
+        "sidebarRightOpen" => Some(SIDEBAR_RIGHT.label),
         _ => None,
     }
 }
@@ -189,6 +207,41 @@ fn overlay_geometry(
             y
         };
         return ((screen.0 - width) / 2.0, y, width, height);
+    }
+
+    if surface.label == SIDEBAR_RIGHT.label {
+        // Pinned to the right edge and as tall as the work area allows, kept
+        // clear of the bar rather than sliding under it.
+        let width = screen.0 * config.sidebar.width;
+        let vertical_bar = config.bar.enable && config.bar.vertical;
+        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
+            bar
+        } else {
+            0.0
+        };
+
+        let right_inset = if vertical_bar && config.bar.bottom {
+            bar
+        } else {
+            0.0
+        };
+        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+
+        return (
+            screen.0 - width - right_inset - margin,
+            top + margin,
+            width,
+            (screen.1 - top - bottom - margin * 2.0).max(1.0),
+        );
     }
 
     if surface.label == NOTIFICATIONS.label {

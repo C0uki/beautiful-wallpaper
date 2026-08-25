@@ -159,6 +159,41 @@ const SHOTS = [
     url: "/notifications.html",
     viewport: { width: 460, height: 460 },
   },
+  // The sidebar is a tall narrow panel; a 1600x900 viewport would show it
+  // floating in the middle of nothing.
+  {
+    name: "14-sidebar",
+    url: "/sidebarRight.html",
+    viewport: { width: 420, height: 1000 },
+  },
+  // The classic toggle row is a config key with no control in the surface
+  // itself, so this one goes through the harness, which has the switch.
+  {
+    name: "15-sidebar-classic-toggles",
+    url: "/index.html",
+    viewport: { width: 900, height: 1000 },
+    setup: async (page) => {
+      await page.getByLabel("Toggle style").selectOption("classic");
+      await selectView(page, "Sidebar");
+    },
+  },
+  {
+    name: "16-sidebar-wifi",
+    url: "/sidebarRight.html",
+    viewport: { width: 420, height: 1000 },
+    setup: async (page) => {
+      // The first chevron on the grid belongs to the Wi-Fi tile.
+      await page.getByRole("button", { name: "More" }).first().click();
+    },
+  },
+  {
+    name: "17-sidebar-mixer",
+    url: "/sidebarRight.html",
+    viewport: { width: 420, height: 1000 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "More" }).last().click();
+    },
+  },
 ];
 
 async function selectView(page, label) {

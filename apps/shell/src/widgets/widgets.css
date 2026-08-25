@@ -345,3 +345,176 @@
   scrollbar-gutter: stable;
   min-height: 0;
 }
+
+/* Tabs -------------------------------------------------------------------- */
+
+.bw-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--rounding-full);
+  background: var(--layer2);
+}
+
+.bw-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--rounding-full);
+  background: transparent;
+  color: var(--on-surface-variant);
+  font: inherit;
+  font-size: 0.86em;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition:
+    background var(--duration-fast) var(--ease-effects-default),
+    color var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-tab:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-tab[data-active="true"] {
+  background: var(--layer3);
+  color: var(--on-surface);
+}
+
+/* Switch ------------------------------------------------------------------ */
+
+.bw-switch {
+  flex: none;
+  width: 46px;
+  height: 26px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 2px solid var(--outline);
+  background: var(--layer2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition:
+    background var(--duration-normal) var(--ease-effects-default),
+    border-color var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-switch[data-checked="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.bw-switch:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.bw-switch-thumb {
+  width: 16px;
+  height: 16px;
+  margin-left: 1px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--outline);
+  color: var(--primary-on);
+  transition:
+    transform var(--duration-normal) var(--ease-effects-default),
+    width var(--duration-fast) var(--ease-effects-default),
+    height var(--duration-fast) var(--ease-effects-default),
+    background var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-switch[data-checked="true"] .bw-switch-thumb {
+  width: 20px;
+  height: 20px;
+  margin-left: 0;
+  transform: translateX(19px);
+  background: var(--primary-on);
+}
+
+/* Dialog ------------------------------------------------------------------ */
+
+.bw-dialog-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  /* The token already carries its own alpha; mixing it down again
+     leaves it invisible against a dark panel. */
+  background: var(--scrim);
+  animation: bw-fade-in var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  border-radius: var(--rounding-large);
+  background: var(--layer1);
+  color: var(--on-surface);
+  box-shadow: 0 8px 32px var(--shadow);
+  overflow: hidden;
+}
+
+.bw-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px 10px 16px;
+}
+
+.bw-dialog-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.05em;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 0 12px 12px;
+}
+
+.bw-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+@keyframes bw-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Placeholder ------------------------------------------------------------- */
+
+.bw-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: var(--on-surface-variant);
+  opacity: 0.65;
+  text-align: center;
+  font-size: 0.9em;
+}

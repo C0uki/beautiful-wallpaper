@@ -104,6 +104,17 @@ def main() -> int:
             check=True,
         )
 
+    # Checking the *source* had the name is not enough: subsetting can drop a
+    # ligature whose name it kept, and the result renders the literal word. The
+    # only trustworthy check is to reopen what we are about to ship.
+    shipped = ligature_map(TTFont(OUT_PATH))
+    dropped = sorted(set(wanted) - shipped.keys())
+    if dropped:
+        raise SystemExit(
+            "subsetting dropped these ligatures, so they would render as "
+            "words: " + ", ".join(dropped)
+        )
+
     size = OUT_PATH.stat().st_size
     print(f"Wrote {OUT_PATH.relative_to(APP_DIR)} — {size / 1024:.1f} KB")
     return 0

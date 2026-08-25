@@ -71,21 +71,46 @@ over ten thousand lines: the right sidebar alone is 4,611.
   `pnpm gen:icons` rebuilds it from `apps/shell/scripts/icons.json`, and errors
   if a listed name is not in the font.
 
+### Done: brightness and the right sidebar
+
+- **Brightness**, and the night light. Laptop panels go through WMI, external
+  displays through DDC/CI, and a display supporting neither is approximated
+  with a gamma ramp. All three fail on some perfectly ordinary machine, so "no
+  brightness control" is a first-class outcome and the control is hidden
+  rather than shown dead. DDC/CI is a round trip over I²C per call, so writes
+  are coalesced on a worker thread; the raw-range arithmetic lives in
+  `bw-core` under tests, because a monitor reporting 0–64 rather than 0–100 is
+  the normal case, not the exception.
+- **The right sidebar** — banner, quick toggles in both of the original's
+  styles, sliders, media, notification centre, and a tabbed calendar / to-do /
+  timer group, with Wi-Fi, Bluetooth, mixer and night-light dialogs drawn over
+  the panel rather than in windows of their own.
+- **Per-application volume**, through `IAudioSessionManager2`. Sessions are
+  addressed by session instance identifier rather than process id, which is
+  reused the moment a process exits, and application icons are rasterised out
+  of the executable and cached as PNGs the way wallpaper thumbnails are.
+- **Wi-Fi and Bluetooth.** The earlier note here assumed `wlanapi` wrapped by
+  hand and a WinRT Bluetooth stack that did not exist; in fact both are in the
+  pinned `windows` crate and needed feature flags rather than bindings.
+- **An icon subset that is verified, not assumed.** `pnpm gen:icons` now
+  reopens the font it just wrote and fails if any listed name did not survive
+  subsetting. It found four that had not: every Material Symbols name
+  containing `_digit_` is an alias whose output glyph the subsetter prunes, so
+  the shell was drawing "\_THREE\_BAR" where a signal-strength icon belonged.
+
 ### Still to do
 
-- **Brightness in the readout.** The plumbing carries a `brightness` kind
-  already, but nothing reports a level yet: laptop panels need WMI
-  (`WmiMonitorBrightnessMethods`) and external displays need DDC/CI, which is
-  slow and not universally supported.
-- **The right sidebar** — quick toggles, notification centre, calendar, to-do,
-  pomodoro, volume mixer, Wi-Fi, Bluetooth. Needs per-application volume
-  (`IAudioSessionManager2`), `wlanapi` and WinRT Bluetooth, none of which the
-  platform layer wraps yet.
 - **The left sidebar** (AI chat, translator, booru browser) and **the dock**.
+- **Power plans.** The documented API reaches only the classic schemes, and
+  Windows 11's power mode sits behind an undocumented overlay call, so the
+  quick toggle for it is not built.
+- **Bluetooth pairing and connecting.** Only paired devices are listed;
+  pairing needs a PIN exchange with a UI of its own, and connecting is largely
+  the stack's decision, so the dialog opens Windows' own settings for both.
 - **Reading other applications' notifications**, which needs
   `UserNotificationListener` and therefore package identity — the MSIX sparse
-  package in Phase 5. Until then the toasts show only what the shell itself
-  posts.
+  package in Phase 5. Until then the toasts and the centre show only what the
+  shell itself posts.
 
 ## Phase 4 — Overlays
 

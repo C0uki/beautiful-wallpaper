@@ -1,0 +1,841 @@
+/* The right sidebar.
+ *
+ * One column of cards inside a rounded panel. The panel is the whole window on
+ * Windows, so the rounding and the shadow are the only thing separating it from
+ * the desktop behind. */
+
+.bw-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--rounding-large);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  color: var(--on-surface);
+  box-shadow: 0 6px 24px var(--shadow);
+  overflow: hidden;
+}
+
+.bw-sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+}
+
+.bw-sidebar .bw-card {
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  padding: 10px;
+  /* The column is a flexbox: without this every card shrinks to fit, and the
+     media card and sliders collapse into strips. Only the notification centre
+     below opts back in to taking the slack. */
+  flex: none;
+}
+
+/* Banner ------------------------------------------------------------------ */
+
+.bw-banner {
+  position: relative;
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  overflow: hidden;
+  flex: none;
+}
+
+.bw-banner-image {
+  height: 120px;
+  margin: 2px 2px 0;
+  border-radius: calc(var(--rounding-normal) - 2px);
+  background-color: var(--layer2);
+  background-size: cover;
+  background-position: center;
+}
+
+.bw-banner-foot,
+.bw-banner-plain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+}
+
+.bw-banner-plain {
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  flex: none;
+}
+
+.bw-banner-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--primary);
+  color: var(--on-surface);
+}
+
+.bw-banner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bw-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bw-banner-name {
+  font-size: 0.9em;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-banner-uptime {
+  font-size: 0.78em;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-banner-buttons {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+/* Quick toggles ----------------------------------------------------------- */
+
+.bw-sidebar-toggles-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.bw-sidebar-toggles-head > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-toggles-classic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.bw-toggle-round {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+  transition:
+    background var(--duration-fast) var(--ease-effects-default),
+    color var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-toggle-round:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-toggle-round[data-on="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-toggles-grid {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.bw-toggle-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  color: var(--on-surface-variant);
+  overflow: hidden;
+  min-width: 0;
+  transition:
+    background var(--duration-normal) var(--ease-effects-default),
+    color var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-toggle-tile[data-wide="true"] {
+  grid-column: span 2;
+}
+
+.bw-toggle-tile[data-on="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-toggle-tile[data-dimmed="true"] {
+  opacity: 0.4;
+}
+
+.bw-toggle-tile-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.bw-toggle-tile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bw-toggle-tile-label {
+  font-size: 0.86em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-toggle-tile-detail {
+  font-size: 0.74em;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-toggle-tile-detail-button,
+.bw-toggle-tile-edit button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+.bw-toggle-tile-detail-button {
+  padding-right: 8px;
+  align-self: stretch;
+}
+
+.bw-toggle-tile-edit {
+  display: flex;
+  padding-right: 4px;
+}
+
+.bw-toggle-tile-edit button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Sliders ----------------------------------------------------------------- */
+
+.bw-quick-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bw-quick-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bw-quick-slider > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-quick-slider-icon {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+
+/* Media ------------------------------------------------------------------- */
+
+.bw-media-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.bw-media-art {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+}
+
+.bw-media-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bw-media-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bw-media-title {
+  font-size: 0.9em;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-media-artist {
+  font-size: 0.78em;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-media-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--layer3);
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+
+.bw-media-progress > div {
+  height: 100%;
+  background: var(--primary);
+}
+
+.bw-media-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.bw-media-time {
+  font-size: 0.72em;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-media-buttons {
+  display: flex;
+  align-items: center;
+}
+
+/* Notification centre ------------------------------------------------------ */
+
+.bw-notification-centre {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bw-notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Capped rather than allowed to take the column's slack: an unbounded
+     history pushes the tab group off the bottom of the panel entirely, and
+     nothing below it can be reached. It scrolls inside instead. */
+  max-height: 280px;
+}
+
+.bw-notification-group header button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font: inherit;
+  font-size: 0.76em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.bw-notification-count {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--layer2);
+}
+
+.bw-notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: var(--layer2);
+}
+
+.bw-notification[data-urgency="critical"] {
+  border: 1px solid var(--error);
+}
+
+.bw-notification-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bw-notification-heading {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.bw-notification-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86em;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-notification-age {
+  font-size: 0.72em;
+  opacity: 0.6;
+  flex: none;
+}
+
+.bw-notification-body {
+  font-size: 0.8em;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.bw-notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bw-notification-action {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+}
+
+.bw-notification-action[data-on="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-notification-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bw-notification-total {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78em;
+  opacity: 0.7;
+}
+
+/* Bottom group ------------------------------------------------------------ */
+
+.bw-bottom-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.bw-bottom-group-collapsed {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84em;
+}
+
+.bw-bottom-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bw-bottom-group-head > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-bottom-group-body {
+  min-height: 240px;
+}
+
+/* Calendar ---------------------------------------------------------------- */
+
+.bw-calendar-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bw-calendar-title {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.bw-calendar-title:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.bw-calendar-weekday,
+.bw-calendar-day {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  font-size: 0.8em;
+  border-radius: 50%;
+}
+
+.bw-calendar-weekday {
+  opacity: 0.5;
+  font-size: 0.7em;
+  text-transform: uppercase;
+}
+
+.bw-calendar-day[data-today="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+  font-weight: 600;
+}
+
+/* To do ------------------------------------------------------------------- */
+
+.bw-todo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+.bw-todo-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bw-todo-input input,
+.bw-wifi-connect input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--layer2);
+  color: inherit;
+  font: inherit;
+  font-size: 0.86em;
+}
+
+.bw-todo-input input:focus-visible,
+.bw-wifi-connect input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.bw-todo-list {
+  flex: 1;
+  max-height: 220px;
+}
+
+.bw-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bw-todo-item[data-done="true"] .bw-todo-content {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.bw-todo-check {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+.bw-todo-content {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+.bw-todo-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bw-todo-footer button {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8em;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+/* Timer ------------------------------------------------------------------- */
+
+.bw-timer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bw-timer-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bw-timer-ring {
+  --fraction: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(
+    var(--primary) calc(var(--fraction) * 360deg),
+    var(--layer2) 0
+  );
+  /* The hole in the middle, drawn rather than layered so the ring stays one
+     element that a single custom property animates. */
+  mask: radial-gradient(circle, transparent 55%, #000 56%);
+}
+
+.bw-timer-value {
+  font-size: 1.5em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-timer-value-large {
+  font-size: 2.2em;
+  padding: 12px 0;
+}
+
+.bw-timer-phase {
+  font-size: 0.8em;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bw-timer-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bw-timer-laps {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 100px;
+  overflow-y: auto;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bw-timer-laps li {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.bw-timer-laps li:nth-child(odd) {
+  background: var(--layer2);
+}
+
+/* Dialogs ----------------------------------------------------------------- */
+
+.bw-wifi-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 12px;
+}
+
+.bw-wifi-error {
+  font-size: 0.78em;
+  color: var(--error);
+}
+
+.bw-mixer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+}
+
+.bw-mixer-row[data-inactive="true"] {
+  opacity: 0.55;
+}
+
+.bw-mixer-icon {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+}
+
+.bw-mixer-icon img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.bw-mixer-icon img[data-muted="true"] {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.bw-mixer-muted {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.bw-mixer-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bw-mixer-name {
+  font-size: 0.8em;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-night-light {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.bw-night-light-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.88em;
+}
+
+.bw-night-light-temperature {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bw-night-light-note {
+  margin: 0;
+  font-size: 0.76em;
+  opacity: 0.6;
+  line-height: 1.4;
+}

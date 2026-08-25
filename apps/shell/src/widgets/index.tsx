@@ -2,10 +2,13 @@
 //
 // The set mirrors the widgets end4-pC reaches for most often: a card, the three
 // button variants, an icon button with a ripple, a progress bar and ring, a
-// segmented control, a search field, a slider, a list row and a scroll area.
+// segmented control, a search field, a slider, a list row and a scroll area,
+// plus the tab strip, switch, in-surface dialog and empty-state placeholder the
+// sidebar needs.
 
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -386,6 +389,131 @@ export function ScrollArea({
   return (
     <div className="bw-scroll-area" style={style} {...rest}>
       {children}
+    </div>
+  );
+}
+
+/** A tab strip, with the indicator sliding between labels. */
+export interface TabsProps {
+  tabs: Array<{ id: string; label: string; icon?: string }>;
+  active: string;
+  onSelect: (id: string) => void;
+}
+
+export function Tabs({ tabs, active, onSelect }: TabsProps) {
+  return (
+    <div className="bw-tabs" role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          className="bw-tab"
+          aria-selected={tab.id === active}
+          data-active={tab.id === active}
+          onClick={() => onSelect(tab.id)}
+        >
+          {tab.icon ? <Symbol name={tab.icon} size={20} /> : null}
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A Material switch. Used where a toggle is a setting rather than an action. */
+export interface SwitchProps {
+  checked: boolean;
+  label: string;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+export function Switch({ checked, label, disabled, onChange }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      className="bw-switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      data-checked={checked}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="bw-switch-thumb">
+        {checked ? <Symbol name="check" size={14} /> : null}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * A dialog drawn inside its own surface rather than in a new window.
+ *
+ * The original opens these as Quickshell popups over the sidebar. A separate
+ * Win32 window per dialog would need its own capability entry, its own
+ * layering and its own focus handling for something that only ever appears
+ * over one panel — so they are drawn in the panel instead.
+ */
+export interface DialogProps {
+  title: string;
+  icon?: string;
+  onDismiss: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}
+
+export function Dialog({
+  title,
+  icon,
+  onDismiss,
+  children,
+  footer,
+}: DialogProps) {
+  // Escape closes, as it does everywhere else in Windows.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  return (
+    <div className="bw-dialog-scrim" onClick={onDismiss}>
+      <div
+        className="bw-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        // Clicks inside must not reach the scrim, or interacting with the
+        // dialog would close it.
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="bw-dialog-header">
+          {icon ? <Symbol name={icon} size={22} /> : null}
+          <h2>{title}</h2>
+          <IconButton
+            icon="close"
+            size={32}
+            label="Close"
+            onClick={onDismiss}
+          />
+        </header>
+        <div className="bw-dialog-body">{children}</div>
+        {footer ? <footer className="bw-dialog-footer">{footer}</footer> : null}
+      </div>
+    </div>
+  );
+}
+
+/** What a list shows when it has nothing in it. */
+export function Placeholder({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="bw-placeholder">
+      <Symbol name={icon} size={40} />
+      <span>{text}</span>
     </div>
   );
 }
