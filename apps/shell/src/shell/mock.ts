@@ -26,6 +26,7 @@ import {
   type OsdReading,
   type VolumeReading,
   type BrightnessReading,
+  type AudioSession,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -320,6 +321,39 @@ export function mockBackend(): Backend {
   // A machine that *can* report a level. The unsupported case is worth seeing
   // too, so it is reachable by setting this to null.
   let brightness: BrightnessReading = { percent: 65, supported: true };
+  const mic: VolumeReading = { percent: 78, muted: false };
+
+  // A plausible mixer: something playing, something paused, and one entry with
+  // no icon, because that is the case the layout most easily gets wrong.
+  let sessions: AudioSession[] = [
+    {
+      id: "session-firefox",
+      processId: 4821,
+      name: "Firefox",
+      icon: "",
+      percent: 80,
+      muted: false,
+      active: true,
+    },
+    {
+      id: "session-spotify",
+      processId: 6120,
+      name: "Spotify",
+      icon: "",
+      percent: 55,
+      muted: false,
+      active: true,
+    },
+    {
+      id: "session-discord",
+      processId: 3344,
+      name: "Discord",
+      icon: "",
+      percent: 30,
+      muted: true,
+      active: false,
+    },
+  ];
   const osd: OsdReading = { kind: "volume", value: 42, muted: false };
 
   // Push the periodic events the real backend sends.
@@ -465,6 +499,38 @@ export function mockBackend(): Backend {
         case Command.GetBrightness:
           return brightness as T;
 
+        case Command.GetMic:
+          return mic as T;
+
+        case Command.SetMic:
+        case Command.SetMicMuted:
+          return undefined as T;
+
+        case Command.GetAudioSessions:
+          return sessions as T;
+
+        case Command.SetSessionVolume: {
+          const id = String(args["id"]);
+          const percent = Math.max(0, Math.min(100, Number(args["percent"])));
+          // A fresh array and fresh entries, as everywhere else in the mock:
+          // mutating in place would leave the store's selectors blind to it.
+          sessions = sessions.map((session) =>
+            session.id === id ? { ...session, percent } : session,
+          );
+          emit(Event.AudioSessions, sessions);
+          return undefined as T;
+        }
+
+        case Command.SetSessionMuted: {
+          const id = String(args["id"]);
+          const muted = Boolean(args["muted"]);
+          sessions = sessions.map((session) =>
+            session.id === id ? { ...session, muted } : session,
+          );
+          emit(Event.AudioSessions, sessions);
+          return undefined as T;
+        }
+
         case Command.SetBrightness: {
           const percent = Math.max(0, Math.min(100, Number(args["percent"])));
           brightness = { ...brightness, percent };
@@ -549,6 +615,8 @@ export function mockBackend(): Backend {
         if (event === Event.Tray) handler(tray as T);
         if (event === Event.Notifications) handler(notifications as T);
         if (event === Event.Volume) handler(volume as T);
+        if (event === Event.Mic) handler(mic as T);
+        if (event === Event.AudioSessions) handler(sessions as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
         if (event === Event.Osd) handler(osd as T);
       });

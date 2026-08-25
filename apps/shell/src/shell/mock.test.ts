@@ -153,6 +153,28 @@ describe("the mock backend", () => {
     expect(reread.sidebar.nightLight.enable).toBe(true);
   });
 
+  it("moving one application's volume leaves the others alone", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<Array<{ id: string; percent: number }>>(
+      Command.GetAudioSessions,
+    );
+    expect(before.length).toBeGreaterThan(1);
+
+    await backend.invoke(Command.SetSessionVolume, {
+      id: before[0]!.id,
+      percent: 10,
+    });
+    const after = await backend.invoke<Array<{ id: string; percent: number }>>(
+      Command.GetAudioSessions,
+    );
+
+    expect(after[0]!.percent).toBe(10);
+    expect(after[1]!.percent).toBe(before[1]!.percent);
+    // Fresh objects, or a store selecting the array would never see the change.
+    expect(after).not.toBe(before);
+    expect(after[0]).not.toBe(before[0]);
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(

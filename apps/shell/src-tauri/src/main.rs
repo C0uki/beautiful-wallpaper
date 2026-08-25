@@ -12,7 +12,9 @@ use std::time::Duration;
 use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
-use bw_shell::state::{AppState, BrightnessHandle, NotificationStore, VolumeHandle};
+use bw_shell::state::{
+    AppState, BrightnessHandle, MicHandle, MixerHandle, NotificationStore, VolumeHandle,
+};
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -83,6 +85,12 @@ fn main() {
             commands::set_brightness,
             commands::step_brightness,
             commands::set_night_light,
+            commands::get_mic,
+            commands::set_mic,
+            commands::set_mic_muted,
+            commands::get_audio_sessions,
+            commands::set_session_volume,
+            commands::set_session_muted,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -108,6 +116,8 @@ fn main() {
 
             app.manage(start_volume_watch(&handle));
             app.manage(start_brightness_watch(&handle));
+            app.manage(start_mic_watch(&handle));
+            app.manage(start_mixer(&handle));
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -188,7 +198,7 @@ fn start_volume_watch(app: &AppHandle) -> VolumeHandle {
         let handle = app.clone();
         let seen_first = AtomicBool::new(false);
 
-        let watcher = bw_shell::platform::audio::VolumeWatcher::new(move |reading| {
+        let watcher = bw_shell::platform::audio::VolumeWatcher::for_output(move |reading| {
             let reading: bw_shell::providers::VolumeReading = reading.into();
             let _ = handle.emit(event::VOLUME, reading);
 
@@ -211,6 +221,70 @@ fn start_volume_watch(app: &AppHandle) -> VolumeHandle {
     {
         let _ = app;
         VolumeHandle::new()
+    }
+}
+
+/// Watches the microphone.
+///
+/// No readout: the OSD is for things the user changed with a key they just
+/// pressed, and nothing on a standard keyboard changes input gain.
+fn start_mic_watch(app: &AppHandle) -> MicHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let watcher = bw_shell::platform::audio::VolumeWatcher::for_input(move |reading| {
+            let reading: bw_shell::providers::VolumeReading = reading.into();
+            let _ = handle.emit(event::MIC, reading);
+        });
+
+        match watcher {
+            Ok(watcher) => MicHandle(VolumeHandle::new(Some(watcher))),
+            Err(error) => {
+                // A machine with no microphone is entirely ordinary.
+                tracing::debug!(%error, "no microphone to watch");
+                MicHandle(VolumeHandle::new(None))
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        MicHandle(VolumeHandle::new())
+    }
+}
+
+/// Opens the per-application mixer.
+///
+/// The callback only says "something changed"; the sidebar re-reads the list.
+/// Sessions come and go constantly and the list is short, so re-reading is
+/// both cheaper to get right and safer than tracking a diff of COM objects
+/// that can disappear between one call and the next.
+fn start_mixer(app: &AppHandle) -> MixerHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let mixer = bw_shell::platform::mixer::Mixer::new(move || {
+            // `try_state`, not `state`: a session can change between the mixer
+            // being constructed and the handle being managed, and `state`
+            // panics on a type nobody has registered yet.
+            let Some(handles) = handle.try_state::<MixerHandle>() else {
+                return;
+            };
+            let _ = handle.emit(event::AUDIO_SESSIONS, handles.list());
+        });
+
+        match mixer {
+            Ok(mixer) => MixerHandle::new(Some(mixer)),
+            Err(error) => {
+                tracing::warn!(%error, "could not open the per-application mixer");
+                MixerHandle::new(None)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        MixerHandle::new()
     }
 }
 

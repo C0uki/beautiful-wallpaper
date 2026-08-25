@@ -13,7 +13,10 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::providers::{self, MediaAction};
 use crate::services;
-use crate::state::{AppState, BrightnessHandle, GlobalStates, NotificationStore, VolumeHandle};
+use crate::state::{
+    AppState, BrightnessHandle, GlobalStates, MicHandle, MixerHandle, NotificationStore,
+    VolumeHandle,
+};
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
 pub mod event {
@@ -31,6 +34,10 @@ pub mod event {
     pub const TRAY: &str = "bw://tray";
     pub const NOTIFICATIONS: &str = "bw://notifications";
     pub const VOLUME: &str = "bw://volume";
+    pub const MIC: &str = "bw://mic";
+    /// The per-application mixer changed: a session appeared, went away, or
+    /// moved its own level.
+    pub const AUDIO_SESSIONS: &str = "bw://audio-sessions";
     pub const BRIGHTNESS: &str = "bw://brightness";
     /// Asks the readout surface to appear, carrying what to show.
     pub const OSD: &str = "bw://osd";
@@ -400,4 +407,60 @@ pub fn set_night_light(
     state
         .set_config_value("sidebar.nightLight.enable", serde_json::json!(enable))
         .map_err(|error| error.to_string())
+}
+
+// --- Microphone and the mixer ----------------------------------------------
+
+#[tauri::command]
+pub fn get_mic(mic: State<'_, MicHandle>) -> providers::VolumeReading {
+    mic.0.read()
+}
+
+/// The microphone has no hearing-protection ceiling: turning an input up
+/// cannot hurt anybody's ears.
+#[tauri::command]
+pub fn set_mic(mic: State<'_, MicHandle>, percent: f32) -> Result<(), String> {
+    mic.0.set_percent(percent.clamp(0.0, 100.0), 100.0)
+}
+
+#[tauri::command]
+pub fn set_mic_muted(mic: State<'_, MicHandle>, muted: bool) -> Result<(), String> {
+    mic.0.set_muted(muted)
+}
+
+/// Every application currently playing audio.
+#[cfg(windows)]
+#[tauri::command]
+pub fn get_audio_sessions(
+    mixer: State<'_, MixerHandle>,
+) -> Vec<crate::platform::mixer::SessionInfo> {
+    mixer.list()
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub fn get_audio_sessions(mixer: State<'_, MixerHandle>) -> Vec<()> {
+    mixer.list()
+}
+
+#[tauri::command]
+pub fn set_session_volume(
+    state: State<'_, AppState>,
+    mixer: State<'_, MixerHandle>,
+    id: String,
+    percent: f32,
+) -> Result<(), String> {
+    // The same ceiling the master volume respects: a per-application slider is
+    // no less able to hurt somebody wearing headphones.
+    let ceiling = hearing_ceiling(&state.config());
+    mixer.set_percent(&id, percent.clamp(0.0, 100.0), ceiling)
+}
+
+#[tauri::command]
+pub fn set_session_muted(
+    mixer: State<'_, MixerHandle>,
+    id: String,
+    muted: bool,
+) -> Result<(), String> {
+    mixer.set_muted(&id, muted)
 }

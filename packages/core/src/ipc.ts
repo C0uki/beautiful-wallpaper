@@ -34,6 +34,10 @@ export const Event = {
   /** Output level, pushed by WASAPI rather than polled. */
   Volume: "bw://volume",
   Brightness: "bw://brightness",
+  /** Microphone level, pushed the same way the output level is. */
+  Mic: "bw://mic",
+  /** The per-application mixer changed. Carries the whole list. */
+  AudioSessions: "bw://audio-sessions",
   /** Asks the readout to appear, carrying what to show. */
   Osd: "bw://osd",
 } as const;
@@ -71,6 +75,12 @@ export const Command = {
   SetBrightness: "set_brightness",
   StepBrightness: "step_brightness",
   SetNightLight: "set_night_light",
+  GetMic: "get_mic",
+  SetMic: "set_mic",
+  SetMicMuted: "set_mic_muted",
+  GetAudioSessions: "get_audio_sessions",
+  SetSessionVolume: "set_session_volume",
+  SetSessionMuted: "set_session_muted",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -182,6 +192,23 @@ export interface VolumeReading {
   /** 0–100. */
   percent: number;
   muted: boolean;
+}
+
+/** One application in the volume mixer. */
+export interface AudioSession {
+  /** Stable while the session lives, and not reused after it ends — unlike
+   * the process id. */
+  id: string;
+  processId: number;
+  name: string;
+  /** A cached PNG path, or empty. Resolve with `backend().assetUrl`. */
+  icon: string;
+  /** 0–100. */
+  percent: number;
+  muted: boolean;
+  /** Sessions that have stopped playing are still listed; the mixer dims them
+   * rather than removing them, so a slider does not vanish under the pointer. */
+  active: boolean;
 }
 
 export interface BrightnessReading {

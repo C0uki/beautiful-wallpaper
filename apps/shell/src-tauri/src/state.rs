@@ -328,3 +328,63 @@ impl BrightnessHandle {
         self.read().is_some()
     }
 }
+
+/// The microphone's level.
+///
+/// A newtype rather than a second copy of [`VolumeHandle`]: the two differ
+/// only in which endpoint they follow, and Tauri distinguishes managed state
+/// by type, so a wrapper is all that is needed to have both.
+#[derive(Default)]
+pub struct MicHandle(pub VolumeHandle);
+
+/// The per-application volume mixer, or nothing when it could not be opened.
+#[derive(Default)]
+pub struct MixerHandle {
+    #[cfg(windows)]
+    mixer: Option<crate::platform::mixer::Mixer>,
+}
+
+impl MixerHandle {
+    #[cfg(windows)]
+    pub fn new(mixer: Option<crate::platform::mixer::Mixer>) -> Self {
+        Self { mixer }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    #[cfg(windows)]
+    pub fn list(&self) -> Vec<crate::platform::mixer::SessionInfo> {
+        self.mixer
+            .as_ref()
+            .map(|mixer| mixer.list())
+            .unwrap_or_default()
+    }
+
+    #[cfg(not(windows))]
+    pub fn list(&self) -> Vec<()> {
+        Vec::new()
+    }
+
+    pub fn set_percent(&self, _id: &str, _percent: f32, _ceiling: f32) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(mixer) = self.mixer.as_ref() {
+            return mixer
+                .set_percent(_id, _percent, _ceiling)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn set_muted(&self, _id: &str, _muted: bool) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(mixer) = self.mixer.as_ref() {
+            return mixer
+                .set_muted(_id, _muted)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+}

@@ -6,9 +6,13 @@
 //! lag, not as feedback. So this registers an `IAudioEndpointVolumeCallback`
 //! and lets Windows push.
 //!
-//! The default output device can be swapped while the shell runs, so the
-//! registration follows the device: `IMMNotificationClient` re-attaches the
-//! callback to whatever becomes default.
+//! The default device can be swapped while the shell runs, so the registration
+//! follows it: `IMMNotificationClient` re-attaches the callback to whatever
+//! becomes default.
+//!
+//! The same machinery serves the microphone. Output and input differ only in
+//! which `EDataFlow` is asked for, so the watcher takes one rather than being
+//! written twice — the second copy is where the two would drift apart.
 
 use std::sync::Arc;
 
@@ -19,8 +23,8 @@ use windows::Win32::Media::Audio::Endpoints::{
     IAudioEndpointVolume, IAudioEndpointVolumeCallback, IAudioEndpointVolumeCallback_Impl,
 };
 use windows::Win32::Media::Audio::{
-    eConsole, eRender, IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
-    MMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE,
+    eCapture, eConsole, eRender, EDataFlow, IMMDeviceEnumerator, IMMNotificationClient,
+    IMMNotificationClient_Impl, MMDeviceEnumerator, AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE,
 };
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
@@ -69,6 +73,24 @@ pub struct VolumeWatcher {
     endpoint: Arc<SharedEndpoint>,
 }
 
+/// Which end of the audio stack a watcher follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    /// Speakers and headphones: what the volume keys change.
+    Output,
+    /// The microphone, which the sidebar's mic slider and mute toggle drive.
+    Input,
+}
+
+impl Direction {
+    fn flow(self) -> EDataFlow {
+        match self {
+            Self::Output => eRender,
+            Self::Input => eCapture,
+        }
+    }
+}
+
 /// The current default device, plus the callback registered against it.
 struct Endpoint {
     volume: IAudioEndpointVolume,
@@ -109,10 +131,23 @@ unsafe impl Send for VolumeWatcher {}
 unsafe impl Sync for VolumeWatcher {}
 
 impl VolumeWatcher {
+    /// Watches the default output device.
+    pub fn for_output(on_change: impl Fn(VolumeReading) + Send + Sync + 'static) -> Result<Self> {
+        Self::new(Direction::Output, on_change)
+    }
+
+    /// Watches the default microphone.
+    pub fn for_input(on_change: impl Fn(VolumeReading) + Send + Sync + 'static) -> Result<Self> {
+        Self::new(Direction::Input, on_change)
+    }
+
     /// Starts watching, calling `on_change` for every volume or mute change.
     ///
     /// The callback runs on an audio-service thread, so it must not block.
-    pub fn new(on_change: impl Fn(VolumeReading) + Send + Sync + 'static) -> Result<Self> {
+    pub fn new(
+        direction: Direction,
+        on_change: impl Fn(VolumeReading) + Send + Sync + 'static,
+    ) -> Result<Self> {
         let on_change: OnChange = Arc::new(on_change);
         unsafe {
             // The audio APIs are only usable from an initialised apartment, and
@@ -125,12 +160,13 @@ impl VolumeWatcher {
 
             let endpoint = SharedEndpoint::new();
 
-            attach(&enumerator, &endpoint, on_change.clone())?;
+            attach(direction, &enumerator, &endpoint, on_change.clone())?;
 
             // Following the default device means the readout keeps working when
             // headphones are plugged in, rather than silently reporting the old
             // device forever.
             let notification_client: IMMNotificationClient = DefaultDeviceWatcher {
+                direction,
                 enumerator: enumerator.clone(),
                 endpoint: endpoint.clone(),
                 on_change,
@@ -208,11 +244,12 @@ unsafe fn read_endpoint(volume: &IAudioEndpointVolume) -> VolumeReading {
 
 /// Points the callback at the current default output device.
 unsafe fn attach(
+    direction: Direction,
     enumerator: &IMMDeviceEnumerator,
     endpoint: &Arc<SharedEndpoint>,
     on_change: OnChange,
 ) -> Result<()> {
-    let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole)?;
+    let device = enumerator.GetDefaultAudioEndpoint(direction.flow(), eConsole)?;
     let volume: IAudioEndpointVolume = device.Activate(CLSCTX_ALL, None)?;
 
     let callback: IAudioEndpointVolumeCallback = VolumeCallback {
@@ -259,6 +296,7 @@ impl IAudioEndpointVolumeCallback_Impl for VolumeCallback_Impl {
 
 #[implement(IMMNotificationClient)]
 struct DefaultDeviceWatcher {
+    direction: Direction,
     enumerator: IMMDeviceEnumerator,
     endpoint: Arc<SharedEndpoint>,
     on_change: OnChange,
@@ -271,14 +309,20 @@ impl IMMNotificationClient_Impl for DefaultDeviceWatcher_Impl {
         role: windows::Win32::Media::Audio::ERole,
         _id: &PCWSTR,
     ) -> Result<()> {
-        // Only the device this shell reads from, and only the role it uses.
-        if flow != eRender || role != eConsole {
+        // Only the device this watcher follows, and only the role it uses.
+        if flow != self.direction.flow() || role != eConsole {
             return Ok(());
         }
         unsafe {
-            // A failure here means there is no output device at all, which is a
-            // normal state; the readout simply reports nothing until one exists.
-            let _ = attach(&self.enumerator, &self.endpoint, self.on_change.clone());
+            // A failure here means there is no device of this kind at all,
+            // which is a normal state; the watcher reports nothing until one
+            // exists rather than treating it as an error.
+            let _ = attach(
+                self.direction,
+                &self.enumerator,
+                &self.endpoint,
+                self.on_change.clone(),
+            );
         }
         Ok(())
     }
