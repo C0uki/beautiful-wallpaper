@@ -10,6 +10,7 @@ import type { Notifications } from "./Notifications";
 import type { Osd } from "./Osd";
 import type { Policies } from "./Policies";
 import type { Resources } from "./Resources";
+import type { Sidebar } from "./Sidebar";
 import type { Time } from "./Time";
 import type { WallpaperSelector } from "./WallpaperSelector";
 import type { Weather } from "./Weather";
@@ -31,6 +32,7 @@ export type Config = {
   osd: Osd;
   policies: Policies;
   resources: Resources;
+  sidebar: Sidebar;
   time: Time;
   wallpaperSelector: WallpaperSelector;
   weather: Weather;

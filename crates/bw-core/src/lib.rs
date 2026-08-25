@@ -11,9 +11,13 @@
 pub mod config;
 pub mod notifications;
 pub mod paths;
+pub mod persistent;
 pub mod theme;
+pub mod todo;
 pub mod wallpaper;
 
 pub use config::Config;
 pub use notifications::{NewNotification, Notification, Urgency};
+pub use persistent::Persistent;
 pub use theme::{GeneratedTheme, Mode};
+pub use todo::TodoItem;

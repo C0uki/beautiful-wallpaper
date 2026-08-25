@@ -62,6 +62,7 @@ config_struct! {
         pub osd: Osd = Osd::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
+        pub sidebar: Sidebar = Sidebar::default(),
         pub time: Time = Time::default(),
         pub wallpaper_selector: WallpaperSelector = WallpaperSelector::default(),
         pub weather: Weather = Weather::default(),
@@ -281,6 +282,69 @@ config_struct! {
         pub enable: bool = true,
         /// Volume is not allowed above this by the shell's own controls.
         pub max_volume: u32 = 100,
+    }
+}
+
+config_struct! {
+    /// The right sidebar: the shell's control centre.
+    pub struct Sidebar {
+        pub enable: bool = true,
+        /// Fraction of the screen width the panel occupies.
+        pub width: f64 = 0.26,
+        /// Show the wallpaper banner with the avatar and uptime, rather than a
+        /// plain row of system buttons.
+        pub banner: bool = true,
+        /// Overrides the banner image; empty means the current wallpaper.
+        pub banner_image: String = String::new(),
+        pub media_player: bool = true,
+        pub notification_centre: bool = true,
+        pub profile: Profile = Profile::default(),
+        pub quick_toggles: QuickToggles = QuickToggles::default(),
+        pub quick_sliders: QuickSliders = QuickSliders::default(),
+        pub night_light: NightLight = NightLight::default(),
+    }
+}
+
+config_struct! {
+    pub struct Profile {
+        /// Empty means the Windows account name.
+        pub display_name: String = String::new(),
+        /// Empty means the account picture Windows already has.
+        pub avatar_path: String = String::new(),
+    }
+}
+
+config_struct! {
+    pub struct QuickToggles {
+        pub enable: bool = true,
+        /// `"classic"` for a single row of small buttons, `"android"` for the
+        /// editable grid of tiles. Both are built; this only picks which.
+        pub style: String = s("android"),
+    }
+}
+
+config_struct! {
+    pub struct QuickSliders {
+        pub enable: bool = true,
+        pub show_brightness: bool = true,
+        pub show_volume: bool = true,
+        pub show_mic: bool = true,
+    }
+}
+
+config_struct! {
+    /// A warm-tint overlay, applied by the shell through the display's gamma
+    /// ramp rather than by driving Windows' own Night Light — that setting
+    /// lives in an undocumented registry blob with no supported API.
+    pub struct NightLight {
+        pub enable: bool = false,
+        /// Colour temperature in kelvin. 6500 is neutral; lower is warmer.
+        pub temperature: u32 = 4000,
+        /// Turn it on and off with the clock rather than by hand.
+        pub automatic: bool = false,
+        /// 24-hour local times, used only when `automatic` is set.
+        pub from: String = s("20:00"),
+        pub to: String = s("07:00"),
     }
 }
 

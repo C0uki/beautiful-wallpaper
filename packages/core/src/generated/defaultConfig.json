@@ -151,6 +151,35 @@
     "pollInterval": 2000,
     "showSwap": false
   },
+  "sidebar": {
+    "enable": true,
+    "width": 0.26,
+    "banner": true,
+    "bannerImage": "",
+    "mediaPlayer": true,
+    "notificationCentre": true,
+    "profile": {
+      "displayName": "",
+      "avatarPath": ""
+    },
+    "quickToggles": {
+      "enable": true,
+      "style": "android"
+    },
+    "quickSliders": {
+      "enable": true,
+      "showBrightness": true,
+      "showVolume": true,
+      "showMic": true
+    },
+    "nightLight": {
+      "enable": false,
+      "temperature": 4000,
+      "automatic": false,
+      "from": "20:00",
+      "to": "07:00"
+    }
+  },
   "time": {
     "format": "HH:mm",
     "dateFormat": "ddd, dd/MM",
