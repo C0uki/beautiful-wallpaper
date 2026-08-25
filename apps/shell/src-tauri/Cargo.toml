@@ -46,12 +46,20 @@ keyring = "4.1.6"
 bw-core = { version = "0.1.0", path = "../../../crates/bw-core" }
 
 [target.'cfg(windows)'.dependencies]
+windows-core = "0.58"
 windows-registry = "0.5"
 windows = { version = "0.58", features = [
+  "Devices_Bluetooth",
+  "Devices_Enumeration",
+  "Devices_Radios",
+  "Devices_WiFi",
   "Foundation",
   "Foundation_Collections",
+  "Networking_Connectivity",
+  "Security_Credentials",
   "Media_Control",
   "Storage_Streams",
+  "Win32_Devices_Display",
   "Win32_Devices_FunctionDiscovery",
   "Win32_Foundation",
   "Win32_Graphics_Dwm",
@@ -62,16 +70,20 @@ windows = { version = "0.58", features = [
   "Win32_NetworkManagement_Ndis",
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
+  "Win32_System_Rpc",
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Memory",
   "Win32_System_LibraryLoader",
   "Win32_System_Power",
   "Win32_System_Threading",
   "Win32_System_Variant",
+  "Win32_System_Wmi",
+  "Win32_UI_ColorSystem",
   "Win32_UI_Controls",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",
+  "Win32_UI_Shell_PropertiesSystem",
   "Win32_UI_WindowsAndMessaging",
   "implement",
 ] }

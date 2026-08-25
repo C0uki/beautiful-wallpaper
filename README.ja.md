@@ -98,6 +98,12 @@ cargo clippy --target x86_64-pc-windows-msvc --all-targets
 Win32 / WinRT 呼び出しを型検査できます。Windows ターゲットの `cargo check` は
 Linux でも macOS でも通り、Windows が要るのはリンクだけです。
 
+同梱のアイコンフォントは、シェルが描画するアイコンだけに絞った Material Symbols の
+サブセットで、対象は `apps/shell/scripts/icons.json` に列挙してあります。リストに
+無い名前は字形ではなく**その単語がそのまま描画される**ため、UI にアイコンを増やす
+ときはこのファイルに追記して `pnpm gen:icons` を実行してください（`fonttools` と
+`brotli` が必要です）。
+
 Rust のツールチェーンは `rust-toolchain.toml` で固定してあり、rustup が CI と
 同じコンパイラを clippy・rustfmt・Windows ターゲットごと入れます。これは
 `-D warnings` にとって重要です。バージョンが違うと、CI が強制するリントが手元に

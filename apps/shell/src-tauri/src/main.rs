@@ -12,9 +12,12 @@ use std::time::Duration;
 use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
-use bw_shell::state::AppState;
+use bw_shell::state::{
+    AppState, BrightnessHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
+    PersistentStore, TodoStore, VolumeHandle,
+};
 use bw_shell::{cli, surfaces};
-use tauri::{Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -52,6 +55,7 @@ fn main() {
         ))
         .manage(state.clone())
         .manage(surfaces::Reservations::default())
+        .manage(NotificationStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::set_config_value,
@@ -70,6 +74,41 @@ fn main() {
             commands::media_command,
             commands::get_monitors,
             commands::set_taskbar_visible,
+            commands::get_notifications,
+            commands::post_notification,
+            commands::dismiss_notification,
+            commands::clear_notifications,
+            commands::get_volume,
+            commands::set_volume,
+            commands::set_muted,
+            commands::step_volume,
+            commands::get_brightness,
+            commands::set_brightness,
+            commands::step_brightness,
+            commands::set_night_light,
+            commands::get_mic,
+            commands::set_mic,
+            commands::set_mic_muted,
+            commands::get_audio_sessions,
+            commands::set_session_volume,
+            commands::set_session_muted,
+            commands::get_radios,
+            commands::set_radio,
+            commands::scan_wifi,
+            commands::connect_wifi,
+            commands::disconnect_wifi,
+            commands::get_bluetooth_devices,
+            commands::get_idle_inhibit,
+            commands::set_idle_inhibit,
+            commands::get_system_info,
+            commands::get_todos,
+            commands::add_todo,
+            commands::set_todo_done,
+            commands::remove_todo,
+            commands::clear_done_todos,
+            commands::reorder_todo,
+            commands::get_persistent,
+            commands::set_persistent_value,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -92,6 +131,14 @@ fn main() {
             // Kept alive for the life of the app; dropping it stops the watch.
             let watcher = services::config::watch(handle.clone(), state.clone());
             app.manage(WatcherHandle(watcher));
+
+            app.manage(start_volume_watch(&handle));
+            app.manage(start_brightness_watch(&handle));
+            app.manage(start_mic_watch(&handle));
+            app.manage(start_mixer(&handle));
+            app.manage(IdleHandle::default());
+            app.manage(TodoStore::default());
+            app.manage(PersistentStore::default());
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -156,4 +203,186 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             }
         });
     }
+}
+
+/// Starts watching the output volume, and shows the readout on every change.
+///
+/// The watcher pushes rather than polls, so the readout appears on the same
+/// keypress that changed the volume. The very first reading is the current
+/// level rather than a change, so it is recorded without showing anything —
+/// otherwise the readout would flash on every launch.
+fn start_volume_watch(app: &AppHandle) -> VolumeHandle {
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let handle = app.clone();
+        let seen_first = AtomicBool::new(false);
+
+        let watcher = bw_shell::platform::audio::VolumeWatcher::for_output(move |reading| {
+            let reading: bw_shell::providers::VolumeReading = reading.into();
+            let _ = handle.emit(event::VOLUME, reading);
+
+            if seen_first.swap(true, Ordering::Relaxed) {
+                show_osd(&handle, "volume", reading.percent, reading.muted);
+            }
+        });
+
+        match watcher {
+            Ok(watcher) => VolumeHandle::new(Some(watcher)),
+            Err(error) => {
+                // No output device, or an audio service that will not talk to
+                // us. The shell runs; the readout simply has nothing to show.
+                tracing::warn!(%error, "could not watch the output volume");
+                VolumeHandle::new(None)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        VolumeHandle::new()
+    }
+}
+
+/// Watches the microphone.
+///
+/// No readout: the OSD is for things the user changed with a key they just
+/// pressed, and nothing on a standard keyboard changes input gain.
+fn start_mic_watch(app: &AppHandle) -> MicHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let watcher = bw_shell::platform::audio::VolumeWatcher::for_input(move |reading| {
+            let reading: bw_shell::providers::VolumeReading = reading.into();
+            let _ = handle.emit(event::MIC, reading);
+        });
+
+        match watcher {
+            Ok(watcher) => MicHandle(VolumeHandle::new(Some(watcher))),
+            Err(error) => {
+                // A machine with no microphone is entirely ordinary.
+                tracing::debug!(%error, "no microphone to watch");
+                MicHandle(VolumeHandle::new(None))
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        MicHandle(VolumeHandle::new())
+    }
+}
+
+/// Opens the per-application mixer.
+///
+/// The callback only says "something changed"; the sidebar re-reads the list.
+/// Sessions come and go constantly and the list is short, so re-reading is
+/// both cheaper to get right and safer than tracking a diff of COM objects
+/// that can disappear between one call and the next.
+fn start_mixer(app: &AppHandle) -> MixerHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let mixer = bw_shell::platform::mixer::Mixer::new(move || {
+            // `try_state`, not `state`: a session can change between the mixer
+            // being constructed and the handle being managed, and `state`
+            // panics on a type nobody has registered yet.
+            let Some(handles) = handle.try_state::<MixerHandle>() else {
+                return;
+            };
+            let _ = handle.emit(event::AUDIO_SESSIONS, handles.list());
+        });
+
+        match mixer {
+            Ok(mixer) => MixerHandle::new(Some(mixer)),
+            Err(error) => {
+                tracing::warn!(%error, "could not open the per-application mixer");
+                MixerHandle::new(None)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        MixerHandle::new()
+    }
+}
+
+/// Starts the brightness worker, and shows the readout on every change.
+///
+/// Mirrors the volume watcher, including swallowing the first reading: that
+/// one is the current level rather than a change, and showing it would flash
+/// the readout on every launch.
+fn start_brightness_watch(app: &AppHandle) -> BrightnessHandle {
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let handle = app.clone();
+        let seen_first = AtomicBool::new(false);
+
+        let control = bw_shell::platform::brightness::BrightnessControl::new(move |percent| {
+            let _ = handle.emit(event::BRIGHTNESS, percent);
+
+            if seen_first.swap(true, Ordering::Relaxed) {
+                show_osd(&handle, "brightness", f32::from(percent), false);
+            }
+        });
+
+        // The night light is a config setting, so it has to be re-applied at
+        // startup — the gamma ramp is cleared when the shell exits.
+        let config = app.state::<AppState>().config();
+        if config.sidebar.night_light.enable {
+            control.set_night_light(Some(config.sidebar.night_light.temperature));
+        }
+
+        BrightnessHandle::new(Some(control))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        BrightnessHandle::new()
+    }
+}
+
+/// Shows the readout with a value, and lets it time itself out.
+///
+/// The timeout lives here rather than in the surface so that a burst of
+/// changes — holding a volume key — keeps the readout up instead of letting an
+/// early timer close it mid-press.
+#[cfg(windows)]
+fn show_osd(app: &AppHandle, kind: &str, value: f32, muted: bool) {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::OnceLock;
+
+    static GENERATION: OnceLock<AtomicU64> = OnceLock::new();
+    let generation = GENERATION.get_or_init(|| AtomicU64::new(0));
+
+    let state = app.state::<AppState>();
+    let config = state.config();
+    if !config.osd.enable {
+        return;
+    }
+
+    let _ = app.emit(
+        event::OSD,
+        serde_json::json!({ "kind": kind, "value": value, "muted": muted }),
+    );
+    if let Err(error) = surfaces::set_visible(app, surfaces::OSD.label, true) {
+        tracing::warn!(%error, "could not show the readout");
+        return;
+    }
+
+    // Only the newest change gets to close the readout.
+    let mine = generation.fetch_add(1, Ordering::Relaxed) + 1;
+    let handle = app.clone();
+    let timeout = Duration::from_millis(u64::from(config.osd.timeout));
+
+    std::thread::spawn(move || {
+        std::thread::sleep(timeout);
+        if generation.load(Ordering::Relaxed) == mine {
+            let _ = surfaces::set_visible(&handle, surfaces::OSD.label, false);
+        }
+    });
 }

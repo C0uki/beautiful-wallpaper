@@ -1,0 +1,71 @@
+/* The readout is one pill, centred in a window sized to hold it. */
+
+.bw-osd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* The pill would otherwise shrink-wrap its content and leave the track,
+     which only asks for flex space, with nothing to take. */
+  width: min(320px, 100%);
+  padding: 10px 16px 10px 10px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--layer1) calc((1 - var(--background-transparency)) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 6px 24px var(--shadow);
+  color: var(--on-surface);
+  animation: bw-osd-in var(--duration-normal) var(--ease-spatial-default);
+}
+
+@keyframes bw-osd-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+.bw-osd-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--secondary-container, var(--layer3));
+  color: var(--on-surface);
+  flex: none;
+}
+
+.bw-osd[data-muted="true"] .bw-osd-icon {
+  background: var(--layer3);
+  color: var(--on-surface-variant);
+}
+
+.bw-osd-track {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--layer3);
+  overflow: hidden;
+}
+
+.bw-osd-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-osd[data-muted="true"] .bw-osd-fill {
+  background: var(--outline);
+}
+
+.bw-osd-value {
+  min-width: 2.4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}

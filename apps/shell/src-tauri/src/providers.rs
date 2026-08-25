@@ -510,3 +510,76 @@ pub fn tray_icons() -> Vec<crate::platform::tray::TrayIcon> {
 pub fn tray_icons() -> Vec<serde_json::Value> {
     Vec::new()
 }
+
+/// The output level, in the shape the readout surface reads.
+///
+/// Defined here rather than in `platform::audio` so the type exists on every
+/// host and the commands do not need to be `#[cfg]`-gated.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeReading {
+    /// 0–100.
+    pub percent: f32,
+    pub muted: bool,
+}
+
+#[cfg(windows)]
+impl From<crate::platform::audio::VolumeReading> for VolumeReading {
+    fn from(reading: crate::platform::audio::VolumeReading) -> Self {
+        Self {
+            percent: reading.percent,
+            muted: reading.muted,
+        }
+    }
+}
+
+// --- Radios ----------------------------------------------------------------
+//
+// Shapes rather than behaviour: the Wi-Fi and Bluetooth code is Windows-only,
+// but the commands that return these are not, so the types live here.
+
+/// What the quick toggles need to draw themselves.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadiosState {
+    /// `None` when the machine has no radio of that kind at all — which is the
+    /// signal to hide the tile rather than draw it greyed.
+    pub wifi: Option<bool>,
+    pub bluetooth: Option<bool>,
+    /// Whether the shell is allowed to change them. Radio access can be denied
+    /// by the user or by policy, and a toggle that silently does nothing is
+    /// worse than one that is visibly unavailable.
+    pub can_control: bool,
+}
+
+/// One network the adapter can see.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WifiNetwork {
+    pub ssid: String,
+    /// 0–5, as Windows reports it. The UI draws bars, not decibels.
+    pub bars: u8,
+    pub secured: bool,
+}
+
+/// Why a connection attempt ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConnectOutcome {
+    Connected,
+    /// The password was wrong — the one failure worth asking the user to fix.
+    BadPassword,
+    /// Everything else: out of range, timed out, an unsupported protocol, or
+    /// no adapter at all.
+    Failed,
+}
+
+/// One Bluetooth device the machine is paired with.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BluetoothDeviceInfo {
+    pub id: String,
+    pub name: String,
+    /// Whether it is currently in range and talking.
+    pub connected: bool,
+}

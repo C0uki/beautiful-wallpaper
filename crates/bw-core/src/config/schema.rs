@@ -52,13 +52,17 @@ config_struct! {
     /// Root of `config.json`.
     pub struct Config {
         pub appearance: Appearance = Appearance::default(),
+        pub audio: Audio = Audio::default(),
         pub background: Background = Background::default(),
         pub bar: Bar = Bar::default(),
         pub dock: Dock = Dock::default(),
         pub hacks: Hacks = Hacks::default(),
         pub language: Language = Language::default(),
+        pub notifications: Notifications = Notifications::default(),
+        pub osd: Osd = Osd::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
+        pub sidebar: Sidebar = Sidebar::default(),
         pub time: Time = Time::default(),
         pub wallpaper_selector: WallpaperSelector = WallpaperSelector::default(),
         pub weather: Weather = Weather::default(),
@@ -228,6 +232,119 @@ config_struct! {
         pub pinned_apps: Vec<String> = Vec::new(),
         pub auto_hide: bool = true,
         pub icon_size: u32 = 44,
+    }
+}
+
+config_struct! {
+    /// The transient readout shown when volume or brightness changes.
+    pub struct Osd {
+        pub enable: bool = true,
+        /// Milliseconds the readout stays up after the last change.
+        pub timeout: u32 = 1000,
+        /// `"top"` or `"bottom"`. The readout clears the bar on whichever edge
+        /// the bar occupies, so this is only about which end of the screen.
+        pub position: String = s("top"),
+        pub volume: bool = true,
+        /// Brightness is unavailable on some displays; the readout is simply
+        /// not shown when the platform cannot report a level.
+        pub brightness: bool = true,
+    }
+}
+
+config_struct! {
+    pub struct Notifications {
+        pub enable: bool = true,
+        /// Milliseconds a toast stays up. Urgent notifications ignore this.
+        pub timeout: u32 = 7000,
+        /// One of `top_left`, `top_center`, `top_right`, `bottom_left`,
+        /// `bottom_center`, `bottom_right`.
+        pub position: String = s("top_right"),
+        /// Toasts beyond this stay in the centre without ever popping up.
+        pub max_visible: u32 = 4,
+        /// Suppresses toasts without discarding the notifications themselves.
+        pub do_not_disturb: bool = false,
+        pub width: u32 = 380,
+    }
+}
+
+config_struct! {
+    pub struct Audio {
+        /// Percentage points per volume step.
+        pub step: u32 = 5,
+        pub protection: HearingProtection = HearingProtection::default(),
+    }
+}
+
+config_struct! {
+    /// Guards against the volume jumping to something painful, which the
+    /// original shell also does.
+    pub struct HearingProtection {
+        pub enable: bool = true,
+        /// Volume is not allowed above this by the shell's own controls.
+        pub max_volume: u32 = 100,
+    }
+}
+
+config_struct! {
+    /// The right sidebar: the shell's control centre.
+    pub struct Sidebar {
+        pub enable: bool = true,
+        /// Fraction of the screen width the panel occupies.
+        pub width: f64 = 0.26,
+        /// Show the wallpaper banner with the avatar and uptime, rather than a
+        /// plain row of system buttons.
+        pub banner: bool = true,
+        /// Overrides the banner image; empty means the current wallpaper.
+        pub banner_image: String = String::new(),
+        pub media_player: bool = true,
+        pub notification_centre: bool = true,
+        pub profile: Profile = Profile::default(),
+        pub quick_toggles: QuickToggles = QuickToggles::default(),
+        pub quick_sliders: QuickSliders = QuickSliders::default(),
+        pub night_light: NightLight = NightLight::default(),
+    }
+}
+
+config_struct! {
+    pub struct Profile {
+        /// Empty means the Windows account name.
+        pub display_name: String = String::new(),
+        /// Empty means the account picture Windows already has.
+        pub avatar_path: String = String::new(),
+    }
+}
+
+config_struct! {
+    pub struct QuickToggles {
+        pub enable: bool = true,
+        /// `"classic"` for a single row of small buttons, `"android"` for the
+        /// editable grid of tiles. Both are built; this only picks which.
+        pub style: String = s("android"),
+    }
+}
+
+config_struct! {
+    pub struct QuickSliders {
+        pub enable: bool = true,
+        pub show_brightness: bool = true,
+        pub show_volume: bool = true,
+        pub show_mic: bool = true,
+    }
+}
+
+config_struct! {
+    /// A warm-tint overlay, applied by the shell through the display's gamma
+    /// ramp rather than by driving Windows' own Night Light — that setting
+    /// lives in an undocumented registry blob with no supported API.
+    pub struct NightLight {
+        pub enable: bool = false,
+        /// Colour temperature in kelvin. 6500 is neutral; lower is warmer.
+        pub temperature: u32 = 4000,
+        /// Turn it on and off with the clock rather than by hand.
+        pub automatic: bool = false,
+        /// 24-hour local times, used only when `automatic` is set.
+        pub from: String = s("20:00"),
+        pub to: String = s("07:00"),
     }
 }
 

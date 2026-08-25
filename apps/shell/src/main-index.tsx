@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./design/ThemeProvider";
 import { Background } from "./surfaces/background/Background";
 import { Bar } from "./surfaces/bar/Bar";
+import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
@@ -17,7 +18,7 @@ import { Button, Segmented, Symbol } from "./widgets";
 import { TRANSITION_NAMES } from "./gl/transitions";
 import "./design/global.css";
 
-type View = "desktop" | "wallpapers" | "both";
+type View = "desktop" | "wallpapers" | "sidebar" | "both";
 
 function Harness() {
   const [view, setView] = useState<View>("both");
@@ -26,6 +27,7 @@ function Harness() {
   const config = useShell((state) => state.config);
   const theme = useShell((state) => state.theme);
   const selectorOpen = useShell((state) => state.states.wallpaperSelectorOpen);
+  const sidebarOpen = useShell((state) => state.states.sidebarRightOpen);
 
   useEffect(() => {
     void connect();
@@ -39,8 +41,10 @@ function Harness() {
     );
   }
 
-  const showDesktop = view === "desktop" || view === "both";
-  const showSelector = view === "wallpapers" || view === "both" || selectorOpen;
+  const showSidebar = view === "sidebar" || sidebarOpen;
+  const showDesktop = !showSidebar && (view === "desktop" || view === "both");
+  const showSelector =
+    !showSidebar && (view === "wallpapers" || view === "both" || selectorOpen);
   const barHeight = config.bar.enable ? config.bar.height : 0;
 
   return (
@@ -88,6 +92,7 @@ function Harness() {
             { value: "both", label: "Both", icon: "grid_view" },
             { value: "desktop", label: "Desktop", icon: "wallpaper" },
             { value: "wallpapers", label: "Picker", icon: "photo_library" },
+            { value: "sidebar", label: "Sidebar", icon: "dock_to_left" },
           ]}
           value={view}
           onChange={setView}
@@ -180,6 +185,40 @@ function Harness() {
           </select>
         </label>
 
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: "0.86em",
+          }}
+        >
+          <Symbol name="tune" size={16} />
+          <select
+            aria-label="Toggle style"
+            value={config.sidebar.quickToggles.style}
+            onChange={(event) =>
+              void actions.setConfigValue(
+                "sidebar.quickToggles.style",
+                event.target.value,
+              )
+            }
+            style={{
+              background: "var(--layer3)",
+              color: "var(--on-surface)",
+              border: 0,
+              borderRadius: 999,
+              padding: "6px 10px",
+            }}
+          >
+            {["android", "classic"].map((name) => (
+              <option key={name} value={name}>
+                toggles: {name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <Button
           icon={config.bar.bottom ? "expand_more" : "expand_less"}
           onClick={() =>
@@ -191,6 +230,21 @@ function Harness() {
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {showSidebar ? (
+          // On Windows this is its own window pinned to the right edge; here it
+          // gets a pane of roughly the same proportions.
+          <div
+            style={{
+              width: 420,
+              padding: 12,
+              margin: "0 auto",
+              minHeight: 0,
+            }}
+          >
+            <SidebarRight />
+          </div>
+        ) : null}
+
         {showDesktop ? (
           <div style={{ flex: 3, minWidth: 0, position: "relative" }}>
             <Background />

@@ -23,6 +23,13 @@
     },
     "roundingScale": 1.0
   },
+  "audio": {
+    "step": 5,
+    "protection": {
+      "enable": true,
+      "maxVolume": 100
+    }
+  },
   "background": {
     "wallpaperPath": "",
     "thumbnailPath": "",
@@ -121,6 +128,21 @@
   "language": {
     "ui": "auto"
   },
+  "notifications": {
+    "enable": true,
+    "timeout": 7000,
+    "position": "top_right",
+    "maxVisible": 4,
+    "doNotDisturb": false,
+    "width": 380
+  },
+  "osd": {
+    "enable": true,
+    "timeout": 1000,
+    "position": "top",
+    "volume": true,
+    "brightness": true
+  },
   "policies": {
     "ai": 1,
     "weeb": 0
@@ -128,6 +150,35 @@
   "resources": {
     "pollInterval": 2000,
     "showSwap": false
+  },
+  "sidebar": {
+    "enable": true,
+    "width": 0.26,
+    "banner": true,
+    "bannerImage": "",
+    "mediaPlayer": true,
+    "notificationCentre": true,
+    "profile": {
+      "displayName": "",
+      "avatarPath": ""
+    },
+    "quickToggles": {
+      "enable": true,
+      "style": "android"
+    },
+    "quickSliders": {
+      "enable": true,
+      "showBrightness": true,
+      "showVolume": true,
+      "showMic": true
+    },
+    "nightLight": {
+      "enable": false,
+      "temperature": 4000,
+      "automatic": false,
+      "from": "20:00",
+      "to": "07:00"
+    }
   },
   "time": {
     "format": "HH:mm",

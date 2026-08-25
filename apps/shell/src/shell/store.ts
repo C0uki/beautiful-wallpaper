@@ -17,11 +17,22 @@ import {
   type MediaState,
   type ResourceReading,
   type ActiveWindow,
+  type Notification,
   type NetworkReading,
   type StateFlagName,
   type TrayIcon,
   type WeatherState,
   type WorkspaceState,
+  type AudioSession,
+  type BrightnessReading,
+  type Persistent,
+  type RadiosState,
+  type SystemInfo,
+  type TodoItem,
+  type VolumeReading,
+  type WifiNetwork,
+  type ConnectOutcome,
+  type BluetoothDeviceInfo,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -39,6 +50,15 @@ export interface ShellState {
   activeWindow: ActiveWindow | null;
   network: NetworkReading | null;
   tray: TrayIcon[];
+  notifications: Notification[];
+  volume: VolumeReading;
+  mic: VolumeReading;
+  brightness: BrightnessReading;
+  sessions: AudioSession[];
+  radios: RadiosState;
+  todos: TodoItem[];
+  persistent: Persistent;
+  systemInfo: SystemInfo | null;
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
   /** Ticked once a second, so every clock in a surface stays in step. */
@@ -58,6 +78,20 @@ const initial: ShellState = {
   activeWindow: null,
   network: null,
   tray: [],
+  notifications: [],
+  volume: { percent: 0, muted: false },
+  mic: { percent: 0, muted: false },
+  // Assume unsupported until the backend says otherwise: showing a slider and
+  // then removing it is worse than showing it a moment late.
+  brightness: { percent: null, supported: false },
+  sessions: [],
+  radios: { wifi: null, bluetooth: null, canControl: false },
+  todos: [],
+  persistent: {
+    sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
+    idle: { inhibit: false },
+  },
+  systemInfo: null,
   wallpaper: { path: "", blanked: false },
   now: new Date(),
 };
@@ -91,9 +125,26 @@ export function connect(): Promise<void> {
       ),
       api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
       api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
+      api.listen<Notification[]>(Event.Notifications, (notifications) =>
+        set({ notifications }),
+      ),
       api.listen<{ path: string; blanked: boolean }>(
         Event.WallpaperChanged,
         (wallpaper) => set({ wallpaper }),
+      ),
+      api.listen<VolumeReading>(Event.Volume, (volume) => set({ volume })),
+      api.listen<VolumeReading>(Event.Mic, (mic) => set({ mic })),
+      // The backend only pushes a level when there is one to push, so an
+      // arriving event is itself the evidence that the control exists.
+      api.listen<number>(Event.Brightness, (percent) =>
+        set({ brightness: { percent, supported: true } }),
+      ),
+      api.listen<AudioSession[]>(Event.AudioSessions, (sessions) =>
+        set({ sessions }),
+      ),
+      api.listen<TodoItem[]>(Event.Todos, (todos) => set({ todos })),
+      api.listen<Persistent>(Event.Persistent, (persistent) =>
+        set({ persistent }),
       ),
     ]);
 
@@ -119,6 +170,44 @@ export function connect(): Promise<void> {
   return connected;
 }
 
+let sidebarConnected: Promise<void> | undefined;
+
+/**
+ * Fetches what only the sidebar needs.
+ *
+ * Kept out of `connect` deliberately: enumerating radios and audio sessions
+ * costs real time, and the bar and the background surface would pay it at
+ * startup for data they never draw.
+ */
+export function connectSidebar(): Promise<void> {
+  sidebarConnected ??= (async () => {
+    const api = backend();
+    await connect();
+
+    const [volume, mic, brightness, sessions, todos, persistent, systemInfo] =
+      await Promise.all([
+        api.invoke<VolumeReading>(Command.GetVolume),
+        api.invoke<VolumeReading>(Command.GetMic),
+        api.invoke<BrightnessReading>(Command.GetBrightness),
+        api.invoke<AudioSession[]>(Command.GetAudioSessions),
+        api.invoke<TodoItem[]>(Command.GetTodos),
+        api.invoke<Persistent>(Command.GetPersistent),
+        api.invoke<SystemInfo>(Command.GetSystemInfo),
+      ]);
+
+    set({ volume, mic, brightness, sessions, todos, persistent, systemInfo });
+
+    // Radios come separately: a denied access request or a missing adapter
+    // must not stop the rest of the sidebar from filling in.
+    void api
+      .invoke<RadiosState>(Command.GetRadios)
+      .then((radios) => set({ radios }))
+      .catch(() => {});
+  })();
+
+  return sidebarConnected;
+}
+
 /** Ticks `now` on the second boundary, so a minute never appears to change late. */
 function startClock(): void {
   const schedule = () => {
@@ -134,6 +223,7 @@ function startClock(): void {
 /** Resets the connection, for tests. */
 export function resetShell(): void {
   connected = undefined;
+  sidebarConnected = undefined;
   set(initial, true);
 }
 
@@ -160,5 +250,79 @@ export const actions = {
   },
   mediaCommand(action: "playPause" | "next" | "previous") {
     return backend().invoke<void>(Command.MediaCommand, { action });
+  },
+  dismissNotification(id: number) {
+    return backend().invoke<void>(Command.DismissNotification, { id });
+  },
+  clearNotifications() {
+    return backend().invoke<void>(Command.ClearNotifications);
+  },
+  setVolume(percent: number) {
+    return backend().invoke<void>(Command.SetVolume, { percent });
+  },
+  setMuted(muted: boolean) {
+    return backend().invoke<void>(Command.SetMuted, { muted });
+  },
+  setMic(percent: number) {
+    return backend().invoke<void>(Command.SetMic, { percent });
+  },
+  setMicMuted(muted: boolean) {
+    return backend().invoke<void>(Command.SetMicMuted, { muted });
+  },
+  setBrightness(percent: number) {
+    return backend().invoke<void>(Command.SetBrightness, { percent });
+  },
+  setNightLight(enable: boolean) {
+    return backend().invoke<Config>(Command.SetNightLight, { enable });
+  },
+  setSessionVolume(id: string, percent: number) {
+    return backend().invoke<void>(Command.SetSessionVolume, { id, percent });
+  },
+  setSessionMuted(id: string, muted: boolean) {
+    return backend().invoke<void>(Command.SetSessionMuted, { id, muted });
+  },
+  async setRadio(kind: "wifi" | "bluetooth", on: boolean) {
+    await backend().invoke<boolean>(Command.SetRadio, { kind, on });
+    // Re-read rather than assuming: the request can be refused, and a toggle
+    // that shows the state the user asked for rather than the one they got is
+    // worse than one that lags by a round trip.
+    const radios = await backend().invoke<RadiosState>(Command.GetRadios);
+    set({ radios });
+  },
+  scanWifi() {
+    return backend().invoke<WifiNetwork[]>(Command.ScanWifi);
+  },
+  connectWifi(ssid: string, password?: string) {
+    return backend().invoke<ConnectOutcome>(Command.ConnectWifi, {
+      ssid,
+      password: password ?? null,
+    });
+  },
+  disconnectWifi() {
+    return backend().invoke<void>(Command.DisconnectWifi);
+  },
+  bluetoothDevices() {
+    return backend().invoke<BluetoothDeviceInfo[]>(Command.GetBluetoothDevices);
+  },
+  setIdleInhibit(on: boolean) {
+    return backend().invoke<boolean>(Command.SetIdleInhibit, { on });
+  },
+  addTodo(content: string) {
+    return backend().invoke<TodoItem[]>(Command.AddTodo, { content });
+  },
+  setTodoDone(id: number, done: boolean) {
+    return backend().invoke<TodoItem[]>(Command.SetTodoDone, { id, done });
+  },
+  removeTodo(id: number) {
+    return backend().invoke<TodoItem[]>(Command.RemoveTodo, { id });
+  },
+  clearDoneTodos() {
+    return backend().invoke<TodoItem[]>(Command.ClearDoneTodos);
+  },
+  setPersistentValue(path: string, value: unknown) {
+    return backend().invoke<Persistent>(Command.SetPersistentValue, {
+      path,
+      value,
+    });
   },
 };

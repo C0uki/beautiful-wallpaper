@@ -50,6 +50,10 @@ and any scripts written against them still mean something here.
   be dragged and snapped to a grid.
 - **The wallpaper picker**: the local folder with history and thumbnails, plus
   Wallhaven, Unsplash and Pexels.
+- **A volume readout**, driven by a WASAPI callback so it appears on the
+  keypress rather than on the next poll.
+- **Notification toasts**, grouped by application and swipe-dismissable, over a
+  persisted history.
 - **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
   keep clear of it. Four styles, horizontal or vertical, with workspaces,
   active window, clock, weather, tray, battery, network, resources, media and
@@ -105,6 +109,12 @@ cargo clippy --target x86_64-pc-windows-msvc --all-targets
 That last one is the important one: it type-checks every Win32 and WinRT call
 without needing a Windows machine or a cross compiler. `cargo check` for the
 Windows target works from Linux and macOS too — only linking needs Windows.
+
+The bundled icon font is a subset of Material Symbols covering only the icons
+the shell draws, listed in `apps/shell/scripts/icons.json`. A name outside that
+list renders as the literal word rather than a glyph, so adding an icon to the
+UI means adding it there and running `pnpm gen:icons` (which needs `fonttools`
+and `brotli`).
 
 The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup installs the
 same compiler CI uses, along with clippy, rustfmt and the Windows target. That

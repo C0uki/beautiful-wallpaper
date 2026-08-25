@@ -2,10 +2,13 @@
 //
 // The set mirrors the widgets end4-pC reaches for most often: a card, the three
 // button variants, an icon button with a ripple, a progress bar and ring, a
-// segmented control and a search field.
+// segmented control, a search field, a slider, a list row and a scroll area,
+// plus the tab strip, switch, in-surface dialog and empty-state placeholder the
+// sidebar needs.
 
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -20,7 +23,7 @@ export { Symbol };
 export type { SymbolProps } from "./Symbol";
 
 /** Expanding-circle feedback on press, as Material specifies. */
-function useRipple() {
+export function useRipple() {
   const [ripples, setRipples] = useState<
     Array<{ id: number; style: CSSProperties }>
   >([]);
@@ -272,5 +275,245 @@ export function SearchField({
         />
       ) : null}
     </label>
+  );
+}
+
+/** A value the user can drag, for volume and brightness. */
+export interface SliderProps {
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  label: string;
+  icon?: string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}
+
+export function Slider({
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  label,
+  icon,
+  disabled = false,
+  onChange,
+}: SliderProps) {
+  const clamped = Math.min(Math.max(value, min), max);
+  const fraction = max === min ? 0 : (clamped - min) / (max - min);
+
+  return (
+    <div className="bw-slider" data-disabled={disabled}>
+      {icon ? <Symbol name={icon} size={18} /> : null}
+      <div className="bw-slider-track">
+        <div
+          className="bw-slider-fill"
+          style={{ width: `${fraction * 100}%` }}
+        />
+        {/* The native input carries the interaction and the accessibility;
+            the painted track above is decoration sitting under it. */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={clamped}
+          disabled={disabled}
+          aria-label={label}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** One row of a list: an icon, a title with optional detail, a trailing slot. */
+export interface ListRowProps {
+  icon?: string;
+  title: string;
+  detail?: string;
+  trailing?: ReactNode;
+  selected?: boolean;
+  onClick?: () => void;
+}
+
+export function ListRow({
+  icon,
+  title,
+  detail,
+  trailing,
+  selected,
+  onClick,
+}: ListRowProps) {
+  const ripple = useRipple();
+  const interactive = Boolean(onClick);
+
+  return (
+    <div
+      className="bw-list-row"
+      data-selected={selected}
+      data-interactive={interactive}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onPointerDown={interactive ? ripple.spawn : undefined}
+      onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+    >
+      {icon ? <Symbol name={icon} size={20} /> : null}
+      <div className="bw-list-row-text">
+        <span className="bw-list-row-title">{title}</span>
+        {detail ? <span className="bw-list-row-detail">{detail}</span> : null}
+      </div>
+      {trailing}
+      {interactive ? ripple.layer : null}
+    </div>
+  );
+}
+
+/** A scrolling region that keeps its scrollbar out of the layout. */
+export function ScrollArea({
+  children,
+  style,
+  ...rest
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
+  return (
+    <div className="bw-scroll-area" style={style} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+/** A tab strip, with the indicator sliding between labels. */
+export interface TabsProps {
+  tabs: Array<{ id: string; label: string; icon?: string }>;
+  active: string;
+  onSelect: (id: string) => void;
+}
+
+export function Tabs({ tabs, active, onSelect }: TabsProps) {
+  return (
+    <div className="bw-tabs" role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          className="bw-tab"
+          aria-selected={tab.id === active}
+          data-active={tab.id === active}
+          onClick={() => onSelect(tab.id)}
+        >
+          {tab.icon ? <Symbol name={tab.icon} size={20} /> : null}
+          <span>{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A Material switch. Used where a toggle is a setting rather than an action. */
+export interface SwitchProps {
+  checked: boolean;
+  label: string;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+export function Switch({ checked, label, disabled, onChange }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      className="bw-switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      data-checked={checked}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="bw-switch-thumb">
+        {checked ? <Symbol name="check" size={14} /> : null}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * A dialog drawn inside its own surface rather than in a new window.
+ *
+ * The original opens these as Quickshell popups over the sidebar. A separate
+ * Win32 window per dialog would need its own capability entry, its own
+ * layering and its own focus handling for something that only ever appears
+ * over one panel — so they are drawn in the panel instead.
+ */
+export interface DialogProps {
+  title: string;
+  icon?: string;
+  onDismiss: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}
+
+export function Dialog({
+  title,
+  icon,
+  onDismiss,
+  children,
+  footer,
+}: DialogProps) {
+  // Escape closes, as it does everywhere else in Windows.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  return (
+    <div className="bw-dialog-scrim" onClick={onDismiss}>
+      <div
+        className="bw-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        // Clicks inside must not reach the scrim, or interacting with the
+        // dialog would close it.
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="bw-dialog-header">
+          {icon ? <Symbol name={icon} size={22} /> : null}
+          <h2>{title}</h2>
+          <IconButton
+            icon="close"
+            size={32}
+            label="Close"
+            onClick={onDismiss}
+          />
+        </header>
+        <div className="bw-dialog-body">{children}</div>
+        {footer ? <footer className="bw-dialog-footer">{footer}</footer> : null}
+      </div>
+    </div>
+  );
+}
+
+/** What a list shows when it has nothing in it. */
+export function Placeholder({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="bw-placeholder">
+      <Symbol name={icon} size={40} />
+      <span>{text}</span>
+    </div>
   );
 }

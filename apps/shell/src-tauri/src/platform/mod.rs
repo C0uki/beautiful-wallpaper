@@ -5,6 +5,18 @@
 //! crate is only ever built for Windows.
 
 #[cfg(windows)]
+pub mod appicon;
+#[cfg(windows)]
+pub mod audio;
+#[cfg(windows)]
+pub mod brightness;
+#[cfg(windows)]
+pub mod mixer;
+#[cfg(windows)]
+pub mod radios;
+#[cfg(windows)]
+pub mod session;
+#[cfg(windows)]
 pub mod tray;
 #[cfg(windows)]
 pub mod wallpaper;

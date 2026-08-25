@@ -203,3 +203,239 @@ mod tests {
         assert!(json.get("widget_edit_mode").is_none());
     }
 }
+
+/// The notification history, managed so commands can reach it.
+pub struct NotificationStore(pub bw_core::notifications::Store);
+
+/// The sidebar's to-do list.
+pub struct TodoStore(pub bw_core::todo::Store);
+
+impl Default for TodoStore {
+    fn default() -> Self {
+        Self(bw_core::todo::Store::load(bw_core::todo::todo_path()))
+    }
+}
+
+/// Runtime state that is not configuration — which tab is open, whether the
+/// bottom group is collapsed, how the toggle grid is arranged.
+pub struct PersistentStore(pub bw_core::persistent::Store);
+
+impl Default for PersistentStore {
+    fn default() -> Self {
+        Self(bw_core::persistent::Store::load(
+            bw_core::paths::state_file(),
+        ))
+    }
+}
+
+impl Default for NotificationStore {
+    fn default() -> Self {
+        Self(bw_core::notifications::Store::load(
+            bw_core::notifications::history_path(),
+        ))
+    }
+}
+
+/// The volume watcher, or nothing when audio is unavailable.
+///
+/// A machine with no output device is a normal state — a headless VM, or a
+/// dock that has just been unplugged — so the shell keeps working and simply
+/// reports silence rather than refusing to start.
+#[derive(Default)]
+pub struct VolumeHandle {
+    #[cfg(windows)]
+    watcher: Option<crate::platform::audio::VolumeWatcher>,
+}
+
+impl VolumeHandle {
+    #[cfg(windows)]
+    pub fn new(watcher: Option<crate::platform::audio::VolumeWatcher>) -> Self {
+        Self { watcher }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    #[cfg(windows)]
+    pub fn read(&self) -> crate::providers::VolumeReading {
+        self.watcher
+            .as_ref()
+            .map(|watcher| watcher.read())
+            .unwrap_or_default()
+    }
+
+    #[cfg(not(windows))]
+    pub fn read(&self) -> crate::providers::VolumeReading {
+        crate::providers::VolumeReading::default()
+    }
+
+    pub fn set_percent(&self, _percent: f32, _ceiling: f32) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(watcher) = self.watcher.as_ref() {
+            return watcher
+                .set_percent(_percent, _ceiling)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn set_muted(&self, _muted: bool) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(watcher) = self.watcher.as_ref() {
+            return watcher.set_muted(_muted).map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+}
+
+/// The brightness worker, or nothing when no display can report a level.
+///
+/// As with audio, "unavailable" is a normal state rather than an error: a
+/// desktop whose monitor ignores DDC/CI has no brightness control, and the
+/// shell hides the readout and the slider instead of showing a dead one.
+#[derive(Default)]
+pub struct BrightnessHandle {
+    #[cfg(windows)]
+    control: Option<crate::platform::brightness::BrightnessControl>,
+}
+
+impl BrightnessHandle {
+    #[cfg(windows)]
+    pub fn new(control: Option<crate::platform::brightness::BrightnessControl>) -> Self {
+        Self { control }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    /// The level now, or `None` when the platform cannot report one.
+    pub fn read(&self) -> Option<u8> {
+        #[cfg(windows)]
+        return self.control.as_ref().and_then(|control| control.read());
+        #[cfg(not(windows))]
+        None
+    }
+
+    pub fn set(&self, _percent: u8) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.set(_percent);
+        }
+    }
+
+    /// Applies, or clears, the warm tint.
+    pub fn set_night_light(&self, _kelvin: Option<u32>) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.set_night_light(_kelvin);
+        }
+    }
+
+    /// Re-reads the hardware, for when something outside the shell changed it.
+    pub fn refresh(&self) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.refresh();
+        }
+    }
+
+    /// Whether to draw the control at all. A slider that moves but changes
+    /// nothing is worse than no slider.
+    pub fn is_supported(&self) -> bool {
+        self.read().is_some()
+    }
+}
+
+/// The microphone's level.
+///
+/// A newtype rather than a second copy of [`VolumeHandle`]: the two differ
+/// only in which endpoint they follow, and Tauri distinguishes managed state
+/// by type, so a wrapper is all that is needed to have both.
+#[derive(Default)]
+pub struct MicHandle(pub VolumeHandle);
+
+/// The per-application volume mixer, or nothing when it could not be opened.
+#[derive(Default)]
+pub struct MixerHandle {
+    #[cfg(windows)]
+    mixer: Option<crate::platform::mixer::Mixer>,
+}
+
+impl MixerHandle {
+    #[cfg(windows)]
+    pub fn new(mixer: Option<crate::platform::mixer::Mixer>) -> Self {
+        Self { mixer }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    #[cfg(windows)]
+    pub fn list(&self) -> Vec<crate::platform::mixer::SessionInfo> {
+        self.mixer
+            .as_ref()
+            .map(|mixer| mixer.list())
+            .unwrap_or_default()
+    }
+
+    #[cfg(not(windows))]
+    pub fn list(&self) -> Vec<()> {
+        Vec::new()
+    }
+
+    pub fn set_percent(&self, _id: &str, _percent: f32, _ceiling: f32) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(mixer) = self.mixer.as_ref() {
+            return mixer
+                .set_percent(_id, _percent, _ceiling)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn set_muted(&self, _id: &str, _muted: bool) -> Result<(), String> {
+        #[cfg(windows)]
+        if let Some(mixer) = self.mixer.as_ref() {
+            return mixer
+                .set_muted(_id, _muted)
+                .map_err(|error| error.to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Whether the shell is holding the machine awake.
+///
+/// The Win32 request belongs to the thread that made it, so the inhibitor owns
+/// a thread; this is only the handle onto it. On a host without that API the
+/// flag is remembered but does nothing, which keeps the toggle honest in the
+/// development harness rather than making it disappear.
+#[derive(Default)]
+pub struct IdleHandle {
+    #[cfg(windows)]
+    inhibitor: crate::platform::session::IdleInhibitor,
+    #[cfg(not(windows))]
+    on: std::sync::atomic::AtomicBool,
+}
+
+impl IdleHandle {
+    pub fn is_on(&self) -> bool {
+        #[cfg(windows)]
+        return self.inhibitor.is_on();
+        #[cfg(not(windows))]
+        self.on.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn set(&self, on: bool) {
+        #[cfg(windows)]
+        self.inhibitor.set(on);
+        #[cfg(not(windows))]
+        self.on.store(on, std::sync::atomic::Ordering::Relaxed);
+    }
+}
