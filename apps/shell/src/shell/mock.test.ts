@@ -1,4 +1,4 @@
-import { Command, Event, type Config } from "@bw/core";
+import { Command, Event, type Config, type Persistent } from "@bw/core";
 import { describe, expect, it } from "vitest";
 import { mockBackend } from "./mock";
 
@@ -173,6 +173,59 @@ describe("the mock backend", () => {
     // Fresh objects, or a store selecting the array would never see the change.
     expect(after).not.toBe(before);
     expect(after[0]).not.toBe(before[0]);
+  });
+
+  it("the to-do list adds, finishes and clears", async () => {
+    const backend = mockBackend();
+    const added = await backend.invoke<Array<{ id: number; done: boolean }>>(
+      Command.AddTodo,
+      { content: "Something new" },
+    );
+    const newest = added.at(-1)!;
+    expect(newest.done).toBe(false);
+
+    await backend.invoke(Command.SetTodoDone, { id: newest.id, done: true });
+    const cleared = await backend.invoke<Array<{ id: number }>>(
+      Command.ClearDoneTodos,
+    );
+    expect(cleared.map((todo) => todo.id)).not.toContain(newest.id);
+  });
+
+  it("a blank task is refused rather than added", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<unknown[]>(Command.GetTodos);
+    const after = await backend.invoke<unknown[]>(Command.AddTodo, {
+      content: "   ",
+    });
+    expect(after.length).toBe(before.length);
+  });
+
+  it("persistent state takes a dotted edit and keeps a fresh object", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<Persistent>(Command.GetPersistent);
+    const after = await backend.invoke<Persistent>(Command.SetPersistentValue, {
+      path: "sidebar.bottomGroup.tab",
+      value: 2,
+    });
+
+    expect(after.sidebar.bottomGroup.tab).toBe(2);
+    expect(after.sidebar).not.toBe(before.sidebar);
+  });
+
+  it("a wrong Wi-Fi password reports back as such, not as a generic failure", async () => {
+    const backend = mockBackend();
+    expect(
+      await backend.invoke(Command.ConnectWifi, {
+        ssid: "Kingfisher",
+        password: "wrong",
+      }),
+    ).toBe("badPassword");
+    expect(
+      await backend.invoke(Command.ConnectWifi, {
+        ssid: "Kingfisher",
+        password: "right",
+      }),
+    ).toBe("connected");
   });
 
   it("rejects a command it does not implement, rather than resolving undefined", async () => {

@@ -207,6 +207,27 @@ mod tests {
 /// The notification history, managed so commands can reach it.
 pub struct NotificationStore(pub bw_core::notifications::Store);
 
+/// The sidebar's to-do list.
+pub struct TodoStore(pub bw_core::todo::Store);
+
+impl Default for TodoStore {
+    fn default() -> Self {
+        Self(bw_core::todo::Store::load(bw_core::todo::todo_path()))
+    }
+}
+
+/// Runtime state that is not configuration — which tab is open, whether the
+/// bottom group is collapsed, how the toggle grid is arranged.
+pub struct PersistentStore(pub bw_core::persistent::Store);
+
+impl Default for PersistentStore {
+    fn default() -> Self {
+        Self(bw_core::persistent::Store::load(
+            bw_core::paths::state_file(),
+        ))
+    }
+}
+
 impl Default for NotificationStore {
     fn default() -> Self {
         Self(bw_core::notifications::Store::load(
@@ -386,5 +407,35 @@ impl MixerHandle {
                 .map_err(|error| error.to_string());
         }
         Ok(())
+    }
+}
+
+/// Whether the shell is holding the machine awake.
+///
+/// The Win32 request belongs to the thread that made it, so the inhibitor owns
+/// a thread; this is only the handle onto it. On a host without that API the
+/// flag is remembered but does nothing, which keeps the toggle honest in the
+/// development harness rather than making it disappear.
+#[derive(Default)]
+pub struct IdleHandle {
+    #[cfg(windows)]
+    inhibitor: crate::platform::session::IdleInhibitor,
+    #[cfg(not(windows))]
+    on: std::sync::atomic::AtomicBool,
+}
+
+impl IdleHandle {
+    pub fn is_on(&self) -> bool {
+        #[cfg(windows)]
+        return self.inhibitor.is_on();
+        #[cfg(not(windows))]
+        self.on.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn set(&self, on: bool) {
+        #[cfg(windows)]
+        self.inhibitor.set(on);
+        #[cfg(not(windows))]
+        self.on.store(on, std::sync::atomic::Ordering::Relaxed);
     }
 }

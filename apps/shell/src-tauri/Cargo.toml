@@ -49,8 +49,14 @@ bw-core = { version = "0.1.0", path = "../../../crates/bw-core" }
 windows-core = "0.58"
 windows-registry = "0.5"
 windows = { version = "0.58", features = [
+  "Devices_Bluetooth",
+  "Devices_Enumeration",
+  "Devices_Radios",
+  "Devices_WiFi",
   "Foundation",
   "Foundation_Collections",
+  "Networking_Connectivity",
+  "Security_Credentials",
   "Media_Control",
   "Storage_Streams",
   "Win32_Devices_Display",

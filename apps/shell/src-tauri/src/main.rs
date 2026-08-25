@@ -13,7 +13,8 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, MicHandle, MixerHandle, NotificationStore, VolumeHandle,
+    AppState, BrightnessHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
+    PersistentStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -91,6 +92,23 @@ fn main() {
             commands::get_audio_sessions,
             commands::set_session_volume,
             commands::set_session_muted,
+            commands::get_radios,
+            commands::set_radio,
+            commands::scan_wifi,
+            commands::connect_wifi,
+            commands::disconnect_wifi,
+            commands::get_bluetooth_devices,
+            commands::get_idle_inhibit,
+            commands::set_idle_inhibit,
+            commands::get_system_info,
+            commands::get_todos,
+            commands::add_todo,
+            commands::set_todo_done,
+            commands::remove_todo,
+            commands::clear_done_todos,
+            commands::reorder_todo,
+            commands::get_persistent,
+            commands::set_persistent_value,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -118,6 +136,9 @@ fn main() {
             app.manage(start_brightness_watch(&handle));
             app.manage(start_mic_watch(&handle));
             app.manage(start_mixer(&handle));
+            app.manage(IdleHandle::default());
+            app.manage(TodoStore::default());
+            app.manage(PersistentStore::default());
 
             spawn_providers(handle, state.clone());
             Ok(())

@@ -38,6 +38,10 @@ export const Event = {
   Mic: "bw://mic",
   /** The per-application mixer changed. Carries the whole list. */
   AudioSessions: "bw://audio-sessions",
+  /** The to-do list changed. */
+  Todos: "bw://todos",
+  /** Runtime state that is not configuration — the open tab, the toggle grid. */
+  Persistent: "bw://persistent",
   /** Asks the readout to appear, carrying what to show. */
   Osd: "bw://osd",
 } as const;
@@ -81,6 +85,23 @@ export const Command = {
   GetAudioSessions: "get_audio_sessions",
   SetSessionVolume: "set_session_volume",
   SetSessionMuted: "set_session_muted",
+  GetRadios: "get_radios",
+  SetRadio: "set_radio",
+  ScanWifi: "scan_wifi",
+  ConnectWifi: "connect_wifi",
+  DisconnectWifi: "disconnect_wifi",
+  GetBluetoothDevices: "get_bluetooth_devices",
+  GetIdleInhibit: "get_idle_inhibit",
+  SetIdleInhibit: "set_idle_inhibit",
+  GetSystemInfo: "get_system_info",
+  GetTodos: "get_todos",
+  AddTodo: "add_todo",
+  SetTodoDone: "set_todo_done",
+  RemoveTodo: "remove_todo",
+  ClearDoneTodos: "clear_done_todos",
+  ReorderTodo: "reorder_todo",
+  GetPersistent: "get_persistent",
+  SetPersistentValue: "set_persistent_value",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -192,6 +213,38 @@ export interface VolumeReading {
   /** 0–100. */
   percent: number;
   muted: boolean;
+}
+
+export interface RadiosState {
+  /** `null` when the machine has no radio of that kind — the signal to hide
+   * the tile rather than draw it greyed. */
+  wifi: boolean | null;
+  bluetooth: boolean | null;
+  /** Radio access can be denied by the user or by policy. */
+  canControl: boolean;
+}
+
+export interface WifiNetwork {
+  ssid: string;
+  /** 0–5, as Windows reports it. */
+  bars: number;
+  secured: boolean;
+}
+
+export type ConnectOutcome = "connected" | "badPassword" | "failed";
+
+export interface BluetoothDeviceInfo {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
+/** What the sidebar banner shows about the machine. */
+export interface SystemInfo {
+  username: string;
+  hostname: string;
+  /** Already formatted by the backend, so every surface words it identically. */
+  uptime: string;
 }
 
 /** One application in the volume mixer. */

@@ -13,6 +13,10 @@ pub mod brightness;
 #[cfg(windows)]
 pub mod mixer;
 #[cfg(windows)]
+pub mod radios;
+#[cfg(windows)]
+pub mod session;
+#[cfg(windows)]
 pub mod tray;
 #[cfg(windows)]
 pub mod wallpaper;

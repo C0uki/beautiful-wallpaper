@@ -27,6 +27,12 @@ import {
   type VolumeReading,
   type BrightnessReading,
   type AudioSession,
+  type RadiosState,
+  type WifiNetwork,
+  type BluetoothDeviceInfo,
+  type SystemInfo,
+  type TodoItem,
+  type Persistent,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -323,6 +329,44 @@ export function mockBackend(): Backend {
   let brightness: BrightnessReading = { percent: 65, supported: true };
   const mic: VolumeReading = { percent: 78, muted: false };
 
+  let radios: RadiosState = { wifi: true, bluetooth: false, canControl: true };
+
+  // Signal bars deliberately span the range, including a 0-bar network — the
+  // case an icon chosen by `bars > 0` gets wrong.
+  const wifiNetworks: WifiNetwork[] = [
+    { ssid: "Kingfisher", bars: 4, secured: true },
+    { ssid: "Kingfisher-5G", bars: 3, secured: true },
+    { ssid: "BT-Openreach", bars: 2, secured: true },
+    { ssid: "Cafe Guest", bars: 1, secured: false },
+    { ssid: "far-away-ap", bars: 0, secured: true },
+  ];
+
+  const bluetoothDevices: BluetoothDeviceInfo[] = [
+    { id: "bt-1", name: "WH-1000XM4", connected: true },
+    { id: "bt-2", name: "MX Master 3", connected: true },
+    { id: "bt-3", name: "Kitchen Speaker", connected: false },
+  ];
+
+  const systemInfo: SystemInfo = {
+    username: "you",
+    hostname: "WORKSTATION",
+    uptime: "2 days, 5 hours",
+  };
+
+  let idleInhibit = false;
+
+  let todos: TodoItem[] = [
+    { id: 1, content: "Reply to the shell review", done: false },
+    { id: 2, content: "Write up the DDC/CI findings", done: false },
+    { id: 3, content: "Ship the toast animation fix", done: true },
+  ];
+  let nextTodoId = 4;
+
+  let persistent: Persistent = {
+    sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
+    idle: { inhibit: false },
+  };
+
   // A plausible mixer: something playing, something paused, and one entry with
   // no icon, because that is the case the layout most easily gets wrong.
   let sessions: AudioSession[] = [
@@ -576,6 +620,108 @@ export function mockBackend(): Backend {
           return undefined as T;
         }
 
+        case Command.GetRadios:
+          return radios as T;
+
+        case Command.SetRadio: {
+          const on = Boolean(args["on"]);
+          radios =
+            args["kind"] === "wifi"
+              ? { ...radios, wifi: on }
+              : { ...radios, bluetooth: on };
+          return true as T;
+        }
+
+        case Command.ScanWifi:
+          return wifiNetworks as T;
+
+        case Command.ConnectWifi:
+          // A wrong password is the one failure the dialog has to handle, so
+          // the mock produces it for an obviously wrong one.
+          return (
+            args["password"] === "wrong" ? "badPassword" : "connected"
+          ) as T;
+
+        case Command.DisconnectWifi:
+          return undefined as T;
+
+        case Command.GetBluetoothDevices:
+          return bluetoothDevices as T;
+
+        case Command.GetSystemInfo:
+          return systemInfo as T;
+
+        case Command.GetIdleInhibit:
+          return idleInhibit as T;
+
+        case Command.SetIdleInhibit:
+          idleInhibit = Boolean(args["on"]);
+          return idleInhibit as T;
+
+        case Command.GetTodos:
+          return todos as T;
+
+        case Command.AddTodo: {
+          const content = String(args["content"] ?? "").trim();
+          if (content) {
+            todos = [...todos, { id: nextTodoId++, content, done: false }];
+            emit(Event.Todos, todos);
+          }
+          return todos as T;
+        }
+
+        case Command.SetTodoDone: {
+          const id = Number(args["id"]);
+          const done = Boolean(args["done"]);
+          todos = todos.map((todo) =>
+            todo.id === id ? { ...todo, done } : todo,
+          );
+          emit(Event.Todos, todos);
+          return todos as T;
+        }
+
+        case Command.RemoveTodo: {
+          const id = Number(args["id"]);
+          todos = todos.filter((todo) => todo.id !== id);
+          emit(Event.Todos, todos);
+          return todos as T;
+        }
+
+        case Command.ClearDoneTodos: {
+          todos = todos.filter((todo) => !todo.done);
+          emit(Event.Todos, todos);
+          return todos as T;
+        }
+
+        case Command.ReorderTodo: {
+          const id = Number(args["id"]);
+          const to = Number(args["to"]);
+          const from = todos.findIndex((todo) => todo.id === id);
+          if (from >= 0 && to >= 0 && to < todos.length) {
+            const next = [...todos];
+            const [moved] = next.splice(from, 1);
+            next.splice(to, 0, moved!);
+            todos = next;
+            emit(Event.Todos, todos);
+          }
+          return todos as T;
+        }
+
+        case Command.GetPersistent:
+          return persistent as T;
+
+        case Command.SetPersistentValue: {
+          const next = structuredClone(persistent);
+          setByPath(
+            next as unknown as Record<string, unknown>,
+            String(args["path"] ?? ""),
+            args["value"],
+          );
+          persistent = next;
+          emit(Event.Persistent, persistent);
+          return persistent as T;
+        }
+
         case Command.GetMonitors:
           return [
             {
@@ -617,6 +763,8 @@ export function mockBackend(): Backend {
         if (event === Event.Volume) handler(volume as T);
         if (event === Event.Mic) handler(mic as T);
         if (event === Event.AudioSessions) handler(sessions as T);
+        if (event === Event.Todos) handler(todos as T);
+        if (event === Event.Persistent) handler(persistent as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
         if (event === Event.Osd) handler(osd as T);
       });

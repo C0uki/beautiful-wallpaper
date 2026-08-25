@@ -13,6 +13,7 @@ pub mod config;
 pub mod notifications;
 pub mod paths;
 pub mod persistent;
+pub mod sysinfo;
 pub mod theme;
 pub mod todo;
 pub mod wallpaper;

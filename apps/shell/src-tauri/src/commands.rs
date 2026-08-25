@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, GlobalStates, MicHandle, MixerHandle, NotificationStore,
-    VolumeHandle,
+    AppState, BrightnessHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
+    NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -33,6 +33,9 @@ pub mod event {
     pub const NETWORK: &str = "bw://network";
     pub const TRAY: &str = "bw://tray";
     pub const NOTIFICATIONS: &str = "bw://notifications";
+    pub const TODOS: &str = "bw://todos";
+    /// Runtime state that is not configuration.
+    pub const PERSISTENT: &str = "bw://persistent";
     pub const VOLUME: &str = "bw://volume";
     pub const MIC: &str = "bw://mic";
     /// The per-application mixer changed: a session appeared, went away, or
@@ -463,4 +466,212 @@ pub fn set_session_muted(
     muted: bool,
 ) -> Result<(), String> {
     mixer.set_muted(&id, muted)
+}
+
+// --- Radios, idle and the banner -------------------------------------------
+
+/// The WinRT calls behind these block for as long as the radio stack takes —
+/// a Wi-Fi scan is measured in seconds — so each runs on a blocking thread
+/// rather than stalling the async runtime the whole shell shares.
+async fn off_runtime<T, F>(work: F) -> T
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tokio::task::spawn_blocking(work)
+        .await
+        .unwrap_or_else(|_| unreachable!("the blocking pool does not panic here"))
+}
+
+#[tauri::command]
+pub async fn get_radios() -> providers::RadiosState {
+    #[cfg(windows)]
+    {
+        off_runtime(crate::platform::radios::state).await
+    }
+    #[cfg(not(windows))]
+    providers::RadiosState::default()
+}
+
+#[tauri::command]
+pub async fn set_radio(_kind: String, _on: bool) -> bool {
+    #[cfg(windows)]
+    {
+        let Some(kind) = crate::platform::radios::Kind::parse(&_kind) else {
+            return false;
+        };
+        off_runtime(move || crate::platform::radios::set(kind, _on)).await
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+#[tauri::command]
+pub async fn scan_wifi() -> Vec<providers::WifiNetwork> {
+    #[cfg(windows)]
+    {
+        off_runtime(crate::platform::radios::scan).await
+    }
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+#[tauri::command]
+pub async fn connect_wifi(_ssid: String, _password: Option<String>) -> providers::ConnectOutcome {
+    #[cfg(windows)]
+    {
+        off_runtime(move || crate::platform::radios::connect(&_ssid, _password.as_deref())).await
+    }
+    #[cfg(not(windows))]
+    providers::ConnectOutcome::Failed
+}
+
+#[tauri::command]
+pub async fn disconnect_wifi() {
+    #[cfg(windows)]
+    off_runtime(crate::platform::radios::disconnect).await;
+}
+
+#[tauri::command]
+pub async fn get_bluetooth_devices() -> Vec<providers::BluetoothDeviceInfo> {
+    #[cfg(windows)]
+    {
+        off_runtime(crate::platform::radios::paired_devices).await
+    }
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+#[tauri::command]
+pub fn get_idle_inhibit(idle: State<'_, IdleHandle>) -> bool {
+    idle.is_on()
+}
+
+#[tauri::command]
+pub fn set_idle_inhibit(idle: State<'_, IdleHandle>, on: bool) -> bool {
+    idle.set(on);
+    idle.is_on()
+}
+
+/// What the sidebar's banner shows about the machine.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    pub username: String,
+    pub hostname: String,
+    /// Already formatted: the exact wording is shared with the tests in
+    /// `bw_core::sysinfo`, and a raw second count would only be reformatted
+    /// identically in three different surfaces.
+    pub uptime: String,
+}
+
+#[tauri::command]
+pub fn get_system_info(state: State<'_, AppState>) -> SystemInfo {
+    let config = state.config();
+
+    // `USERNAME` is set for every interactive session, and reading it avoids a
+    // Win32 call for something the environment already knows.
+    let username = std::env::var("USERNAME")
+        .ok()
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| "user".to_owned());
+
+    SystemInfo {
+        username: if config.sidebar.profile.display_name.is_empty() {
+            username
+        } else {
+            config.sidebar.profile.display_name.clone()
+        },
+        hostname: sysinfo::System::host_name().unwrap_or_default(),
+        uptime: bw_core::sysinfo::format_uptime(sysinfo::System::uptime()),
+    }
+}
+
+// --- To do, and persistent state -------------------------------------------
+
+/// Emits the list after any change, so every surface showing it agrees.
+fn publish_todos(app: &AppHandle, store: &TodoStore) {
+    let _ = app.emit(event::TODOS, store.0.list());
+}
+
+#[tauri::command]
+pub fn get_todos(store: State<'_, TodoStore>) -> Vec<bw_core::TodoItem> {
+    store.0.list()
+}
+
+/// Adds a task. Returns the whole list rather than the new item: the caller
+/// wants to redraw, and a blank or over-full add returns nothing to append.
+#[tauri::command]
+pub fn add_todo(
+    app: AppHandle,
+    store: State<'_, TodoStore>,
+    content: String,
+) -> Vec<bw_core::TodoItem> {
+    store.0.add(content);
+    let list = store.0.list();
+    publish_todos(&app, &store);
+    list
+}
+
+#[tauri::command]
+pub fn set_todo_done(
+    app: AppHandle,
+    store: State<'_, TodoStore>,
+    id: u32,
+    done: bool,
+) -> Vec<bw_core::TodoItem> {
+    store.0.set_done(id, done);
+    let list = store.0.list();
+    publish_todos(&app, &store);
+    list
+}
+
+#[tauri::command]
+pub fn remove_todo(app: AppHandle, store: State<'_, TodoStore>, id: u32) -> Vec<bw_core::TodoItem> {
+    store.0.remove(id);
+    let list = store.0.list();
+    publish_todos(&app, &store);
+    list
+}
+
+#[tauri::command]
+pub fn clear_done_todos(app: AppHandle, store: State<'_, TodoStore>) -> Vec<bw_core::TodoItem> {
+    store.0.clear_done();
+    let list = store.0.list();
+    publish_todos(&app, &store);
+    list
+}
+
+#[tauri::command]
+pub fn reorder_todo(
+    app: AppHandle,
+    store: State<'_, TodoStore>,
+    id: u32,
+    to: usize,
+) -> Vec<bw_core::TodoItem> {
+    store.0.reorder(id, to);
+    let list = store.0.list();
+    publish_todos(&app, &store);
+    list
+}
+
+#[tauri::command]
+pub fn get_persistent(store: State<'_, PersistentStore>) -> bw_core::Persistent {
+    store.0.get()
+}
+
+/// Applies a dotted-path edit, the same vocabulary `set_config_value` uses.
+#[tauri::command]
+pub fn set_persistent_value(
+    app: AppHandle,
+    store: State<'_, PersistentStore>,
+    path: String,
+    value: serde_json::Value,
+) -> Result<bw_core::Persistent, String> {
+    let updated = store
+        .0
+        .set_path(&path, value)
+        .map_err(|error| error.to_string())?;
+    let _ = app.emit(event::PERSISTENT, &updated);
+    Ok(updated)
 }
