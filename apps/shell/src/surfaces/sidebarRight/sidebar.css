@@ -1,21 +1,4 @@
-/* The right sidebar.
- *
- * One column of cards inside a rounded panel. The panel is the whole window on
- * Windows, so the rounding and the shadow are the only thing separating it from
- * the desktop behind. */
-
-.bw-sidebar {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border-radius: var(--rounding-large);
-  background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  color: var(--on-surface);
-  box-shadow: 0 6px 24px var(--shadow);
-  overflow: hidden;
-}
+/* The right sidebar: one column of cards on the shared panel. */
 
 .bw-sidebar-scroll {
   display: flex;
@@ -23,16 +6,6 @@
   gap: 10px;
   padding: 10px;
   height: 100%;
-}
-
-.bw-sidebar .bw-card {
-  border-radius: var(--rounding-normal);
-  background: var(--layer1);
-  padding: 10px;
-  /* The column is a flexbox: without this every card shrinks to fit, and the
-     media card and sliders collapse into strips. Only the notification centre
-     below opts back in to taking the slack. */
-  flex: none;
 }
 
 /* Banner ------------------------------------------------------------------ */

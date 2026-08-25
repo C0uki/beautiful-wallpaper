@@ -33,6 +33,7 @@ import {
   type SystemInfo,
   type TodoItem,
   type Persistent,
+  type DockApp,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -330,6 +331,62 @@ export function mockBackend(): Backend {
   const mic: VolumeReading = { percent: 78, muted: false };
 
   let radios: RadiosState = { wifi: true, bluetooth: false, canControl: true };
+
+  // A plausible dock: two pinned (one not running), several running, and one
+  // application with two windows — the case the running-dots draw differently.
+  const dockWindow = (exe: string, title: string, active = false) => ({
+    id: `${exe}:${title}`,
+    title,
+    executable: exe,
+    name: exe
+      .split("\\")
+      .pop()!
+      .replace(/\.exe$/, ""),
+    icon: "",
+    active,
+  });
+
+  let dock: DockApp[] = [
+    {
+      executable: "c:\\apps\\editor.exe",
+      name: "Editor",
+      icon: "",
+      windows: [],
+      pinned: true,
+      active: false,
+    },
+    {
+      executable: "c:\\apps\\firefox.exe",
+      name: "Firefox",
+      icon: "",
+      windows: [
+        dockWindow("c:\\apps\\firefox.exe", "Inbox — Mail"),
+        dockWindow("c:\\apps\\firefox.exe", "Docs", true),
+      ],
+      pinned: true,
+      active: true,
+    },
+    {
+      executable: "c:\\windows\\explorer.exe",
+      name: "Explorer",
+      icon: "",
+      windows: [dockWindow("c:\\windows\\explorer.exe", "Downloads")],
+      pinned: false,
+      active: false,
+    },
+    {
+      executable: "c:\\apps\\terminal.exe",
+      name: "Terminal",
+      icon: "",
+      windows: [dockWindow("c:\\apps\\terminal.exe", "pwsh")],
+      pinned: false,
+      active: false,
+    },
+  ];
+
+  // The mock has a key so the translator is exercised; flip to false to see
+  // the first-run state instead.
+  let hasAiKey = true;
 
   // Signal bars deliberately span the range, including a 0-bar network — the
   // case an icon chosen by `bars > 0` gets wrong.
@@ -722,6 +779,60 @@ export function mockBackend(): Backend {
           return persistent as T;
         }
 
+        case Command.GetDockItems:
+          return dock as T;
+
+        case Command.ActivateWindow: {
+          const id = String(args["id"]);
+          const wasActive = dock.some((app) =>
+            app.windows.some((w) => w.id === id && w.active),
+          );
+          if (wasActive && args["minimiseIfActive"]) return "minimised" as T;
+          // Fresh objects throughout, as everywhere else in the mock.
+          dock = dock.map((app) => ({
+            ...app,
+            active: app.windows.some((w) => w.id === id),
+            windows: app.windows.map((w) => ({ ...w, active: w.id === id })),
+          }));
+          emit(Event.Dock, dock);
+          return "activated" as T;
+        }
+
+        case Command.LaunchApp:
+          return undefined as T;
+
+        case Command.SetPinned: {
+          const path = String(args["path"]).toLowerCase();
+          const pinned = Boolean(args["pinned"]);
+          dock = dock
+            .map((app) =>
+              app.executable.toLowerCase() === path ? { ...app, pinned } : app,
+            )
+            // Unpinning something that is not running takes it off the dock.
+            .filter((app) => app.pinned || app.windows.length > 0);
+          emit(Event.Dock, dock);
+          return config as T;
+        }
+
+        case Command.HasAiKey:
+          return hasAiKey as T;
+
+        case Command.SetAiKey:
+          hasAiKey = String(args["key"] ?? "").trim().length > 0;
+          return undefined as T;
+
+        case Command.Translate: {
+          const text = String(args["text"] ?? "");
+          if (!hasAiKey) return { text: "", error: "noKey" } as T;
+          if (!text.trim()) return { text: "", error: null } as T;
+          // Obviously synthetic, like every other value here — it reverses the
+          // words so it is visibly not a real translation.
+          return {
+            text: text.split(/\s+/).reverse().join(" "),
+            error: null,
+          } as T;
+        }
+
         case Command.GetMonitors:
           return [
             {
@@ -765,6 +876,7 @@ export function mockBackend(): Backend {
         if (event === Event.AudioSessions) handler(sessions as T);
         if (event === Event.Todos) handler(todos as T);
         if (event === Event.Persistent) handler(persistent as T);
+        if (event === Event.Dock) handler(dock as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
         if (event === Event.Osd) handler(osd as T);
       });

@@ -98,9 +98,33 @@ over ten thousand lines: the right sidebar alone is 4,611.
   containing `_digit_` is an alias whose output glyph the subsetter prunes, so
   the shell was drawing "\_THREE\_BAR" where a signal-strength icon belonged.
 
+### Done: the dock and the left sidebar's first two tabs
+
+- **The dock**, which is what replaces the taskbar once the shell hides it.
+  Windows are enumerated with Explorer's own filters — visible, un-owned, not
+  a tool window, titled — plus `DWMWA_CLOAKED`, without which every UWP
+  application on every other virtual desktop appears, looking entirely
+  legitimate. Clicking raises, clicking again minimises, and a refused
+  activation flashes the window the way Explorer does rather than leaving the
+  icon inert. The watcher is event-driven: an icon that lingers a second after
+  its application closes is what makes a dock feel broken.
+- **The left sidebar**, with the translator and media tabs. The original
+  shells out to `trans` (translate-shell) for translation, which is a Bash
+  script and does not exist on Windows, so the translator goes through the
+  Anthropic API — which puts the client and the key handling in place for the
+  chat tab.
+
 ### Still to do
 
-- **The left sidebar** (AI chat, translator, booru browser) and **the dock**.
+- **The left sidebar's AI chat and booru browser.** The chat is the largest
+  single piece of the original's sidebar (~2,100 lines) and needs streaming,
+  Markdown and code-block rendering, and conversation history on top of the
+  client that now exists.
+- **The dock's drag-to-reorder and drop targets.** Pinning works; rearranging
+  pinned icons by dragging does not.
+- **The media tab's visualiser and lyrics.** The visualiser needs a WASAPI
+  loopback capture the shell does not have; the lyrics came from an external
+  script.
 - **Power plans.** The documented API reaches only the classic schemes, and
   Windows 11's power mode sits behind an undocumented overlay call, so the
   quick toggle for it is not built.

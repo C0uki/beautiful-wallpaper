@@ -1,0 +1,29 @@
+/* The panel both sidebars are drawn on.
+ *
+ * On Windows each is its own window, so the rounding and the shadow are the
+ * only thing separating the panel from the desktop behind it. Shared rather
+ * than duplicated: the two sit on opposite edges of the same screen, and a
+ * difference between them would be visible.  */
+
+.bw-sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--rounding-large);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  color: var(--on-surface);
+  box-shadow: 0 6px 24px var(--shadow);
+  overflow: hidden;
+}
+
+.bw-sidebar .bw-card {
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  padding: 10px;
+  /* The column is a flexbox: without this every card shrinks to fit, and the
+     media card and sliders collapse into strips. Only the notification centre
+     opts back in to taking the slack. */
+  flex: none;
+}

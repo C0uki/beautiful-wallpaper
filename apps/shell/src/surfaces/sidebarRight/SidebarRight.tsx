@@ -21,6 +21,7 @@ import { NightLightDialog } from "./dialogs/NightLightDialog";
 import { VolumeMixer } from "./dialogs/VolumeMixer";
 import { WifiDialog } from "./dialogs/WifiDialog";
 import type { DetailDialog } from "./toggles";
+import "../panel.css";
 import "./sidebar.css";
 
 export function SidebarRight() {

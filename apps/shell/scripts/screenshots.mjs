@@ -194,6 +194,34 @@ const SHOTS = [
       await page.getByRole("button", { name: "More" }).last().click();
     },
   },
+  // The dock window is only as tall as the dock plus its margin, and it slides
+  // out of the way until hovered — so the shot hovers it.
+  {
+    name: "18-dock",
+    url: "/dock.html",
+    viewport: { width: 1200, height: 90 },
+    setup: async (page) => {
+      await page.getByLabel("Firefox").hover();
+    },
+  },
+  {
+    name: "19-sidebar-left-translator",
+    url: "/sidebarLeft.html",
+    viewport: { width: 420, height: 720 },
+    setup: async (page) => {
+      await page.getByLabel("Text to translate").fill("Good morning");
+      // Past the debounce, so the result is on screen rather than pending.
+      await page.waitForTimeout(600);
+    },
+  },
+  {
+    name: "20-sidebar-left-media",
+    url: "/sidebarLeft.html",
+    viewport: { width: 420, height: 720 },
+    setup: async (page) => {
+      await page.getByRole("tab", { name: "Media" }).click();
+    },
+  },
 ];
 
 async function selectView(page, label) {
