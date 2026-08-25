@@ -13,8 +13,8 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
-    PersistentStore, TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, ChatBusy, ChatStore, DockHandle, IdleHandle, MicHandle,
+    MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -116,6 +116,10 @@ fn main() {
             commands::has_ai_key,
             commands::set_ai_key,
             commands::translate,
+            commands::get_chat,
+            commands::send_chat,
+            commands::clear_chat,
+            commands::retry_chat,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -147,6 +151,8 @@ fn main() {
             app.manage(TodoStore::default());
             app.manage(PersistentStore::default());
             app.manage(start_dock_watch(&handle));
+            app.manage(ChatStore::default());
+            app.manage(ChatBusy::default());
 
             spawn_providers(handle, state.clone());
             Ok(())

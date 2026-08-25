@@ -9,13 +9,13 @@ use bw_core::{
     Urgency,
 };
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
-    NotificationStore, PersistentStore, TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, ChatBusy, ChatStore, DockHandle, GlobalStates, IdleHandle,
+    MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -38,6 +38,11 @@ pub mod event {
     pub const PERSISTENT: &str = "bw://persistent";
     /// The dock's icons changed: a window opened, closed or came forward.
     pub const DOCK: &str = "bw://dock";
+    /// The whole conversation, after a turn starts or finishes.
+    pub const CHAT: &str = "bw://chat";
+    /// One piece of a reply as it streams. Separate from `CHAT` so a token
+    /// does not redraw every message in the window.
+    pub const CHAT_EVENT: &str = "bw://chat-event";
     pub const VOLUME: &str = "bw://volume";
     pub const MIC: &str = "bw://mic";
     /// The per-application mixer changed: a session appeared, went away, or
@@ -799,4 +804,145 @@ pub async fn translate(
             error: Some(error),
         }),
     }
+}
+
+// --- The chat --------------------------------------------------------------
+
+#[tauri::command]
+pub fn get_chat(store: State<'_, ChatStore>) -> Vec<bw_core::chat::ChatMessage> {
+    store.0.list()
+}
+
+#[tauri::command]
+pub fn clear_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::chat::ChatMessage> {
+    store.0.clear();
+    let _ = app.emit(event::CHAT, Vec::<bw_core::chat::ChatMessage>::new());
+    Vec::new()
+}
+
+/// Sends a message and streams the reply.
+///
+/// Returns as soon as the request is under way; the reply arrives through
+/// `bw://chat` so the window paints as it comes rather than after it.
+#[tauri::command]
+pub async fn send_chat(
+    app: AppHandle,
+    text: String,
+    attachments: Vec<String>,
+) -> Result<(), String> {
+    use bw_core::chat::StreamEvent;
+    use std::sync::atomic::Ordering;
+
+    if text.trim().is_empty() && attachments.is_empty() {
+        return Ok(());
+    }
+
+    // One reply at a time. Two streams writing into one conversation would
+    // interleave into nonsense, and the history is resent on every request.
+    let busy = app.state::<ChatBusy>();
+    if busy.0.swap(true, Ordering::SeqCst) {
+        return Err("a reply is already on its way".to_owned());
+    }
+
+    // Whatever happens below, the flag has to come back down.
+    let result = send_chat_inner(&app, text, attachments).await;
+    app.state::<ChatBusy>().0.store(false, Ordering::SeqCst);
+
+    if let Err(error) = &result {
+        tracing::warn!(%error, "the chat request failed");
+        let _ = app.emit(
+            event::CHAT_EVENT,
+            StreamEvent::Failed(bw_core::ai::AiError::Unavailable),
+        );
+    }
+    result
+}
+
+async fn send_chat_inner(
+    app: &AppHandle,
+    text: String,
+    attachments: Vec<String>,
+) -> Result<(), String> {
+    use bw_core::chat::{Role, StreamEvent};
+
+    // Files are read before the turn is recorded: an unreadable attachment
+    // should fail the send rather than leave a half-finished exchange behind.
+    let mut files = Vec::new();
+    for path in &attachments {
+        files.push(crate::services::ai::read_attachment(std::path::Path::new(
+            path,
+        ))?);
+    }
+    let names: Vec<String> = files.iter().map(|file| file.name.clone()).collect();
+
+    let store = app.state::<ChatStore>();
+    store.0.append(Role::User, text, names);
+    let reply = store.0.append(Role::Assistant, String::new(), Vec::new());
+    let history = store.0.list();
+    let _ = app.emit(event::CHAT, &history);
+
+    // The assistant turn is already in the history as an empty placeholder;
+    // sending it back would be an empty message, which the API rejects.
+    let request: Vec<bw_core::chat::ChatMessage> = history
+        .iter()
+        .filter(|message| message.id != reply.id)
+        .cloned()
+        .collect();
+
+    let config = app.state::<AppState>().config();
+    let handle = app.clone();
+    let id = reply.id;
+
+    crate::services::ai::stream(&config, &request, &files, move |event| {
+        let store = handle.state::<ChatStore>();
+
+        match &event {
+            StreamEvent::Text(piece) => {
+                store
+                    .0
+                    .update(id, |message| message.content.push_str(piece));
+            }
+            StreamEvent::Thinking(piece) => {
+                store
+                    .0
+                    .update(id, |message| message.thinking.push_str(piece));
+            }
+            StreamEvent::Search(query) => {
+                store
+                    .0
+                    .update(id, |message| message.searches.push(query.clone()));
+            }
+            StreamEvent::Sources(sources) => {
+                store
+                    .0
+                    .update(id, |message| message.sources.extend(sources.clone()));
+            }
+            StreamEvent::FellBackTo(model) => {
+                store
+                    .0
+                    .update(id, |message| message.answered_by = model.clone());
+            }
+            StreamEvent::Done | StreamEvent::Failed(_) => {
+                let _ = handle.emit(event::CHAT, store.0.list());
+            }
+        }
+
+        // The deltas go out on their own channel: re-emitting the whole
+        // conversation per token would redraw every message in the window for
+        // each character that arrives.
+        let _ = handle.emit(event::CHAT_EVENT, &event);
+    })
+    .await;
+
+    Ok(())
+}
+
+/// Drops the last exchange, for retrying after a failure.
+#[tauri::command]
+pub fn retry_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::chat::ChatMessage> {
+    // Two pops: the empty assistant turn, and the user turn to be resent.
+    store.0.pop();
+    let list = store.0.list();
+    let _ = app.emit(event::CHAT, &list);
+    list
 }

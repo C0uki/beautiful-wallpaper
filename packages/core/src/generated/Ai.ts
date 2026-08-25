@@ -7,4 +7,20 @@
  * credential manager, reached through the `keyring` crate, the same way
  * the online wallpaper providers' keys are.
  */
-export type Ai = { model: string; maxTokens: number };
+export type Ai = {
+  model: string;
+  maxTokens: number;
+  /**
+   * Let the model search the web when it needs to. Costs tokens, so it
+   * is a setting rather than always on.
+   */
+  webSearch: boolean;
+  /**
+   * Searches per turn. Without a cap a single question can run several.
+   */
+  maxSearches: number;
+  /**
+   * Show the model's summarised reasoning in its own pane.
+   */
+  showThinking: boolean;
+};

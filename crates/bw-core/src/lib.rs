@@ -10,6 +10,7 @@
 
 pub mod ai;
 pub mod brightness;
+pub mod chat;
 pub mod config;
 pub mod dock;
 pub mod notifications;

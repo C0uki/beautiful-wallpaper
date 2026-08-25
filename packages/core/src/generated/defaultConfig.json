@@ -1,7 +1,10 @@
 {
   "ai": {
     "model": "claude-opus-5",
-    "maxTokens": 4096
+    "maxTokens": 4096,
+    "webSearch": true,
+    "maxSearches": 5,
+    "showThinking": true
   },
   "appearance": {
     "palette": {

@@ -473,3 +473,17 @@ impl DockHandle {
         Vec::new()
     }
 }
+
+/// The chat's conversation, managed so commands can reach it.
+pub struct ChatStore(pub bw_core::chat::Store);
+
+impl Default for ChatStore {
+    fn default() -> Self {
+        Self(bw_core::chat::Store::load(bw_core::chat::history_path()))
+    }
+}
+
+/// Whether a reply is being streamed, so a second send can be refused rather
+/// than interleaving two replies into one conversation.
+#[derive(Default)]
+pub struct ChatBusy(pub std::sync::atomic::AtomicBool);
