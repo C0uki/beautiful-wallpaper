@@ -8,8 +8,10 @@
 //! pipeline, the config schema, provider response parsing) can be tested without
 //! a Windows machine in the loop.
 
+pub mod ai;
 pub mod brightness;
 pub mod config;
+pub mod dock;
 pub mod notifications;
 pub mod paths;
 pub mod persistent;

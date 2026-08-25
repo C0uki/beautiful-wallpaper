@@ -1,4 +1,8 @@
 {
+  "ai": {
+    "model": "claude-opus-5",
+    "maxTokens": 4096
+  },
   "appearance": {
     "palette": {
       "type": "auto",
@@ -118,9 +122,16 @@
   },
   "dock": {
     "enable": false,
+    "height": 60,
+    "iconSize": 44,
     "pinnedApps": [],
+    "ignored": [],
+    "showBackground": true,
+    "showPinButton": true,
+    "showMedia": true,
     "autoHide": true,
-    "iconSize": 44
+    "hoverRegionHeight": 3,
+    "pinnedOnStartup": false
   },
   "hacks": {
     "configReloadDelay": 50
@@ -178,6 +189,19 @@
       "automatic": false,
       "from": "20:00",
       "to": "07:00"
+    },
+    "left": {
+      "enable": true,
+      "width": 0.26,
+      "translator": {
+        "enable": true,
+        "delay": 300,
+        "from": "auto",
+        "to": "en"
+      },
+      "media": {
+        "enable": true
+      }
     }
   },
   "time": {

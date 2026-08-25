@@ -22,3 +22,5 @@ pub mod tray;
 pub mod wallpaper;
 #[cfg(windows)]
 pub mod win;
+#[cfg(windows)]
+pub mod windows;

@@ -228,6 +228,104 @@ describe("the mock backend", () => {
     ).toBe("connected");
   });
 
+  it("clicking a dock icon makes exactly one window active", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<
+      Array<{ windows: Array<{ id: string; active: boolean }> }>
+    >(Command.GetDockItems);
+    const target = before.flatMap((app) => app.windows).find((w) => !w.active);
+    expect(target).toBeDefined();
+
+    expect(
+      await backend.invoke(Command.ActivateWindow, {
+        id: target!.id,
+        minimiseIfActive: false,
+      }),
+    ).toBe("activated");
+
+    const after = await backend.invoke<
+      Array<{ windows: Array<{ id: string; active: boolean }> }>
+    >(Command.GetDockItems);
+    const active = after.flatMap((app) => app.windows).filter((w) => w.active);
+    expect(active.map((w) => w.id)).toEqual([target!.id]);
+  });
+
+  it("clicking the application you are already in minimises it", async () => {
+    const backend = mockBackend();
+    const items = await backend.invoke<
+      Array<{ windows: Array<{ id: string; active: boolean }> }>
+    >(Command.GetDockItems);
+    const active = items.flatMap((app) => app.windows).find((w) => w.active);
+
+    expect(
+      await backend.invoke(Command.ActivateWindow, {
+        id: active!.id,
+        minimiseIfActive: true,
+      }),
+    ).toBe("minimised");
+  });
+
+  it("unpinning something that is not running takes it off the dock", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<
+      Array<{ executable: string; pinned: boolean; windows: unknown[] }>
+    >(Command.GetDockItems);
+    const idle = before.find((app) => app.pinned && app.windows.length === 0);
+    expect(idle).toBeDefined();
+
+    await backend.invoke(Command.SetPinned, {
+      path: idle!.executable,
+      pinned: false,
+    });
+    const after = await backend.invoke<Array<{ executable: string }>>(
+      Command.GetDockItems,
+    );
+    expect(after.map((app) => app.executable)).not.toContain(idle!.executable);
+  });
+
+  it("unpinning something that is running keeps its icon", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<
+      Array<{ executable: string; pinned: boolean; windows: unknown[] }>
+    >(Command.GetDockItems);
+    const busy = before.find((app) => app.pinned && app.windows.length > 0);
+
+    await backend.invoke(Command.SetPinned, {
+      path: busy!.executable,
+      pinned: false,
+    });
+    const after = await backend.invoke<
+      Array<{ executable: string; pinned: boolean }>
+    >(Command.GetDockItems);
+    const still = after.find((app) => app.executable === busy!.executable);
+    expect(still).toBeDefined();
+    expect(still!.pinned).toBe(false);
+  });
+
+  it("the translator reports a missing key rather than an empty translation", async () => {
+    const backend = mockBackend();
+    await backend.invoke(Command.SetAiKey, { key: "" });
+    expect(await backend.invoke<boolean>(Command.HasAiKey)).toBe(false);
+
+    const outcome = await backend.invoke<{
+      text: string;
+      error: string | null;
+    }>(Command.Translate, { text: "Good morning", from: "auto", to: "ja" });
+    // An empty string with no error would look like the translator had eaten
+    // the input; the UI needs to know it should point at the settings.
+    expect(outcome.error).toBe("noKey");
+  });
+
+  it("translating nothing is not an error", async () => {
+    const backend = mockBackend();
+    const outcome = await backend.invoke<{
+      text: string;
+      error: string | null;
+    }>(Command.Translate, { text: "   ", from: "auto", to: "ja" });
+    expect(outcome.error).toBeNull();
+    expect(outcome.text).toBe("");
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(

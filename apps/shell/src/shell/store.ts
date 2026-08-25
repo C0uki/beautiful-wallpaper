@@ -33,6 +33,9 @@ import {
   type WifiNetwork,
   type ConnectOutcome,
   type BluetoothDeviceInfo,
+  type DockApp,
+  type TranslationResult,
+  type ActivateOutcome,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -59,6 +62,9 @@ export interface ShellState {
   todos: TodoItem[];
   persistent: Persistent;
   systemInfo: SystemInfo | null;
+  dock: DockApp[];
+  /** Whether an Anthropic key is configured; the translator needs one. */
+  hasAiKey: boolean;
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
   /** Ticked once a second, so every clock in a surface stays in step. */
@@ -92,6 +98,8 @@ const initial: ShellState = {
     idle: { inhibit: false },
   },
   systemInfo: null,
+  dock: [],
+  hasAiKey: false,
   wallpaper: { path: "", blanked: false },
   now: new Date(),
 };
@@ -146,6 +154,7 @@ export function connect(): Promise<void> {
       api.listen<Persistent>(Event.Persistent, (persistent) =>
         set({ persistent }),
       ),
+      api.listen<DockApp[]>(Event.Dock, (dock) => set({ dock })),
     ]);
 
     // Events cover changes; these fill in the state that already existed when the
@@ -208,6 +217,31 @@ export function connectSidebar(): Promise<void> {
   return sidebarConnected;
 }
 
+let dockConnected: Promise<void> | undefined;
+
+/** Fetches the dock's icons. Kept out of `connect` for the same reason the
+ * sidebar's data is: enumerating every window costs time no other surface
+ * should pay at startup. */
+export function connectDock(): Promise<void> {
+  dockConnected ??= (async () => {
+    await connect();
+    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
+  })();
+  return dockConnected;
+}
+
+let leftConnected: Promise<void> | undefined;
+
+/** What the left sidebar needs beyond the shared state. */
+export function connectSidebarLeft(): Promise<void> {
+  leftConnected ??= (async () => {
+    const api = backend();
+    await connect();
+    set({ hasAiKey: await api.invoke<boolean>(Command.HasAiKey) });
+  })();
+  return leftConnected;
+}
+
 /** Ticks `now` on the second boundary, so a minute never appears to change late. */
 function startClock(): void {
   const schedule = () => {
@@ -224,6 +258,8 @@ function startClock(): void {
 export function resetShell(): void {
   connected = undefined;
   sidebarConnected = undefined;
+  dockConnected = undefined;
+  leftConnected = undefined;
   set(initial, true);
 }
 
@@ -318,6 +354,32 @@ export const actions = {
   },
   clearDoneTodos() {
     return backend().invoke<TodoItem[]>(Command.ClearDoneTodos);
+  },
+  async refreshDock() {
+    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
+  },
+  activateWindow(id: string, minimiseIfActive: boolean) {
+    return backend().invoke<ActivateOutcome>(Command.ActivateWindow, {
+      id,
+      minimiseIfActive,
+    });
+  },
+  launchApp(path: string) {
+    return backend().invoke<void>(Command.LaunchApp, { path });
+  },
+  setPinned(path: string, pinned: boolean) {
+    return backend().invoke<Config>(Command.SetPinned, { path, pinned });
+  },
+  translate(text: string, from: string, to: string) {
+    return backend().invoke<TranslationResult>(Command.Translate, {
+      text,
+      from,
+      to,
+    });
+  },
+  async setAiKey(key: string) {
+    await backend().invoke<void>(Command.SetAiKey, { key });
+    set({ hasAiKey: await backend().invoke<boolean>(Command.HasAiKey) });
   },
   setPersistentValue(path: string, value: unknown) {
     return backend().invoke<Persistent>(Command.SetPersistentValue, {

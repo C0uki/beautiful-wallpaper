@@ -1,0 +1,144 @@
+/* The dock.
+ *
+ * The window is as tall as the dock plus its margin and spans the screen; the
+ * dock itself is centred inside it and slides down out of the way when hidden.
+ * Sliding in CSS rather than moving the window means the animation runs in the
+ * compositor instead of costing a SetWindowPos per frame. */
+
+.bw-dock-root {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding: 0 8px 8px;
+  /* The strip left on screen while hidden is this element's bottom edge, so it
+     must stay pointer-reactive even when the dock has slid away. */
+  pointer-events: auto;
+}
+
+.bw-dock {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--rounding-large);
+  color: var(--on-surface);
+  transform: translateY(calc(100% + 8px));
+  transition: transform var(--duration-normal) var(--ease-spatial-fast);
+}
+
+.bw-dock[data-background="true"] {
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 6px 22px var(--shadow);
+}
+
+.bw-dock-root[data-revealed="true"] .bw-dock {
+  transform: translateY(0);
+}
+
+.bw-dock-icon {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--rounding-normal);
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    background var(--duration-fast) var(--ease-effects-default),
+    transform var(--duration-fast) var(--ease-spatial-fast);
+}
+
+.bw-dock-icon:hover {
+  background: var(--layer2-hover);
+  transform: translateY(-2px);
+}
+
+.bw-dock-icon[data-active="true"] {
+  background: var(--layer2);
+}
+
+.bw-dock-icon img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+}
+
+/* A refused activation flashes the taskbar rather than raising the window;
+   the icon says so, or the click looks like it did nothing. */
+.bw-dock-icon[data-flashed="true"] {
+  animation: bw-dock-nudge 0.4s var(--ease-effects-default) 3;
+}
+
+@keyframes bw-dock-nudge {
+  50% {
+    background: var(--primary);
+    color: var(--primary-on);
+  }
+}
+
+.bw-dock-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateX(-50%);
+  transition: width var(--duration-fast) var(--ease-effects-default);
+}
+
+/* Several windows open widen the dot rather than adding a second one — the
+   original does the same, and two dots read as two applications. */
+.bw-dock-dot[data-many="true"] {
+  width: 12px;
+}
+
+.bw-dock-icon[data-active="true"] .bw-dock-dot {
+  background: var(--primary);
+}
+
+.bw-dock-separator {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 3px;
+  background: var(--outline-variant);
+}
+
+.bw-dock-media,
+.bw-dock-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--rounding-normal);
+  background: transparent;
+  color: var(--on-surface-variant);
+  font: inherit;
+  font-size: 0.82em;
+  cursor: pointer;
+}
+
+.bw-dock-media:hover,
+.bw-dock-pin:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-dock-media-title {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-dock-pin[data-on="true"] {
+  background: var(--primary);
+  color: var(--primary-on);
+}

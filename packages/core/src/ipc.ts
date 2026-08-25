@@ -5,6 +5,8 @@
 // kept here so muscle memory and any scripts carry over; on Windows the
 // transport underneath is a named pipe rather than the Quickshell socket.
 
+import type { AiError } from "./generated/AiError";
+
 /** Tauri events pushed from Rust to every surface. */
 export const Event = {
   /** The whole config, after a file change or a `config.set`. */
@@ -42,6 +44,8 @@ export const Event = {
   Todos: "bw://todos",
   /** Runtime state that is not configuration — the open tab, the toggle grid. */
   Persistent: "bw://persistent",
+  /** The dock's icons changed: a window opened, closed or came forward. */
+  Dock: "bw://dock",
   /** Asks the readout to appear, carrying what to show. */
   Osd: "bw://osd",
 } as const;
@@ -102,6 +106,13 @@ export const Command = {
   ReorderTodo: "reorder_todo",
   GetPersistent: "get_persistent",
   SetPersistentValue: "set_persistent_value",
+  GetDockItems: "get_dock_items",
+  ActivateWindow: "activate_window",
+  LaunchApp: "launch_app",
+  SetPinned: "set_pinned",
+  HasAiKey: "has_ai_key",
+  SetAiKey: "set_ai_key",
+  Translate: "translate",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -213,6 +224,21 @@ export interface VolumeReading {
   /** 0–100. */
   percent: number;
   muted: boolean;
+}
+
+/** What happened when a dock icon was clicked. */
+export type ActivateOutcome =
+  | "activated"
+  | "minimised"
+  /** Windows refused to move the foreground; the window was flashed instead. */
+  | "flashed"
+  /** The window has gone since the dock last looked. */
+  | "gone";
+
+export interface TranslationResult {
+  text: string;
+  /** `null` on success; otherwise why, in terms the UI can act on. */
+  error: AiError | null;
 }
 
 export interface RadiosState {

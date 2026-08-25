@@ -9,7 +9,9 @@
     "settings",
     "osd",
     "notifications",
-    "sidebarRight"
+    "sidebarRight",
+    "sidebarLeft",
+    "dock"
   ],
   "permissions": [
     "core:default",

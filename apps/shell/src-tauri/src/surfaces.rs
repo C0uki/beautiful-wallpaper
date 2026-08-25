@@ -76,6 +76,23 @@ pub const SIDEBAR_RIGHT: Surface = Surface {
     size: Some((0.26, 1.0)),
 };
 
+/// The dock. Full width along the bottom, and never focused: clicking an icon
+/// should put the user in *that* application, not in the dock.
+pub const DOCK: Surface = Surface {
+    label: "dock",
+    page: "dock.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 0.12)),
+};
+
+/// The left panel: translator and media.
+pub const SIDEBAR_LEFT: Surface = Surface {
+    label: "sidebarLeft",
+    page: "sidebarLeft.html",
+    layer: Layer::Overlay,
+    size: Some((0.26, 1.0)),
+};
+
 pub const ALL: &[Surface] = &[
     BACKGROUND,
     BAR,
@@ -83,6 +100,8 @@ pub const ALL: &[Surface] = &[
     OSD,
     NOTIFICATIONS,
     SIDEBAR_RIGHT,
+    SIDEBAR_LEFT,
+    DOCK,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -93,6 +112,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
     match flag {
         "wallpaperSelectorOpen" => Some(WALLPAPER_SELECTOR.label),
         "sidebarRightOpen" => Some(SIDEBAR_RIGHT.label),
+        "sidebarLeftOpen" => Some(SIDEBAR_LEFT.label),
         _ => None,
     }
 }
@@ -207,6 +227,62 @@ fn overlay_geometry(
             y
         };
         return ((screen.0 - width) / 2.0, y, width, height);
+    }
+
+    if surface.label == DOCK.label {
+        // As wide as its content, centred, and pushed off the bottom while
+        // hidden — all but the hover strip, which is what the pointer has to
+        // reach to bring it back.
+        let height = f64::from(config.dock.height) + margin * 2.0;
+        let hidden = if config.dock.auto_hide && !config.dock.pinned_on_startup {
+            bw_core::dock::hidden_offset(height, f64::from(config.dock.hover_region_height))
+        } else {
+            0.0
+        };
+        let bottom_bar = if config.bar.enable && !config.bar.vertical && config.bar.bottom {
+            bar
+        } else {
+            0.0
+        };
+        return (
+            0.0,
+            screen.1 - height - bottom_bar + hidden,
+            screen.0,
+            height,
+        );
+    }
+
+    if surface.label == SIDEBAR_LEFT.label {
+        let width = screen.0 * config.sidebar.left.width;
+        let vertical_bar = config.bar.enable && config.bar.vertical;
+        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
+            bar
+        } else {
+            0.0
+        };
+
+        let left_inset = if vertical_bar && !config.bar.bottom {
+            bar
+        } else {
+            0.0
+        };
+        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+
+        return (
+            left_inset + margin,
+            top + margin,
+            width,
+            (screen.1 - top - bottom - margin * 2.0).max(1.0),
+        );
     }
 
     if surface.label == SIDEBAR_RIGHT.label {
@@ -414,7 +490,10 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
 
 /// Whether showing this surface should also focus it.
 fn takes_focus(label: &str) -> bool {
-    !matches!(label, l if l == OSD.label || l == NOTIFICATIONS.label)
+    // The dock joins the two transient overlays here: clicking an icon should
+    // put the user in the application they picked, and a dock that grabbed
+    // focus first would take it straight back off them.
+    !matches!(label, l if l == OSD.label || l == NOTIFICATIONS.label || l == DOCK.label)
 }
 
 #[cfg(test)]

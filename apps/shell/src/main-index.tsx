@@ -10,6 +10,8 @@ import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./design/ThemeProvider";
 import { Background } from "./surfaces/background/Background";
 import { Bar } from "./surfaces/bar/Bar";
+import { Dock } from "./surfaces/dock/Dock";
+import { SidebarLeft } from "./surfaces/sidebarLeft/SidebarLeft";
 import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
 import { actions, connect, useShell } from "./shell/store";
@@ -18,7 +20,7 @@ import { Button, Segmented, Symbol } from "./widgets";
 import { TRANSITION_NAMES } from "./gl/transitions";
 import "./design/global.css";
 
-type View = "desktop" | "wallpapers" | "sidebar" | "both";
+type View = "desktop" | "wallpapers" | "sidebar" | "left" | "both";
 
 function Harness() {
   const [view, setView] = useState<View>("both");
@@ -28,6 +30,7 @@ function Harness() {
   const theme = useShell((state) => state.theme);
   const selectorOpen = useShell((state) => state.states.wallpaperSelectorOpen);
   const sidebarOpen = useShell((state) => state.states.sidebarRightOpen);
+  const leftOpen = useShell((state) => state.states.sidebarLeftOpen);
 
   useEffect(() => {
     void connect();
@@ -42,9 +45,11 @@ function Harness() {
   }
 
   const showSidebar = view === "sidebar" || sidebarOpen;
-  const showDesktop = !showSidebar && (view === "desktop" || view === "both");
+  const showLeft = !showSidebar && (view === "left" || leftOpen);
+  const showPanel = showSidebar || showLeft;
+  const showDesktop = !showPanel && (view === "desktop" || view === "both");
   const showSelector =
-    !showSidebar && (view === "wallpapers" || view === "both" || selectorOpen);
+    !showPanel && (view === "wallpapers" || view === "both" || selectorOpen);
   const barHeight = config.bar.enable ? config.bar.height : 0;
 
   return (
@@ -93,6 +98,7 @@ function Harness() {
             { value: "desktop", label: "Desktop", icon: "wallpaper" },
             { value: "wallpapers", label: "Picker", icon: "photo_library" },
             { value: "sidebar", label: "Sidebar", icon: "dock_to_left" },
+            { value: "left", label: "Left", icon: "dock_to_bottom" },
           ]}
           value={view}
           onChange={setView}
@@ -230,6 +236,14 @@ function Harness() {
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {showLeft ? (
+          <div
+            style={{ width: 420, padding: 12, margin: "0 auto", minHeight: 0 }}
+          >
+            <SidebarLeft />
+          </div>
+        ) : null}
+
         {showSidebar ? (
           // On Windows this is its own window pinned to the right edge; here it
           // gets a pane of roughly the same proportions.
@@ -250,6 +264,22 @@ function Harness() {
             <Background />
             {/* On Windows the bar is its own window along a reserved edge; here
                 it is overlaid on the desktop pane so both can be seen at once. */}
+            {/* On Windows the dock is its own window along the bottom edge;
+                here it is overlaid on the desktop pane so both can be seen. */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: config.dock.height + 20,
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ height: "100%", pointerEvents: "auto" }}>
+                <Dock />
+              </div>
+            </div>
             {config.bar.enable ? (
               <div
                 style={{

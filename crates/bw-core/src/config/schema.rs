@@ -51,6 +51,7 @@ fn s(value: &str) -> String {
 config_struct! {
     /// Root of `config.json`.
     pub struct Config {
+        pub ai: Ai = Ai::default(),
         pub appearance: Appearance = Appearance::default(),
         pub audio: Audio = Audio::default(),
         pub background: Background = Background::default(),
@@ -227,11 +228,36 @@ config_struct! {
 }
 
 config_struct! {
+    /// The dock: this shell's replacement for the taskbar it can hide.
     pub struct Dock {
         pub enable: bool = false,
-        pub pinned_apps: Vec<String> = Vec::new(),
-        pub auto_hide: bool = true,
+        pub height: u32 = 60,
         pub icon_size: u32 = 44,
+        /// Full paths of the executables kept on the dock whether or not they
+        /// are running. The original stores desktop-entry ids; Windows has no
+        /// equivalent, and a path is the only thing that reliably identifies
+        /// an application across launches.
+        pub pinned_apps: Vec<String> = Vec::new(),
+        /// Case-insensitive glob patterns matched against an executable's
+        /// file name — `msedgewebview2.exe`, `*host.exe`. Anything matching
+        /// never reaches the dock.
+        ///
+        /// The original calls this `ignoredAppRegexes` and takes regular
+        /// expressions. A dock ignore list is a handful of file names, so this
+        /// takes globs instead rather than pulling a regex engine into the
+        /// portable crate — and is named for what it actually accepts.
+        pub ignored: Vec<String> = Vec::new(),
+        pub show_background: bool = true,
+        pub show_pin_button: bool = true,
+        pub show_media: bool = true,
+        /// Slide out of the way until the pointer reaches the screen edge.
+        pub auto_hide: bool = true,
+        /// How much of the dock stays on screen while it is hidden. This is
+        /// the strip the pointer has to reach, so zero would make the dock
+        /// unreachable.
+        pub hover_region_height: u32 = 3,
+        /// Start pinned open, reserving screen space rather than hiding.
+        pub pinned_on_startup: bool = false,
     }
 }
 
@@ -302,6 +328,37 @@ config_struct! {
         pub quick_toggles: QuickToggles = QuickToggles::default(),
         pub quick_sliders: QuickSliders = QuickSliders::default(),
         pub night_light: NightLight = NightLight::default(),
+        pub left: LeftSidebar = LeftSidebar::default(),
+    }
+}
+
+config_struct! {
+    /// The left sidebar. The original also carries an AI chat and a booru
+    /// browser here; neither is built yet.
+    pub struct LeftSidebar {
+        pub enable: bool = true,
+        /// Fraction of the screen width the panel occupies.
+        pub width: f64 = 0.26,
+        pub translator: Translator = Translator::default(),
+        pub media: LeftMedia = LeftMedia::default(),
+    }
+}
+
+config_struct! {
+    pub struct Translator {
+        pub enable: bool = true,
+        /// Milliseconds of quiet before the text is sent. Translating on every
+        /// keystroke would bill a request per character.
+        pub delay: u32 = 300,
+        /// Two-letter code, or `auto` to detect.
+        pub from: String = s("auto"),
+        pub to: String = s("en"),
+    }
+}
+
+config_struct! {
+    pub struct LeftMedia {
+        pub enable: bool = true,
     }
 }
 
@@ -345,6 +402,18 @@ config_struct! {
         /// 24-hour local times, used only when `automatic` is set.
         pub from: String = s("20:00"),
         pub to: String = s("07:00"),
+    }
+}
+
+config_struct! {
+    /// Anthropic's API, used by the translator today and by the chat later.
+    ///
+    /// The key itself is never stored here — it lives in the Windows
+    /// credential manager, reached through the `keyring` crate, the same way
+    /// the online wallpaper providers' keys are.
+    pub struct Ai {
+        pub model: String = s("claude-opus-5"),
+        pub max_tokens: u32 = 4096,
     }
 }
 
