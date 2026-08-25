@@ -46,6 +46,10 @@ export const Event = {
   Persistent: "bw://persistent",
   /** The dock's icons changed: a window opened, closed or came forward. */
   Dock: "bw://dock",
+  /** The whole conversation, after a turn starts or finishes. */
+  Chat: "bw://chat",
+  /** One piece of a reply as it streams. */
+  ChatEvent: "bw://chat-event",
   /** Asks the readout to appear, carrying what to show. */
   Osd: "bw://osd",
 } as const;
@@ -113,6 +117,11 @@ export const Command = {
   HasAiKey: "has_ai_key",
   SetAiKey: "set_ai_key",
   Translate: "translate",
+  GetChat: "get_chat",
+  SendChat: "send_chat",
+  ClearChat: "clear_chat",
+  RetryChat: "retry_chat",
+  PickFiles: "pick_files",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */

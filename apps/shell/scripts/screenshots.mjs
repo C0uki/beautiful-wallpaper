@@ -209,10 +209,16 @@ const SHOTS = [
     url: "/sidebarLeft.html",
     viewport: { width: 420, height: 720 },
     setup: async (page) => {
+      await page.getByRole("tab", { name: "Translator" }).click();
       await page.getByLabel("Text to translate").fill("Good morning");
       // Past the debounce, so the result is on screen rather than pending.
       await page.waitForTimeout(600);
     },
+  },
+  {
+    name: "21-sidebar-left-chat",
+    url: "/sidebarLeft.html",
+    viewport: { width: 460, height: 900 },
   },
   {
     name: "20-sidebar-left-media",

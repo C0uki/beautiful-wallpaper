@@ -36,6 +36,8 @@ import {
   type DockApp,
   type TranslationResult,
   type ActivateOutcome,
+  type ChatMessage,
+  type StreamEvent,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -65,6 +67,9 @@ export interface ShellState {
   dock: DockApp[];
   /** Whether an Anthropic key is configured; the translator needs one. */
   hasAiKey: boolean;
+  chat: ChatMessage[];
+  /** True while a reply is streaming in. */
+  chatStreaming: boolean;
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
   /** Ticked once a second, so every clock in a surface stays in step. */
@@ -100,6 +105,8 @@ const initial: ShellState = {
   systemInfo: null,
   dock: [],
   hasAiKey: false,
+  chat: [],
+  chatStreaming: false,
   wallpaper: { path: "", blanked: false },
   now: new Date(),
 };
@@ -155,6 +162,13 @@ export function connect(): Promise<void> {
         set({ persistent }),
       ),
       api.listen<DockApp[]>(Event.Dock, (dock) => set({ dock })),
+      api.listen<ChatMessage[]>(Event.Chat, (chat) => set({ chat })),
+      // Deltas arrive on their own channel and are applied to the last
+      // message in place. Re-sending the whole conversation per token would
+      // redraw every message in the window for each character.
+      api.listen<StreamEvent>(Event.ChatEvent, (event) =>
+        set((state) => applyStreamEvent(state, event)),
+      ),
     ]);
 
     // Events cover changes; these fill in the state that already existed when the
@@ -230,6 +244,45 @@ export function connectDock(): Promise<void> {
   return dockConnected;
 }
 
+/** Folds one streamed delta into the conversation. */
+function applyStreamEvent(
+  state: ShellState,
+  event: StreamEvent,
+): Partial<ShellState> {
+  if (event.kind === "done" || event.kind === "failed") {
+    return { chatStreaming: false };
+  }
+
+  const chat = [...state.chat];
+  const index = chat.length - 1;
+  const last = chat[index];
+  // A delta with nothing to apply it to means the conversation has not caught
+  // up yet; the `bw://chat` event that follows will carry the whole thing.
+  if (!last || last.role !== "assistant") return { chatStreaming: true };
+
+  const next = { ...last };
+  switch (event.kind) {
+    case "text":
+      next.content += event.value;
+      break;
+    case "thinking":
+      next.thinking += event.value;
+      break;
+    case "search":
+      next.searches = [...next.searches, event.value];
+      break;
+    case "sources":
+      next.sources = [...next.sources, ...event.value];
+      break;
+    case "fellBackTo":
+      next.answeredBy = event.value;
+      break;
+  }
+
+  chat[index] = next;
+  return { chat, chatStreaming: true };
+}
+
 let leftConnected: Promise<void> | undefined;
 
 /** What the left sidebar needs beyond the shared state. */
@@ -237,7 +290,11 @@ export function connectSidebarLeft(): Promise<void> {
   leftConnected ??= (async () => {
     const api = backend();
     await connect();
-    set({ hasAiKey: await api.invoke<boolean>(Command.HasAiKey) });
+    const [hasAiKey, chat] = await Promise.all([
+      api.invoke<boolean>(Command.HasAiKey),
+      api.invoke<ChatMessage[]>(Command.GetChat),
+    ]);
+    set({ hasAiKey, chat });
   })();
   return leftConnected;
 }
@@ -380,6 +437,31 @@ export const actions = {
   async setAiKey(key: string) {
     await backend().invoke<void>(Command.SetAiKey, { key });
     set({ hasAiKey: await backend().invoke<boolean>(Command.HasAiKey) });
+  },
+  openUrl(url: string) {
+    return backend().invoke<void>("plugin:opener|open_url", { url });
+  },
+  /** Opens a file picker and returns the chosen paths. */
+  async pickFiles(): Promise<string[]> {
+    const picked = await backend().invoke<string[] | null>(Command.PickFiles);
+    return picked ?? [];
+  },
+  async sendChat(text: string, attachments: string[] = []) {
+    set({ chatStreaming: true });
+    try {
+      await backend().invoke<void>(Command.SendChat, { text, attachments });
+    } catch (error) {
+      // The backend refuses a second send while one is in flight; the flag
+      // has to come back down or the input stays disabled forever.
+      set({ chatStreaming: false });
+      throw error;
+    }
+  },
+  async clearChat() {
+    set({ chat: await backend().invoke<ChatMessage[]>(Command.ClearChat) });
+  },
+  async retryChat() {
+    set({ chat: await backend().invoke<ChatMessage[]>(Command.RetryChat) });
   },
   setPersistentValue(path: string, value: unknown) {
     return backend().invoke<Persistent>(Command.SetPersistentValue, {

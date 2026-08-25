@@ -1,0 +1,231 @@
+/* The chat tab: a scrolling log with a composer pinned under it. */
+
+.bw-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+
+.bw-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--on-surface-variant);
+}
+
+.bw-chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 2px;
+}
+
+.bw-chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bw-chat-turn[data-role="user"] {
+  align-items: flex-end;
+}
+
+.bw-chat-body {
+  max-width: 92%;
+  padding: 8px 12px;
+  border-radius: var(--rounding-normal);
+  background: var(--layer2);
+}
+
+.bw-chat-turn[data-role="user"] .bw-chat-body {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+/* The assistant's side is the one that carries long-form content, so it gets
+   the full width and no bubble tint fighting the code blocks. */
+.bw-chat-turn[data-role="assistant"] .bw-chat-body {
+  max-width: 100%;
+  background: transparent;
+  padding: 0;
+}
+
+.bw-chat-plain {
+  margin: 0;
+  font-size: 0.88em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A caret while the reply streams, so a pause reads as thinking rather than
+   as a hang. */
+.bw-chat-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  animation: bw-chat-blink 1s steps(2, start) infinite;
+}
+
+@keyframes bw-chat-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.bw-chat-thinking {
+  align-self: stretch;
+  border-radius: var(--rounding-small, 12px);
+  background: var(--layer1);
+  font-size: 0.8em;
+}
+
+.bw-chat-thinking button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bw-chat-thinking p {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.bw-chat-search,
+.bw-chat-fallback {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75em;
+  color: var(--on-surface-variant);
+  opacity: 0.8;
+}
+
+.bw-chat-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bw-chat-sources a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+  font-size: 0.72em;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-chat-sources a:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-chat-attachments,
+.bw-chat-pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bw-chat-attachments span,
+.bw-chat-pending button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--layer2);
+  color: var(--on-surface-variant);
+  font: inherit;
+  font-size: 0.72em;
+}
+
+.bw-chat-pending button {
+  cursor: pointer;
+}
+
+.bw-chat-failed,
+.bw-chat-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--rounding-small, 12px);
+  background: var(--layer2);
+  font-size: 0.8em;
+  color: var(--error);
+}
+
+.bw-chat-failed button {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--primary);
+  color: var(--primary-on);
+  font: inherit;
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.bw-chat-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.bw-chat-input textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  max-height: 140px;
+  resize: none;
+  padding: 9px 12px;
+  border: 1px solid var(--outline);
+  border-radius: var(--rounding-large);
+  background: var(--layer2);
+  color: inherit;
+  font: inherit;
+  font-size: 0.88em;
+  line-height: 1.4;
+}
+
+.bw-chat-input textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.bw-chat-input textarea:disabled {
+  opacity: 0.6;
+}

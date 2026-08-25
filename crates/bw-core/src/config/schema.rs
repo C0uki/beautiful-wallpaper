@@ -414,6 +414,13 @@ config_struct! {
     pub struct Ai {
         pub model: String = s("claude-opus-5"),
         pub max_tokens: u32 = 4096,
+        /// Let the model search the web when it needs to. Costs tokens, so it
+        /// is a setting rather than always on.
+        pub web_search: bool = true,
+        /// Searches per turn. Without a cap a single question can run several.
+        pub max_searches: u32 = 5,
+        /// Show the model's summarised reasoning in its own pane.
+        pub show_thinking: bool = true,
     }
 }
 

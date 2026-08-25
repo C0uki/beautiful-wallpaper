@@ -114,12 +114,25 @@ over ten thousand lines: the right sidebar alone is 4,611.
   Anthropic API — which puts the client and the key handling in place for the
   chat tab.
 
+### Done: the AI chat
+
+Streamed rather than awaited — a long answer takes minutes, and an empty pane
+for that long reads as a hang. The summarised reasoning gets its own
+collapsible pane instead of being spliced into the answer, web search is on
+with its queries and sources shown, and images and PDFs can be attached.
+Replies render as Markdown with highlighted code and a copy button per block.
+
+The original reaches three APIs through strategy objects; this reaches one,
+so the strategy layer is gone and the streaming is what is left. Its SSE
+parsing lives in bw-core under tests, including the three cases that are only
+obvious once seen: a fallback has no event type of its own, a failed web
+search arrives as HTTP 200 with an object where a list belongs, and thinking
+deltas must not be concatenated onto the reply.
+
 ### Still to do
 
-- **The left sidebar's AI chat and booru browser.** The chat is the largest
-  single piece of the original's sidebar (~2,100 lines) and needs streaming,
-  Markdown and code-block rendering, and conversation history on top of the
-  client that now exists.
+- **The booru browser**, the last of the original's four left-sidebar tabs
+  (~1,045 lines, and off by default upstream).
 - **The dock's drag-to-reorder and drop targets.** Pinning works; rearranging
   pinned icons by dragging does not.
 - **The media tab's visualiser and lyrics.** The visualiser needs a WASAPI

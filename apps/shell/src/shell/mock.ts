@@ -34,6 +34,7 @@ import {
   type TodoItem,
   type Persistent,
   type DockApp,
+  type ChatMessage,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -387,6 +388,60 @@ export function mockBackend(): Backend {
   // The mock has a key so the translator is exercised; flip to false to see
   // the first-run state instead.
   let hasAiKey = true;
+
+  // A conversation that exercises what the window has to draw: a reply with
+  // Markdown and a fenced code block, summarised thinking, and a web search
+  // with sources.
+  let chat: ChatMessage[] = [
+    {
+      id: 1,
+      role: "user",
+      content: "How do I reserve screen space for a bar on Windows?",
+      thinking: "",
+      searches: [],
+      sources: [],
+      attachments: [],
+      answeredBy: "",
+      time: Math.floor(Date.now() / 1000) - 300,
+    },
+    {
+      id: 2,
+      role: "assistant",
+      content: [
+        "You register an **app bar** with `SHAppBarMessage`. The sequence is:",
+        "",
+        "1. `ABM_NEW` to register the window",
+        "2. `ABM_QUERYPOS` to ask where it may go",
+        "3. `ABM_SETPOS` to commit, then move the window to the *granted* rect",
+        "",
+        "```rust",
+        "let mut data = APPBARDATA {",
+        "    cbSize: size_of::<APPBARDATA>() as u32,",
+        "    hWnd: hwnd,",
+        "    uEdge: ABE_TOP,",
+        "    ..Default::default()",
+        "};",
+        "unsafe { SHAppBarMessage(ABM_NEW, &mut data) };",
+        "```",
+        "",
+        "Windows may grant a different rectangle than the one you asked for, so",
+        "always follow the grant rather than the request.",
+      ].join("\n"),
+      thinking:
+        "The user is on Windows, so wlr-layer-shell does not apply. The Win32 equivalent is the app bar API.",
+      searches: ["SHAppBarMessage reserve screen space"],
+      sources: [
+        {
+          title: "SHAppBarMessage function — Win32 apps",
+          url: "https://learn.microsoft.com/windows/win32/api/shellapi/nf-shellapi-shappbarmessage",
+        },
+      ],
+      attachments: [],
+      answeredBy: "",
+      time: Math.floor(Date.now() / 1000) - 280,
+    },
+  ];
+  let nextChatId = 3;
 
   // Signal bars deliberately span the range, including a 0-bar network — the
   // case an icon chosen by `bars > 0` gets wrong.
@@ -833,6 +888,75 @@ export function mockBackend(): Backend {
           } as T;
         }
 
+        case Command.PickFiles:
+          // No real picker off Windows; a plausible path exercises the chip.
+          return ["C:\\Users\\you\\Pictures\\diagram.png"] as T;
+
+        case Command.GetChat:
+          return chat as T;
+
+        case Command.ClearChat:
+          chat = [];
+          emit(Event.Chat, chat);
+          return chat as T;
+
+        case Command.RetryChat:
+          chat = chat.slice(0, -1);
+          emit(Event.Chat, chat);
+          return chat as T;
+
+        case Command.SendChat: {
+          const text = String(args["text"] ?? "");
+          const attachments = (args["attachments"] as string[]) ?? [];
+          if (!text.trim() && attachments.length === 0) return undefined as T;
+
+          const blank = (): Omit<ChatMessage, "id" | "role" | "content"> => ({
+            thinking: "",
+            searches: [],
+            sources: [],
+            attachments: [],
+            answeredBy: "",
+            time: Math.floor(Date.now() / 1000),
+          });
+
+          chat = [
+            ...chat,
+            {
+              id: nextChatId++,
+              role: "user",
+              content: text,
+              ...blank(),
+              attachments: attachments.map((path) =>
+                String(path).split(/[\\/]/).pop()!,
+              ),
+            },
+            { id: nextChatId++, role: "assistant", content: "", ...blank() },
+          ];
+          emit(Event.Chat, chat);
+
+          // Streamed a word at a time, so the surface's incremental rendering
+          // is exercised rather than a single finished reply appearing.
+          const reply =
+            "That depends on the surface. The bar reserves an edge; overlays do not.";
+          const words = reply.split(" ");
+          let index = 0;
+          const tick = setInterval(() => {
+            if (index >= words.length) {
+              clearInterval(tick);
+              emit(Event.ChatEvent, { kind: "done" });
+              emit(Event.Chat, chat);
+              return;
+            }
+            emit(Event.ChatEvent, {
+              kind: "text",
+              value: (index === 0 ? "" : " ") + words[index],
+            });
+            index += 1;
+          }, 60);
+
+          return undefined as T;
+        }
+
         case Command.GetMonitors:
           return [
             {
@@ -877,6 +1001,7 @@ export function mockBackend(): Backend {
         if (event === Event.Todos) handler(todos as T);
         if (event === Event.Persistent) handler(persistent as T);
         if (event === Event.Dock) handler(dock as T);
+        if (event === Event.Chat) handler(chat as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
         if (event === Event.Osd) handler(osd as T);
       });

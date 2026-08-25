@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Placeholder, ScrollArea, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connectSidebarLeft, useShell } from "../../shell/store";
+import { Chat } from "./Chat";
 import { MediaTab } from "./MediaTab";
 import { Translator } from "./Translator";
 import "../panel.css";
@@ -22,6 +23,7 @@ interface Tab {
 
 export function SidebarLeft() {
   const config = useShell((state) => state.config.sidebar.left);
+  const policies = useShell((state) => state.config.policies);
   const open = useShell((state) => state.states.sidebarLeftOpen);
   const ready = useShell((state) => state.ready);
   const [active, setActive] = useState<string | null>(null);
@@ -43,6 +45,17 @@ export function SidebarLeft() {
   if (!ready) return null;
 
   const tabs: Tab[] = [
+    // The original gates this on `policies.ai`; 0 means off entirely.
+    ...(policies.ai !== 0
+      ? [
+          {
+            id: "chat",
+            icon: "neurology",
+            label: tr("Intelligence"),
+            content: () => <Chat />,
+          },
+        ]
+      : []),
     ...(config.translator.enable
       ? [
           {
