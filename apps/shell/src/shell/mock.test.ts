@@ -110,6 +110,49 @@ describe("the mock backend", () => {
     expect(typeof volume.muted).toBe("boolean");
   });
 
+  it("reports a brightness level and moves it in steps", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<{
+      percent: number | null;
+      supported: boolean;
+    }>(Command.GetBrightness);
+    expect(before.supported).toBe(true);
+    expect(before.percent).not.toBeNull();
+
+    await backend.invoke(Command.StepBrightness, { up: true });
+    const after = await backend.invoke<{ percent: number | null }>(
+      Command.GetBrightness,
+    );
+    expect(after.percent).toBe(before.percent! + 5);
+  });
+
+  it("clamps brightness rather than running past the ends of the slider", async () => {
+    const backend = mockBackend();
+    await backend.invoke(Command.SetBrightness, { percent: 400 });
+    const high = await backend.invoke<{ percent: number }>(
+      Command.GetBrightness,
+    );
+    expect(high.percent).toBe(100);
+
+    // And stepping up from the top stays there instead of wrapping.
+    await backend.invoke(Command.StepBrightness, { up: true });
+    const stillHigh = await backend.invoke<{ percent: number }>(
+      Command.GetBrightness,
+    );
+    expect(stillHigh.percent).toBe(100);
+  });
+
+  it("the night light toggle survives in the config, not just in memory", async () => {
+    const backend = mockBackend();
+    const updated = await backend.invoke<Config>(Command.SetNightLight, {
+      enable: true,
+    });
+    expect(updated.sidebar.nightLight.enable).toBe(true);
+
+    const reread = await backend.invoke<Config>(Command.GetConfig);
+    expect(reread.sidebar.nightLight.enable).toBe(true);
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(

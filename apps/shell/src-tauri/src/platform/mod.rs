@@ -7,6 +7,8 @@
 #[cfg(windows)]
 pub mod audio;
 #[cfg(windows)]
+pub mod brightness;
+#[cfg(windows)]
 pub mod tray;
 #[cfg(windows)]
 pub mod wallpaper;

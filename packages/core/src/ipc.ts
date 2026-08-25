@@ -67,6 +67,10 @@ export const Command = {
   SetVolume: "set_volume",
   SetMuted: "set_muted",
   StepVolume: "step_volume",
+  GetBrightness: "get_brightness",
+  SetBrightness: "set_brightness",
+  StepBrightness: "step_brightness",
+  SetNightLight: "set_night_light",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -178,6 +182,13 @@ export interface VolumeReading {
   /** 0–100. */
   percent: number;
   muted: boolean;
+}
+
+export interface BrightnessReading {
+  /** 0–100, or `null` when no display can report a level. */
+  percent: number | null;
+  /** Whether to draw the control at all. */
+  supported: boolean;
 }
 
 /** What the backend asks the readout to show. */

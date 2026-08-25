@@ -268,3 +268,63 @@ impl VolumeHandle {
         Ok(())
     }
 }
+
+/// The brightness worker, or nothing when no display can report a level.
+///
+/// As with audio, "unavailable" is a normal state rather than an error: a
+/// desktop whose monitor ignores DDC/CI has no brightness control, and the
+/// shell hides the readout and the slider instead of showing a dead one.
+#[derive(Default)]
+pub struct BrightnessHandle {
+    #[cfg(windows)]
+    control: Option<crate::platform::brightness::BrightnessControl>,
+}
+
+impl BrightnessHandle {
+    #[cfg(windows)]
+    pub fn new(control: Option<crate::platform::brightness::BrightnessControl>) -> Self {
+        Self { control }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    /// The level now, or `None` when the platform cannot report one.
+    pub fn read(&self) -> Option<u8> {
+        #[cfg(windows)]
+        return self.control.as_ref().and_then(|control| control.read());
+        #[cfg(not(windows))]
+        None
+    }
+
+    pub fn set(&self, _percent: u8) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.set(_percent);
+        }
+    }
+
+    /// Applies, or clears, the warm tint.
+    pub fn set_night_light(&self, _kelvin: Option<u32>) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.set_night_light(_kelvin);
+        }
+    }
+
+    /// Re-reads the hardware, for when something outside the shell changed it.
+    pub fn refresh(&self) {
+        #[cfg(windows)]
+        if let Some(control) = self.control.as_ref() {
+            control.refresh();
+        }
+    }
+
+    /// Whether to draw the control at all. A slider that moves but changes
+    /// nothing is worse than no slider.
+    pub fn is_supported(&self) -> bool {
+        self.read().is_some()
+    }
+}

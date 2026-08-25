@@ -12,7 +12,7 @@ use std::time::Duration;
 use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
-use bw_shell::state::{AppState, NotificationStore, VolumeHandle};
+use bw_shell::state::{AppState, BrightnessHandle, NotificationStore, VolumeHandle};
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -79,6 +79,10 @@ fn main() {
             commands::set_volume,
             commands::set_muted,
             commands::step_volume,
+            commands::get_brightness,
+            commands::set_brightness,
+            commands::step_brightness,
+            commands::set_night_light,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -103,6 +107,7 @@ fn main() {
             app.manage(WatcherHandle(watcher));
 
             app.manage(start_volume_watch(&handle));
+            app.manage(start_brightness_watch(&handle));
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -206,6 +211,43 @@ fn start_volume_watch(app: &AppHandle) -> VolumeHandle {
     {
         let _ = app;
         VolumeHandle::new()
+    }
+}
+
+/// Starts the brightness worker, and shows the readout on every change.
+///
+/// Mirrors the volume watcher, including swallowing the first reading: that
+/// one is the current level rather than a change, and showing it would flash
+/// the readout on every launch.
+fn start_brightness_watch(app: &AppHandle) -> BrightnessHandle {
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let handle = app.clone();
+        let seen_first = AtomicBool::new(false);
+
+        let control = bw_shell::platform::brightness::BrightnessControl::new(move |percent| {
+            let _ = handle.emit(event::BRIGHTNESS, percent);
+
+            if seen_first.swap(true, Ordering::Relaxed) {
+                show_osd(&handle, "brightness", f32::from(percent), false);
+            }
+        });
+
+        // The night light is a config setting, so it has to be re-applied at
+        // startup — the gamma ramp is cleared when the shell exits.
+        let config = app.state::<AppState>().config();
+        if config.sidebar.night_light.enable {
+            control.set_night_light(Some(config.sidebar.night_light.temperature));
+        }
+
+        BrightnessHandle::new(Some(control))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        BrightnessHandle::new()
     }
 }
 

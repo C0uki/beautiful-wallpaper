@@ -25,6 +25,7 @@ import {
   type Notification,
   type OsdReading,
   type VolumeReading,
+  type BrightnessReading,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -316,6 +317,9 @@ export function mockBackend(): Backend {
   ];
 
   const volume: VolumeReading = { percent: 42, muted: false };
+  // A machine that *can* report a level. The unsupported case is worth seeing
+  // too, so it is reachable by setting this to null.
+  let brightness: BrightnessReading = { percent: 65, supported: true };
   const osd: OsdReading = { kind: "volume", value: 42, muted: false };
 
   // Push the periodic events the real backend sends.
@@ -458,6 +462,39 @@ export function mockBackend(): Backend {
         case Command.GetVolume:
           return volume as T;
 
+        case Command.GetBrightness:
+          return brightness as T;
+
+        case Command.SetBrightness: {
+          const percent = Math.max(0, Math.min(100, Number(args["percent"])));
+          brightness = { ...brightness, percent };
+          emit(Event.Brightness, percent);
+          return undefined as T;
+        }
+
+        case Command.StepBrightness: {
+          if (brightness.percent === null) return undefined as T;
+          const step = args["up"] ? 5 : -5;
+          const percent = Math.max(0, Math.min(100, brightness.percent + step));
+          brightness = { ...brightness, percent };
+          emit(Event.Brightness, percent);
+          return undefined as T;
+        }
+
+        case Command.SetNightLight: {
+          // The real backend persists the toggle through the config, so the
+          // mock does too — and through a fresh object, as SetConfigValue does.
+          const next = structuredClone(config);
+          setByPath(
+            next as unknown as Record<string, unknown>,
+            "sidebar.nightLight.enable",
+            Boolean(args["enable"]),
+          );
+          config = next;
+          emit(Event.ConfigChanged, config);
+          return config as T;
+        }
+
         case Command.DismissNotification: {
           const id = Number(args["id"]);
           notifications = notifications.filter(
@@ -512,6 +549,7 @@ export function mockBackend(): Backend {
         if (event === Event.Tray) handler(tray as T);
         if (event === Event.Notifications) handler(notifications as T);
         if (event === Event.Volume) handler(volume as T);
+        if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
         if (event === Event.Osd) handler(osd as T);
       });
 

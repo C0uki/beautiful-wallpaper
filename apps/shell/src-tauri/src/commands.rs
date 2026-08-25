@@ -13,7 +13,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::providers::{self, MediaAction};
 use crate::services;
-use crate::state::{AppState, GlobalStates, NotificationStore, VolumeHandle};
+use crate::state::{AppState, BrightnessHandle, GlobalStates, NotificationStore, VolumeHandle};
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
 pub mod event {
@@ -335,4 +335,69 @@ fn hearing_ceiling(config: &Config) -> f32 {
     } else {
         100.0
     }
+}
+
+// --- Brightness ------------------------------------------------------------
+
+/// What a surface needs to decide whether to draw the control at all.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrightnessReading {
+    /// 0–100, or `null` when no display can report a level.
+    pub percent: Option<u8>,
+    pub supported: bool,
+}
+
+#[tauri::command]
+pub fn get_brightness(brightness: State<'_, BrightnessHandle>) -> BrightnessReading {
+    let percent = brightness.read();
+    BrightnessReading {
+        percent,
+        supported: percent.is_some(),
+    }
+}
+
+#[tauri::command]
+pub fn set_brightness(brightness: State<'_, BrightnessHandle>, percent: u8) {
+    brightness.set(percent.min(100));
+}
+
+/// Moves brightness by one step, the way the volume keys move volume.
+///
+/// Does nothing when the display cannot report a level: stepping from an
+/// unknown starting point would jump the backlight somewhere arbitrary.
+#[tauri::command]
+pub fn step_brightness(brightness: State<'_, BrightnessHandle>, up: bool) {
+    let Some(current) = brightness.read() else {
+        return;
+    };
+    let step = BRIGHTNESS_STEP;
+    let target = if up {
+        current.saturating_add(step)
+    } else {
+        current.saturating_sub(step)
+    };
+    brightness.set(target.min(100));
+}
+
+/// Percentage points per brightness step. Matches the audio default, so the
+/// two sets of media keys feel the same.
+const BRIGHTNESS_STEP: u8 = 5;
+
+/// Turns the night light on at the configured temperature, or off.
+#[tauri::command]
+pub fn set_night_light(
+    state: State<'_, AppState>,
+    brightness: State<'_, BrightnessHandle>,
+    enable: bool,
+) -> Result<Config, String> {
+    let config = state.config();
+    let kelvin = enable.then_some(config.sidebar.night_light.temperature);
+    brightness.set_night_light(kelvin);
+
+    // The toggle is part of the config, so it survives a restart the way the
+    // original's does.
+    state
+        .set_config_value("sidebar.nightLight.enable", serde_json::json!(enable))
+        .map_err(|error| error.to_string())
 }
