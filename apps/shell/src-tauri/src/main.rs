@@ -13,7 +13,7 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
+    AppState, BrightnessHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
     PersistentStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
@@ -109,6 +109,13 @@ fn main() {
             commands::reorder_todo,
             commands::get_persistent,
             commands::set_persistent_value,
+            commands::get_dock_items,
+            commands::activate_window,
+            commands::launch_app,
+            commands::set_pinned,
+            commands::has_ai_key,
+            commands::set_ai_key,
+            commands::translate,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -139,6 +146,7 @@ fn main() {
             app.manage(IdleHandle::default());
             app.manage(TodoStore::default());
             app.manage(PersistentStore::default());
+            app.manage(start_dock_watch(&handle));
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -343,6 +351,36 @@ fn start_brightness_watch(app: &AppHandle) -> BrightnessHandle {
     {
         let _ = app;
         BrightnessHandle::new()
+    }
+}
+
+/// Watches for windows opening and closing so the dock stays current.
+///
+/// Deliberately event-driven rather than polled: an icon that lingers for a
+/// second after its application closes is what makes a dock feel broken.
+fn start_dock_watch(app: &AppHandle) -> DockHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let watcher = bw_shell::platform::windows::WindowWatcher::new(move || {
+            // `try_state`, not `state`: the first event can arrive between the
+            // watcher being built and the handle being managed, and `state`
+            // panics on a type nobody has registered yet.
+            let (Some(dock), Some(state)) = (
+                handle.try_state::<DockHandle>(),
+                handle.try_state::<AppState>(),
+            ) else {
+                return;
+            };
+            let _ = handle.emit(event::DOCK, dock.items(&state.config()));
+        });
+
+        DockHandle::new(Some(watcher))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        DockHandle::new()
     }
 }
 

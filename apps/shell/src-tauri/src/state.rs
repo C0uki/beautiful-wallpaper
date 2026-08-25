@@ -439,3 +439,37 @@ impl IdleHandle {
         self.on.store(on, std::sync::atomic::Ordering::Relaxed);
     }
 }
+
+/// Watches for windows opening and closing, so the dock can follow.
+///
+/// Holding this alive is what keeps the hooks registered; dropping it stops
+/// the watcher thread and unhooks.
+#[derive(Default)]
+pub struct DockHandle {
+    #[cfg(windows)]
+    watcher: Option<crate::platform::windows::WindowWatcher>,
+}
+
+impl DockHandle {
+    #[cfg(windows)]
+    pub fn new(watcher: Option<crate::platform::windows::WindowWatcher>) -> Self {
+        Self { watcher }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    /// The dock's icons, grouped and filtered per the config.
+    pub fn items(&self, _config: &Config) -> Vec<bw_core::dock::DockApp> {
+        #[cfg(windows)]
+        {
+            let _ = &self.watcher;
+            let windows = crate::platform::windows::list();
+            bw_core::dock::group(&windows, &_config.dock.pinned_apps, &_config.dock.ignored)
+        }
+        #[cfg(not(windows))]
+        Vec::new()
+    }
+}

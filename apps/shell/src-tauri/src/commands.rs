@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
+    AppState, BrightnessHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 
@@ -36,6 +36,8 @@ pub mod event {
     pub const TODOS: &str = "bw://todos";
     /// Runtime state that is not configuration.
     pub const PERSISTENT: &str = "bw://persistent";
+    /// The dock's icons changed: a window opened, closed or came forward.
+    pub const DOCK: &str = "bw://dock";
     pub const VOLUME: &str = "bw://volume";
     pub const MIC: &str = "bw://mic";
     /// The per-application mixer changed: a session appeared, went away, or
@@ -674,4 +676,127 @@ pub fn set_persistent_value(
         .map_err(|error| error.to_string())?;
     let _ = app.emit(event::PERSISTENT, &updated);
     Ok(updated)
+}
+
+// --- The dock --------------------------------------------------------------
+
+#[tauri::command]
+pub fn get_dock_items(
+    state: State<'_, AppState>,
+    dock: State<'_, DockHandle>,
+) -> Vec<bw_core::dock::DockApp> {
+    dock.items(&state.config())
+}
+
+/// What happened when the dock was clicked, so the UI can say something useful
+/// rather than looking inert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivateOutcome {
+    Activated,
+    Minimised,
+    /// Windows refused to move the foreground; the window was flashed instead.
+    Flashed,
+    /// The window has gone since the dock last looked.
+    Gone,
+}
+
+/// Raises a window, or minimises it when it is already at the front.
+///
+/// That toggle is what a taskbar does, and doing anything else makes clicking
+/// the icon of the program you are already in feel broken.
+#[tauri::command]
+pub fn activate_window(_id: String, _minimise_if_active: bool) -> ActivateOutcome {
+    #[cfg(windows)]
+    {
+        use crate::platform::windows;
+
+        let Some(window) = windows::parse_id(&_id) else {
+            return ActivateOutcome::Gone;
+        };
+
+        if _minimise_if_active && !windows::is_minimised(window) {
+            windows::minimise(window);
+            return ActivateOutcome::Minimised;
+        }
+
+        if windows::activate(window) {
+            return ActivateOutcome::Activated;
+        }
+        // Refused. Flashing is what Explorer does in the same situation.
+        windows::flash(window);
+        ActivateOutcome::Flashed
+    }
+    #[cfg(not(windows))]
+    ActivateOutcome::Gone
+}
+
+/// Starts a pinned application.
+#[tauri::command]
+pub fn launch_app(app: AppHandle, path: String) -> Result<(), String> {
+    tauri_plugin_opener::open_path(&path, None::<&str>)
+        .map_err(|error| format!("could not start {path}: {error}"))?;
+    let _ = app;
+    Ok(())
+}
+
+/// Adds or removes a pinned application, returning the updated config.
+#[tauri::command]
+pub fn set_pinned(
+    state: State<'_, AppState>,
+    path: String,
+    pinned: bool,
+) -> Result<Config, String> {
+    let mut pins = state.config().dock.pinned_apps;
+    // Paths are compared the way the dock groups them, so pinning an
+    // application that is already pinned under different casing is a no-op
+    // rather than a duplicate icon.
+    let key = path.replace('/', "\\").to_lowercase();
+    pins.retain(|existing| existing.replace('/', "\\").to_lowercase() != key);
+    if pinned {
+        pins.push(path);
+    }
+
+    state
+        .set_config_value("dock.pinnedApps", serde_json::json!(pins))
+        .map_err(|error| error.to_string())
+}
+
+// --- Translation -----------------------------------------------------------
+
+/// Whether an API key has been configured, so the sidebar can show the
+/// translator or a pointer at the settings rather than a dead tab.
+#[tauri::command]
+pub fn has_ai_key() -> bool {
+    crate::services::ai::has_key()
+}
+
+#[tauri::command]
+pub fn set_ai_key(key: String) -> Result<(), String> {
+    crate::services::ai::set_key(&key)
+}
+
+/// The translator's result: the text, or a reason the UI can act on.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationResult {
+    pub text: String,
+    pub error: Option<bw_core::ai::AiError>,
+}
+
+#[tauri::command]
+pub async fn translate(
+    state: State<'_, AppState>,
+    text: String,
+    from: String,
+    to: String,
+) -> Result<TranslationResult, String> {
+    let config = state.config();
+    match crate::services::ai::translate(&config, &text, &from, &to).await {
+        Ok(text) => Ok(TranslationResult { text, error: None }),
+        Err(error) => Ok(TranslationResult {
+            text: String::new(),
+            error: Some(error),
+        }),
+    }
 }

@@ -48,6 +48,14 @@ pub fn describe_process(process_id: u32) -> (String, String) {
     (name, icon)
 }
 
+/// The full path of a running process's executable, as a string.
+///
+/// The dock identifies applications by this, so it is public; everything else
+/// here only wants the icon.
+pub fn executable_for(process_id: u32) -> Option<String> {
+    executable_path(process_id).map(|path| path.to_string_lossy().into_owned())
+}
+
 /// The full path of a running process's executable.
 ///
 /// `PROCESS_QUERY_LIMITED_INFORMATION` is deliberate: it works for processes
