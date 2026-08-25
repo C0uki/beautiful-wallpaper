@@ -946,3 +946,31 @@ pub fn retry_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::c
     let _ = app.emit(event::CHAT, &list);
     list
 }
+
+/// Opens a file picker for chat attachments.
+///
+/// Filtered to what the API accepts, so an unusable choice is not offered in
+/// the first place rather than rejected after the fact.
+#[tauri::command]
+pub async fn pick_files(app: AppHandle) -> Vec<String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (send, receive) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .add_filter(
+            "Images and PDFs",
+            &["png", "jpg", "jpeg", "gif", "webp", "pdf"],
+        )
+        .pick_files(move |paths| {
+            let _ = send.send(paths.unwrap_or_default());
+        });
+
+    receive
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|path| path.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}

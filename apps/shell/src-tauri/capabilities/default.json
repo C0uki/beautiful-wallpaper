@@ -23,6 +23,7 @@
     "core:window:allow-start-dragging",
     "core:webview:allow-webview-position",
     "opener:allow-open-url",
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "dialog:allow-open"
   ]
 }

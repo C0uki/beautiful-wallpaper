@@ -326,6 +326,60 @@ describe("the mock backend", () => {
     expect(outcome.text).toBe("");
   });
 
+  it("sending a message adds both turns before the reply arrives", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<unknown[]>(Command.GetChat);
+
+    await backend.invoke(Command.SendChat, {
+      text: "Hello",
+      attachments: [],
+    });
+    const after = await backend.invoke<
+      Array<{ role: string; content: string }>
+    >(Command.GetChat);
+
+    // The empty assistant turn is what the stream writes into; without it
+    // there is nothing on screen while the reply is on its way.
+    expect(after.length).toBe(before.length + 2);
+    expect(after.at(-2)!.role).toBe("user");
+    expect(after.at(-1)!.role).toBe("assistant");
+    expect(after.at(-1)!.content).toBe("");
+  });
+
+  it("an empty message is not sent", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<unknown[]>(Command.GetChat);
+    await backend.invoke(Command.SendChat, { text: "   ", attachments: [] });
+    expect((await backend.invoke<unknown[]>(Command.GetChat)).length).toBe(
+      before.length,
+    );
+  });
+
+  it("an attachment records its name, not its path", async () => {
+    const backend = mockBackend();
+    await backend.invoke(Command.SendChat, {
+      text: "What is this?",
+      attachments: ["C:\\Users\\you\\Pictures\\diagram.png"],
+    });
+    const chat = await backend.invoke<Array<{ attachments: string[] }>>(
+      Command.GetChat,
+    );
+    expect(chat.at(-2)!.attachments).toEqual(["diagram.png"]);
+  });
+
+  it("clearing empties the conversation", async () => {
+    const backend = mockBackend();
+    expect(await backend.invoke<unknown[]>(Command.ClearChat)).toEqual([]);
+    expect(await backend.invoke<unknown[]>(Command.GetChat)).toEqual([]);
+  });
+
+  it("retrying drops only the last turn", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<unknown[]>(Command.GetChat);
+    const after = await backend.invoke<unknown[]>(Command.RetryChat);
+    expect(after.length).toBe(before.length - 1);
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(
