@@ -44,7 +44,7 @@ pub fn describe_process(process_id: u32) -> (String, String) {
         .map(|stem| stem.to_string_lossy().into_owned())
         .unwrap_or_else(|| format!("PID {process_id}"));
 
-    let icon = cached_icon(&executable).unwrap_or_default();
+    let icon = for_executable(&executable).unwrap_or_default();
     (name, icon)
 }
 
@@ -85,24 +85,57 @@ fn executable_path(process_id: u32) -> Option<PathBuf> {
     }
 }
 
-/// The PNG for an executable's icon, extracting it on first use.
-fn cached_icon(executable: &std::path::Path) -> Option<String> {
-    let cache = bw_core::paths::cache_dir().join("appIcons");
-    std::fs::create_dir_all(&cache).ok()?;
+/// The PNG for a file's icon, extracting it on first use.
+///
+/// The launcher wants this for the executable a Start-menu shortcut points
+/// at, which is why it takes a path rather than a process id.
+pub fn for_executable(executable: &std::path::Path) -> Option<String> {
+    for_executable_at(executable, 0)
+}
 
-    let target = cache.join(format!("{}.png", hash_path(executable)));
+/// The PNG for one particular icon inside a file.
+///
+/// A shortcut may name an icon by file and index — an installer that packs
+/// several into one resource dll — and taking index zero would give every one
+/// of them the same picture.
+pub fn for_executable_at(executable: &std::path::Path, index: i32) -> Option<String> {
+    let target = cache_path(&format!("{}#{index}", executable.to_string_lossy()))?;
     if target.exists() {
         return Some(target.to_string_lossy().into_owned());
     }
 
-    let pixels = unsafe { rasterise(executable)? };
+    let pixels = unsafe { rasterise(executable, index)? };
     let image: image::RgbaImage = image::ImageBuffer::from_raw(ICON_SIZE, ICON_SIZE, pixels)?;
     image.save(&target).ok()?;
     Some(target.to_string_lossy().into_owned())
 }
 
-/// Draws an executable's first icon into RGBA pixels.
-unsafe fn rasterise(executable: &std::path::Path) -> Option<Vec<u8>> {
+/// Puts an already-encoded image into the same cache, under `key`.
+///
+/// Packaged applications hand over a logo as a stream rather than an `HICON`,
+/// so those bytes come in here instead of through the GDI path. They are
+/// decoded and re-encoded rather than written through: the stream is a PNG in
+/// practice, but nothing documents that it has to be.
+pub fn store_image(key: &str, bytes: &[u8]) -> Option<String> {
+    let target = cache_path(key)?;
+    if target.exists() {
+        return Some(target.to_string_lossy().into_owned());
+    }
+
+    let decoded = image::load_from_memory(bytes).ok()?;
+    decoded.save(&target).ok()?;
+    Some(target.to_string_lossy().into_owned())
+}
+
+/// Where a cache key's PNG lives, creating the directory on the way.
+fn cache_path(key: &str) -> Option<std::path::PathBuf> {
+    let cache = bw_core::paths::cache_dir().join("appIcons");
+    std::fs::create_dir_all(&cache).ok()?;
+    Some(cache.join(format!("{}.png", hash_key(key))))
+}
+
+/// Draws one of a file's icons into RGBA pixels.
+unsafe fn rasterise(executable: &std::path::Path, index: i32) -> Option<Vec<u8>> {
     let wide: Vec<u16> = executable
         .as_os_str()
         .encode_wide()
@@ -112,7 +145,7 @@ unsafe fn rasterise(executable: &std::path::Path) -> Option<Vec<u8>> {
     let mut large = HICON::default();
     // The large icon is what a 64px raster wants; asking for the small one and
     // scaling up looks exactly as bad as it sounds.
-    let extracted = ExtractIconExW(PCWSTR(wide.as_ptr()), 0, Some(&mut large), None, 1);
+    let extracted = ExtractIconExW(PCWSTR(wide.as_ptr()), index, Some(&mut large), None, 1);
     if extracted == 0 || large.is_invalid() {
         return None;
     }
@@ -190,11 +223,11 @@ unsafe fn read_bitmap(bitmap: HBITMAP) -> Option<Vec<u8>> {
     Some(buffer)
 }
 
-/// FNV-1a over the lowercased path: not cryptographic, but stable across runs,
+/// FNV-1a over the lowercased key: not cryptographic, but stable across runs,
 /// which is all a cache needs. The same choice the thumbnail cache makes.
-fn hash_path(path: &std::path::Path) -> String {
+fn hash_key(key: &str) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in path.to_string_lossy().to_lowercase().bytes() {
+    for byte in key.to_lowercase().bytes() {
         hash ^= u64::from(byte);
         hash = hash.wrapping_mul(0x1000_0000_01b3);
     }

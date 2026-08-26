@@ -14,8 +14,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, ChatBusy, ChatStore, DockHandle, GlobalStates, IdleHandle,
-    MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle, GlobalStates,
+    IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore,
+    VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -38,6 +39,9 @@ pub mod event {
     pub const PERSISTENT: &str = "bw://persistent";
     /// The dock's icons changed: a window opened, closed or came forward.
     pub const DOCK: &str = "bw://dock";
+    /// The scan of installed applications finished, or found a change.
+    /// Carries nothing: the overview re-runs whatever query is in the box.
+    pub const APPS: &str = "bw://apps";
     /// The whole conversation, after a turn starts or finishes.
     pub const CHAT: &str = "bw://chat";
     /// One piece of a reply as it streams. Separate from `CHAT` so a token
@@ -681,6 +685,65 @@ pub fn set_persistent_value(
         .map_err(|error| error.to_string())?;
     let _ = app.emit(event::PERSISTENT, &updated);
     Ok(updated)
+}
+
+// --- The overview ----------------------------------------------------------
+
+/// Everything the overview should show for a query.
+///
+/// The ordering rules live in `bw-core` under tests; this only gathers the
+/// two lists they run over.
+#[tauri::command]
+pub fn get_launcher_results(
+    state: State<'_, AppState>,
+    catalogue: State<'_, CatalogueHandle>,
+    query: String,
+) -> Vec<bw_core::launcher::LauncherResult> {
+    let config = state.config();
+    bw_core::launcher::results(
+        &query,
+        &open_windows(),
+        &catalogue.items(),
+        &config.overview,
+    )
+}
+
+/// The open windows, as the launcher sees them.
+fn open_windows() -> Vec<bw_core::dock::WindowInfo> {
+    #[cfg(windows)]
+    {
+        crate::platform::windows::list()
+    }
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+/// Starts an application the overview offered.
+///
+/// A shortcut is a file and opens like one; a packaged application is not a
+/// file at all and has to be activated by its identifier instead.
+#[tauri::command]
+pub fn launch_entry(_target: String, _kind: bw_core::launcher::AppKind) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::platform::launch::app(&_target, _kind)
+    }
+    #[cfg(not(windows))]
+    Err("starting applications needs Windows".to_owned())
+}
+
+/// Runs a command line typed after `>`.
+#[tauri::command]
+pub fn run_command(state: State<'_, AppState>, _line: String) -> Result<(), String> {
+    if !state.config().overview.allow_run_command {
+        return Err("running commands is switched off".to_owned());
+    }
+    #[cfg(windows)]
+    {
+        crate::platform::launch::command(&_line)
+    }
+    #[cfg(not(windows))]
+    Err("running commands needs Windows".to_owned())
 }
 
 // --- The dock --------------------------------------------------------------

@@ -51,12 +51,15 @@ bw-core = { version = "0.1.0", path = "../../../crates/bw-core" }
 windows-core = "0.58"
 windows-registry = "0.5"
 windows = { version = "0.58", features = [
+  "ApplicationModel",
+  "ApplicationModel_Core",
   "Devices_Bluetooth",
   "Devices_Enumeration",
   "Devices_Radios",
   "Devices_WiFi",
   "Foundation",
   "Foundation_Collections",
+  "Management_Deployment",
   "Networking_Connectivity",
   "Security_Credentials",
   "Media_Control",
@@ -73,6 +76,7 @@ windows = { version = "0.58", features = [
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Rpc",
+  "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Memory",
   "Win32_System_LibraryLoader",

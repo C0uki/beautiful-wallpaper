@@ -58,9 +58,11 @@ config_struct! {
         pub bar: Bar = Bar::default(),
         pub dock: Dock = Dock::default(),
         pub hacks: Hacks = Hacks::default(),
+        pub keybinds: Keybinds = Keybinds::default(),
         pub language: Language = Language::default(),
         pub notifications: Notifications = Notifications::default(),
         pub osd: Osd = Osd::default(),
+        pub overview: Overview = Overview::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
         pub sidebar: Sidebar = Sidebar::default(),
@@ -258,6 +260,53 @@ config_struct! {
         pub hover_region_height: u32 = 3,
         /// Start pinned open, reserving screen space rather than hiding.
         pub pinned_on_startup: bool = false,
+    }
+}
+
+config_struct! {
+    /// The system-wide keys that open the shell's surfaces.
+    ///
+    /// The original binds these in the compositor, which on Windows does not
+    /// exist: the shell registers them itself. That brings a constraint the
+    /// original never had — **Windows reserves most `Win`+letter combinations
+    /// for its own shell** (`Win+S`, `Win+A`, `Win+N`, `Win+W`, `Win+Space`
+    /// among them) and refuses to hand them over, and a lone `Win` press
+    /// always opens the Start menu. So the defaults here are chords Windows
+    /// leaves alone, and none of them is the original's bare `Super`.
+    ///
+    /// Which combinations are refused is not documented and shifts with the
+    /// Windows version and whatever else is installed, so a registration that
+    /// fails says so in a notification naming the binding, rather than
+    /// leaving a key that quietly does nothing.
+    ///
+    /// An empty value means the action has no key.
+    pub struct Keybinds {
+        pub enable: bool = true,
+        /// `Alt+Space` follows PowerToys Run, which is what a Windows user is
+        /// most likely to already have in their fingers.
+        pub overview: String = s("Alt+Space"),
+        pub sidebar_left: String = s("Super+Shift+A"),
+        pub sidebar_right: String = s("Super+Shift+N"),
+        pub wallpaper_selector: String = s("Super+Shift+W"),
+        pub widget_edit_mode: String = s("Super+Shift+D"),
+    }
+}
+
+config_struct! {
+    /// The full-screen search overlay.
+    pub struct Overview {
+        pub enable: bool = true,
+        /// How many applications and windows to offer. The arithmetic answer
+        /// and the web-search row are never counted against this: they are
+        /// one row each and both are the point of typing.
+        pub max_results: u32 = 8,
+        /// A URL with `%s` where the query goes. Without the placeholder the
+        /// query is appended instead, so a hand-edited prefix still works.
+        pub search_engine: String = s("https://www.google.com/search?q=%s"),
+        pub show_windows: bool = true,
+        pub show_apps: bool = true,
+        /// Whether `>` runs the rest of the line.
+        pub allow_run_command: bool = true,
     }
 }
 

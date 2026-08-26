@@ -13,8 +13,8 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, ChatBusy, ChatStore, DockHandle, IdleHandle, MicHandle,
-    MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle, IdleHandle,
+    MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -123,6 +123,9 @@ fn main() {
             commands::retry_chat,
             commands::pick_files,
             commands::search_booru,
+            commands::get_launcher_results,
+            commands::launch_entry,
+            commands::run_command,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -156,6 +159,11 @@ fn main() {
             app.manage(start_dock_watch(&handle));
             app.manage(ChatStore::default());
             app.manage(ChatBusy::default());
+            app.manage(start_app_scan(&handle));
+
+            // After the surfaces exist, so a key pressed the instant the
+            // shell is up has something to open.
+            services::hotkeys::apply(&handle);
 
             spawn_providers(handle, state.clone());
             Ok(())
@@ -390,6 +398,30 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
     {
         let _ = app;
         DockHandle::new()
+    }
+}
+
+/// Scans the installed applications, and pushes the list when it changes.
+///
+/// The scan opens a COM object per Start-menu shortcut and rasterises an icon
+/// for each, which is far too slow to do while the user waits with the search
+/// box open — so it runs once in the background and again when the Start menu
+/// changes underneath it.
+fn start_app_scan(app: &AppHandle) -> CatalogueHandle {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let catalogue = bw_shell::platform::apps::Catalogue::new(move || {
+            // The payload would be the whole list; the overview re-runs its
+            // own query instead, which is what it would have to do anyway.
+            let _ = handle.emit(event::APPS, ());
+        });
+        CatalogueHandle::new(Some(catalogue))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        CatalogueHandle::new()
     }
 }
 

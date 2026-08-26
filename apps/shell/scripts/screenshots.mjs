@@ -20,7 +20,10 @@ import { chromium } from "@playwright/test";
 // expects. Point at it explicitly rather than downloading a second copy.
 const PRESET_CHROMIUM = process.env.BW_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const launchOptions = existsSync(PRESET_CHROMIUM)
-  ? { executablePath: PRESET_CHROMIUM, args: ["--no-sandbox", "--use-gl=swiftshader"] }
+  ? {
+      executablePath: PRESET_CHROMIUM,
+      args: ["--no-sandbox", "--use-gl=swiftshader"],
+    }
   : { args: ["--no-sandbox"] };
 
 const appDir = fileURLToPath(new URL("..", import.meta.url));
@@ -81,18 +84,24 @@ async function startPreview() {
     // A server that has already quit is never going to answer, and its output
     // says why — far better than spending the rest of the deadline on it.
     if (exit !== null) {
-      throw new Error(`vite preview quit before serving (${exit})\n${output.trim()}`);
+      throw new Error(
+        `vite preview quit before serving (${exit})\n${output.trim()}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   server.kill();
-  throw new Error(`vite preview did not answer on ${BASE} within 60s\n${output.trim()}`);
+  throw new Error(
+    `vite preview did not answer on ${BASE} within 60s\n${output.trim()}`,
+  );
 }
 
 /** Waits for the surface to have painted its theme and its wallpaper. */
 async function settle(page) {
   await page.waitForFunction(() => {
-    const value = getComputedStyle(document.documentElement).getPropertyValue("--m3-primary");
+    const value = getComputedStyle(document.documentElement).getPropertyValue(
+      "--m3-primary",
+    );
     return value.trim().length > 0;
   });
   // The wallpaper transition and the widget entrance both finish well inside this.
@@ -100,8 +109,16 @@ async function settle(page) {
 }
 
 const SHOTS = [
-  { name: "01-desktop", url: "/index.html", setup: async (page) => selectView(page, "Desktop") },
-  { name: "02-wallpaper-picker", url: "/index.html", setup: async (page) => selectView(page, "Picker") },
+  {
+    name: "01-desktop",
+    url: "/index.html",
+    setup: async (page) => selectView(page, "Desktop"),
+  },
+  {
+    name: "02-wallpaper-picker",
+    url: "/index.html",
+    setup: async (page) => selectView(page, "Picker"),
+  },
   { name: "03-both", url: "/index.html" },
   {
     name: "04-light-mode",
@@ -149,7 +166,11 @@ const SHOTS = [
   { name: "09-background-surface", url: "/background.html" },
   // The bar window is only as tall as the bar itself, so previewing it in a
   // full-height viewport would be misleading.
-  { name: "10-bar-surface", url: "/bar.html", viewport: { width: 1600, height: 48 } },
+  {
+    name: "10-bar-surface",
+    url: "/bar.html",
+    viewport: { width: 1600, height: 48 },
+  },
   { name: "11-wallpaper-selector-surface", url: "/wallpaperSelector.html" },
   // Both windows are sized to their content on Windows, so the viewports here
   // match the fraction of the screen each surface declares.
@@ -230,6 +251,44 @@ const SHOTS = [
       await page.getByRole("button", { name: /booru off/ }).click();
       await selectView(page, "Left");
       await page.getByRole("tab", { name: "Anime" }).click();
+    },
+  },
+  // The search overlay covers the screen, so these are full-window shots.
+  {
+    name: "23-overview",
+    url: "/overview.html",
+    viewport: { width: 1200, height: 800 },
+  },
+  {
+    name: "24-overview-search",
+    url: "/overview.html",
+    viewport: { width: 1200, height: 800 },
+    setup: async (page) => {
+      await page.getByRole("textbox").fill("cal");
+    },
+  },
+  {
+    name: "25-overview-calculator",
+    url: "/overview.html",
+    viewport: { width: 1200, height: 800 },
+    setup: async (page) => {
+      await page.getByRole("textbox").fill("12 * 8");
+    },
+  },
+  {
+    name: "27-overview-actions",
+    url: "/overview.html",
+    viewport: { width: 1200, height: 800 },
+    setup: async (page) => {
+      await page.getByRole("textbox").fill("/");
+    },
+  },
+  {
+    name: "26-overview-command",
+    url: "/overview.html",
+    viewport: { width: 1200, height: 800 },
+    setup: async (page) => {
+      await page.getByRole("textbox").fill("> ping 8.8.8.8");
     },
   },
   {
