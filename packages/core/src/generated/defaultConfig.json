@@ -139,6 +139,14 @@
   "hacks": {
     "configReloadDelay": 50
   },
+  "keybinds": {
+    "enable": true,
+    "overview": "Alt+Space",
+    "sidebarLeft": "Super+Shift+A",
+    "sidebarRight": "Super+Shift+N",
+    "wallpaperSelector": "Super+Shift+W",
+    "widgetEditMode": "Super+Shift+D"
+  },
   "language": {
     "ui": "auto"
   },
@@ -156,6 +164,14 @@
     "position": "top",
     "volume": true,
     "brightness": true
+  },
+  "overview": {
+    "enable": true,
+    "maxResults": 8,
+    "searchEngine": "https://www.google.com/search?q=%s",
+    "showWindows": true,
+    "showApps": true,
+    "allowRunCommand": true
   },
   "policies": {
     "ai": 1,

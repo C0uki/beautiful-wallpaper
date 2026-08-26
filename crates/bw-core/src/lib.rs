@@ -11,12 +11,15 @@
 pub mod ai;
 pub mod booru;
 pub mod brightness;
+pub mod calc;
 pub mod chat;
 pub mod config;
 pub mod dock;
+pub mod launcher;
 pub mod notifications;
 pub mod paths;
 pub mod persistent;
+pub mod search;
 pub mod sysinfo;
 pub mod theme;
 pub mod todo;
