@@ -282,6 +282,33 @@ fn action_results(rest: &str) -> Vec<LauncherResult> {
         .collect()
 }
 
+/// Splits a command line into the program to run and its arguments.
+///
+/// Windows starts a program by file and parameters, not by one string, so the
+/// line the user typed has to be taken apart — and taken apart the way they
+/// meant it. Splitting on the first space alone turns
+/// `"C:\\Program Files\\app.exe" --flag` into a request to run
+/// `C:\\Program`, which fails with an error naming a path nobody typed.
+pub fn split_command(line: &str) -> Option<(String, String)> {
+    let line = line.trim();
+    if line.is_empty() {
+        return None;
+    }
+
+    if let Some(rest) = line.strip_prefix('"') {
+        let (program, arguments) = rest.split_once('"')?;
+        if program.is_empty() {
+            return None;
+        }
+        return Some((program.to_owned(), arguments.trim().to_owned()));
+    }
+
+    match line.split_once(char::is_whitespace) {
+        Some((program, arguments)) => Some((program.to_owned(), arguments.trim().to_owned())),
+        None => Some((line.to_owned(), String::new())),
+    }
+}
+
 /// Fills a search-engine template with the query.
 ///
 /// The query is percent-encoded rather than pasted in raw. Searching for
@@ -464,6 +491,36 @@ mod tests {
         assert!(results("notepad", &windows, &apps, &without_apps)
             .iter()
             .all(|row| row.kind != ResultKind::App));
+    }
+
+    /// Splitting on the first space would try to run `C:\\Program`.
+    #[test]
+    fn a_quoted_program_keeps_the_spaces_in_its_path() {
+        assert_eq!(
+            split_command("\"C:\\Program Files\\app.exe\" --flag"),
+            Some(("C:\\Program Files\\app.exe".to_owned(), "--flag".to_owned()))
+        );
+    }
+
+    #[test]
+    fn an_unquoted_command_splits_at_the_first_space() {
+        assert_eq!(
+            split_command("ping 8.8.8.8 -t"),
+            Some(("ping".to_owned(), "8.8.8.8 -t".to_owned()))
+        );
+        assert_eq!(
+            split_command("notepad"),
+            Some(("notepad".to_owned(), String::new()))
+        );
+    }
+
+    #[test]
+    fn a_command_that_is_nothing_to_run_is_refused() {
+        assert!(split_command("").is_none());
+        assert!(split_command("   ").is_none());
+        // A quote the user has not closed yet.
+        assert!(split_command("\"C:\\Program Files").is_none());
+        assert!(split_command("\"\" --flag").is_none());
     }
 
     /// A raw substitution loses everything after the ampersand.

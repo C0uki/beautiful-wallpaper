@@ -34,6 +34,7 @@ export default defineConfig({
         osd: surface("osd"),
         notifications: surface("notifications"),
         dock: surface("dock"),
+        overview: surface("overview"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

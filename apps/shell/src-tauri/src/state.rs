@@ -474,6 +474,41 @@ impl DockHandle {
     }
 }
 
+/// The installed applications, scanned in the background.
+pub struct CatalogueHandle {
+    #[cfg(windows)]
+    catalogue: Option<crate::platform::apps::Catalogue>,
+}
+
+impl CatalogueHandle {
+    #[cfg(windows)]
+    pub fn new(catalogue: Option<crate::platform::apps::Catalogue>) -> Self {
+        Self { catalogue }
+    }
+
+    #[cfg(not(windows))]
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    /// Every application found so far.
+    ///
+    /// Empty until the first scan finishes, which is a real state rather than
+    /// an error: the overview opens on open windows and fills in when the
+    /// applications arrive.
+    pub fn items(&self) -> Vec<bw_core::launcher::AppEntry> {
+        #[cfg(windows)]
+        {
+            self.catalogue
+                .as_ref()
+                .map(crate::platform::apps::Catalogue::items)
+                .unwrap_or_default()
+        }
+        #[cfg(not(windows))]
+        Vec::new()
+    }
+}
+
 /// The chat's conversation, managed so commands can reach it.
 pub struct ChatStore(pub bw_core::chat::Store);
 

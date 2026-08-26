@@ -48,8 +48,15 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
             match bw_core::config::load(&path) {
                 Ok(config) => {
                     let appearance_changed = config.appearance != state.config().appearance;
+                    let keybinds_changed = config.keybinds != state.config().keybinds;
                     state.replace_config(config.clone());
                     let _ = app.emit(event::CONFIG_CHANGED, &config);
+
+                    // Registrations are global to the process, so a changed
+                    // chord only takes effect if the old one is given back.
+                    if keybinds_changed {
+                        crate::services::hotkeys::apply(&app);
+                    }
 
                     if appearance_changed {
                         if let Ok(theme) = crate::services::theme::regenerate(&state) {

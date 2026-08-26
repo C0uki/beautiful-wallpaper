@@ -11,7 +11,8 @@
     "notifications",
     "sidebarRight",
     "sidebarLeft",
-    "dock"
+    "dock",
+    "overview"
   ],
   "permissions": [
     "core:default",

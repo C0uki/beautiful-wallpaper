@@ -76,6 +76,16 @@ pub const SIDEBAR_RIGHT: Surface = Surface {
     size: Some((0.26, 1.0)),
 };
 
+/// The search overlay. The whole screen, and it takes focus: it exists to be
+/// typed into, and the default centring gives a full-size surface the origin
+/// without a branch of its own.
+pub const OVERVIEW: Surface = Surface {
+    label: "overview",
+    page: "overview.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -102,6 +112,7 @@ pub const ALL: &[Surface] = &[
     SIDEBAR_RIGHT,
     SIDEBAR_LEFT,
     DOCK,
+    OVERVIEW,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -113,6 +124,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "wallpaperSelectorOpen" => Some(WALLPAPER_SELECTOR.label),
         "sidebarRightOpen" => Some(SIDEBAR_RIGHT.label),
         "sidebarLeftOpen" => Some(SIDEBAR_LEFT.label),
+        "overviewOpen" => Some(OVERVIEW.label),
         _ => None,
     }
 }
