@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Placeholder, ScrollArea, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connectSidebarLeft, useShell } from "../../shell/store";
+import { Booru } from "./Booru";
 import { Chat } from "./Chat";
 import { MediaTab } from "./MediaTab";
 import { Translator } from "./Translator";
@@ -73,6 +74,18 @@ export function SidebarLeft() {
             icon: "music_note",
             label: tr("Media"),
             content: () => <MediaTab />,
+          },
+        ]
+      : []),
+    // 0 is off, which is how it ships. 2 is the original's "closet" mode:
+    // enabled, but not advertised with a tab of its own.
+    ...(policies.weeb === 1
+      ? [
+          {
+            id: "booru",
+            icon: "image_search",
+            label: tr("Anime"),
+            content: () => <Booru />,
           },
         ]
       : []),

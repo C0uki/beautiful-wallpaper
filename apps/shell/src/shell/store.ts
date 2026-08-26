@@ -38,6 +38,7 @@ import {
   type ActivateOutcome,
   type ChatMessage,
   type StreamEvent,
+  type BooruPage,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -437,6 +438,17 @@ export const actions = {
   async setAiKey(key: string) {
     await backend().invoke<void>(Command.SetAiKey, { key });
     set({ hasAiKey: await backend().invoke<boolean>(Command.HasAiKey) });
+  },
+  /** Saves an online image locally and returns its path. */
+  downloadWallpaper(url: string, provider: string) {
+    return backend().invoke<string>(Command.DownloadWallpaper, {
+      url,
+      provider,
+      downloadLocation: null,
+    });
+  },
+  searchBooru(tags: string, page: number) {
+    return backend().invoke<BooruPage>(Command.SearchBooru, { tags, page });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

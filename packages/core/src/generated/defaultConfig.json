@@ -204,6 +204,11 @@
       },
       "media": {
         "enable": true
+      },
+      "booru": {
+        "provider": "safebooru",
+        "allowAdult": false,
+        "perPage": 30
       }
     }
   },

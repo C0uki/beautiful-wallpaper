@@ -294,6 +294,40 @@ fn session_seed() -> String {
     .clone()
 }
 
+/// Searches an image board.
+///
+/// Kept beside the wallpaper providers because it is the same job — query an
+/// image API, hand back a page — and its results feed the same "set as
+/// wallpaper" path.
+pub async fn search_booru(
+    query: bw_core::booru::BooruQuery,
+) -> Result<bw_core::booru::BooruPage, String> {
+    let url = bw_core::booru::request_url(&query);
+
+    let response = reqwest::Client::new()
+        .get(&url)
+        // Danbooru and Gelbooru both reject requests with no user agent.
+        .header("User-Agent", "beautiful-wallpaper")
+        .send()
+        .await
+        .map_err(|error| format!("could not reach {}: {error}", query.provider.as_str()))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "{} answered {}",
+            query.provider.as_str(),
+            response.status()
+        ));
+    }
+
+    let body = response
+        .text()
+        .await
+        .map_err(|error| format!("could not read the response: {error}"))?;
+
+    bw_core::booru::parse_page(query.provider, &body, query.page).map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -888,6 +888,38 @@ export function mockBackend(): Backend {
           } as T;
         }
 
+        case Command.SearchBooru: {
+          const page = Number(args["page"] ?? 1);
+          // Synthetic, like everything else here: gradients rather than any
+          // real image, and every result safe-rated so the mock exercises the
+          // filtered path the shell ships with.
+          return {
+            page,
+            items: Array.from({ length: 12 }, (_, index) => {
+              const id = String(page * 100 + index);
+              const palette: Array<[string, string]> = [
+                ["#2a1330", "#b96a9a"],
+                ["#16241f", "#7fa08a"],
+                ["#101a2e", "#5f86c4"],
+                ["#40260f", "#e3b579"],
+              ];
+              const [from, to] = palette[index % palette.length]!;
+              const image = gradientWallpaper(from, to, id);
+              return {
+                id,
+                width: 1920,
+                height: index % 3 === 0 ? 2400 : 1080,
+                preview: image,
+                file: image,
+                tags: ["scenery", "sky", "original"][index % 3]!,
+                rating: "s",
+                adult: false,
+                pageUrl: `https://safebooru.org/index.php?page=post&s=view&id=${id}`,
+              };
+            }),
+          } as T;
+        }
+
         case Command.PickFiles:
           // No real picker off Windows; a plausible path exercises the chip.
           return ["C:\\Users\\you\\Pictures\\diagram.png"] as T;

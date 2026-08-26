@@ -9,6 +9,7 @@
 //! a Windows machine in the loop.
 
 pub mod ai;
+pub mod booru;
 pub mod brightness;
 pub mod chat;
 pub mod config;
