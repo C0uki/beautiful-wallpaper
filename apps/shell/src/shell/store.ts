@@ -39,6 +39,8 @@ import {
   type ChatMessage,
   type StreamEvent,
   type BooruPage,
+  type LauncherResult,
+  type AppKind,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -66,6 +68,12 @@ export interface ShellState {
   persistent: Persistent;
   systemInfo: SystemInfo | null;
   dock: DockApp[];
+  /**
+   * Bumped each time the application scan finishes. The overview watches it
+   * rather than a list: it has to re-rank against what is typed anyway, so
+   * carrying every application into every surface's store would be waste.
+   */
+  appsScanned: number;
   /** Whether an Anthropic key is configured; the translator needs one. */
   hasAiKey: boolean;
   chat: ChatMessage[];
@@ -105,6 +113,7 @@ const initial: ShellState = {
   },
   systemInfo: null,
   dock: [],
+  appsScanned: 0,
   hasAiKey: false,
   chat: [],
   chatStreaming: false,
@@ -163,6 +172,11 @@ export function connect(): Promise<void> {
         set({ persistent }),
       ),
       api.listen<DockApp[]>(Event.Dock, (dock) => set({ dock })),
+      // The scan carries nothing; the overview re-runs its own query, which
+      // is what it would have to do anyway to re-rank against what is typed.
+      api.listen(Event.Apps, () =>
+        set((state) => ({ appsScanned: state.appsScanned + 1 })),
+      ),
       api.listen<ChatMessage[]>(Event.Chat, (chat) => set({ chat })),
       // Deltas arrive on their own channel and are applied to the last
       // message in place. Re-sending the whole conversation per token would
@@ -449,6 +463,17 @@ export const actions = {
   },
   searchBooru(tags: string, page: number) {
     return backend().invoke<BooruPage>(Command.SearchBooru, { tags, page });
+  },
+  launcherResults(query: string) {
+    return backend().invoke<LauncherResult[]>(Command.GetLauncherResults, {
+      query,
+    });
+  },
+  launchEntry(target: string, kind: AppKind) {
+    return backend().invoke<void>(Command.LaunchEntry, { target, kind });
+  },
+  runCommand(line: string) {
+    return backend().invoke<void>(Command.RunCommand, { line });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

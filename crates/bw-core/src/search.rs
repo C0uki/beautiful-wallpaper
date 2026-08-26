@@ -11,9 +11,6 @@
 //!
 //! All of this is pure data so that it is covered by tests that run on Linux.
 
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
-
 /// Landing on the first character of the candidate.
 const BONUS_START: i32 = 16;
 /// Landing just after a separator — the start of a word.
@@ -41,9 +38,10 @@ const LEADING_CAP: i32 = 6;
 const MAX_CANDIDATE: usize = 160;
 
 /// Where a query matched, and how well.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
+///
+/// Rust-only: the frontend never sees one of these. What it needs — the
+/// matched positions — is copied onto the result rows themselves.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Match {
     pub score: i32,
     /// Indices of the matched characters, ascending.

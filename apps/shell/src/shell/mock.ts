@@ -35,6 +35,9 @@ import {
   type Persistent,
   type DockApp,
   type ChatMessage,
+  type AppEntry,
+  type AppKind,
+  type LauncherResult,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -346,6 +349,54 @@ export function mockBackend(): Backend {
     icon: "",
     active,
   });
+
+  // What a launcher search runs over. Obviously synthetic, like everything
+  // else here, and deliberately including a packaged entry so the row that
+  // carries a different launch mechanism is exercised.
+  const SAMPLE_APPS: AppEntry[] = [
+    {
+      name: "Visual Studio Code",
+      target: "C:\\Programs\\Visual Studio Code.lnk",
+      kind: "shortcut",
+      icon: "",
+      subtitle: "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+    },
+    {
+      name: "Calculator",
+      target: "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+      kind: "packaged",
+      icon: "",
+      subtitle: "Microsoft Store",
+    },
+    {
+      name: "Windows Terminal",
+      target: "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App",
+      kind: "packaged",
+      icon: "",
+      subtitle: "Microsoft Store",
+    },
+    {
+      name: "Notepad",
+      target: "C:\\Programs\\Notepad.lnk",
+      kind: "shortcut",
+      icon: "",
+      subtitle: "C:\\Windows\\System32\\notepad.exe",
+    },
+    {
+      name: "Control Panel",
+      target: "C:\\Programs\\Control Panel.lnk",
+      kind: "shortcut",
+      icon: "",
+      subtitle: "C:\\Windows\\System32\\control.exe",
+    },
+    {
+      name: "Firefox",
+      target: "C:\\Programs\\Firefox.lnk",
+      kind: "shortcut",
+      icon: "",
+      subtitle: "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+    },
+  ];
 
   let dock: DockApp[] = [
     {
@@ -834,6 +885,19 @@ export function mockBackend(): Backend {
           return persistent as T;
         }
 
+        case Command.GetLauncherResults:
+          return mockLauncherResults(
+            String(args["query"] ?? ""),
+            dock,
+            SAMPLE_APPS,
+          ) as T;
+
+        case Command.LaunchEntry:
+        case Command.RunCommand:
+          // Nothing to start off Windows. Returning rather than throwing keeps
+          // the harness usable: the overview closes, as it would in the shell.
+          return undefined as T;
+
         case Command.GetDockItems:
           return dock as T;
 
@@ -1129,4 +1193,157 @@ function setByPath(
     cursor = next as Record<string, unknown>;
   }
   cursor[leaf] = value;
+}
+
+/** A stand-in for the launcher's result ordering.
+ *
+ * The real one lives in `bw-core` and is covered by tests there; this exists
+ * so the surface can be built and screenshotted off Windows. It is
+ * deliberately simpler — a greedy subsequence match rather than a search for
+ * the best alignment, and arithmetic only between two numbers — so nothing
+ * here should be read as the contract. */
+function mockLauncherResults(
+  query: string,
+  dock: DockApp[],
+  apps: AppEntry[],
+): LauncherResult[] {
+  const ACTIONS: Array<[string, string]> = [
+    ["light", "light_mode"],
+    ["dark", "dark_mode"],
+    ["wallpaper", "wallpaper"],
+    ["random", "shuffle"],
+    ["widgets", "widgets"],
+    ["sidebar", "right_panel_open"],
+  ];
+
+  const row = (
+    kind: LauncherResult["kind"],
+    title: string,
+    subtitle: string,
+    symbol: string,
+    payload: string,
+    positions: number[] = [],
+    appKind: AppKind | null = null,
+  ): LauncherResult => ({
+    kind,
+    title,
+    subtitle,
+    icon: "",
+    symbol,
+    payload,
+    appKind,
+    positions,
+  });
+
+  const trimmed = query.trim();
+
+  if (trimmed.startsWith(">")) {
+    const line = trimmed.slice(1).trim();
+    return line ? [row("command", line, "", "terminal", line)] : [];
+  }
+
+  if (trimmed.startsWith("/")) {
+    const rest = trimmed.slice(1).trim();
+    return ACTIONS.flatMap(([keyword, symbol]) => {
+      const positions = subsequence(keyword, rest);
+      return positions
+        ? [row("action", keyword, "", symbol, keyword, positions)]
+        : [];
+    });
+  }
+
+  const rows: LauncherResult[] = [];
+
+  const arithmetic = /^\s*(-?[\d.]+)\s*([+\-*/%])\s*(-?[\d.]+)\s*$/.exec(
+    trimmed,
+  );
+  if (arithmetic) {
+    const left = Number(arithmetic[1]);
+    const right = Number(arithmetic[3]);
+    const answer = {
+      "+": left + right,
+      "-": left - right,
+      "*": left * right,
+      "/": left / right,
+      "%": left % right,
+    }[arithmetic[2]!];
+    if (answer !== undefined && Number.isFinite(answer)) {
+      const shown = String(answer);
+      rows.push(row("calculator", shown, trimmed, "calculate", shown));
+    }
+  }
+
+  const matched: LauncherResult[] = [];
+
+  for (const app of dock) {
+    for (const window of app.windows) {
+      const positions = subsequence(window.title, trimmed);
+      if (positions) {
+        matched.push(
+          row(
+            "window",
+            window.title,
+            app.name,
+            "select_window",
+            window.id,
+            positions,
+          ),
+        );
+      }
+    }
+  }
+
+  if (trimmed) {
+    for (const app of apps) {
+      const positions = subsequence(app.name, trimmed);
+      if (positions) {
+        matched.push(
+          row(
+            "app",
+            app.name,
+            app.subtitle,
+            "apps",
+            app.target,
+            positions,
+            app.kind,
+          ),
+        );
+      }
+    }
+  }
+
+  rows.push(...matched.slice(0, 8));
+
+  if (trimmed) {
+    rows.push(
+      row(
+        "webSearch",
+        trimmed,
+        "",
+        "travel_explore",
+        `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`,
+      ),
+    );
+  }
+
+  return rows;
+}
+
+/** Greedy subsequence positions, or null when the query does not match. */
+function subsequence(candidate: string, query: string): number[] | null {
+  const needle = Array.from(query.toLowerCase()).filter(
+    (character) => !/\s/.test(character),
+  );
+  if (!needle.length) return [];
+
+  const haystack = Array.from(candidate.toLowerCase());
+  const positions: number[] = [];
+  let at = 0;
+  for (const character of needle) {
+    const found = haystack.indexOf(character, at);
+    if (found < 0) return null;
+    positions.push(found);
+    at = found + 1;
+  }
+  return positions;
 }

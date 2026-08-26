@@ -1,0 +1,155 @@
+/* The search overlay.
+ *
+ * Its window covers the screen, so the scrim is the page rather than a layer
+ * over one, and everything else is a single panel floating on it. */
+
+.bw-overview {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  /* Not centred: a list that grows downwards from a fixed point is steadier to
+     read than one that pushes the search box up the screen as it fills. */
+  align-items: flex-start;
+  padding-top: 14vh;
+  background: var(--scrim);
+  color: var(--on-surface);
+}
+
+.bw-overview-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 82vw);
+  max-height: 66vh;
+  border-radius: var(--rounding-large);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 12px 48px var(--shadow);
+  overflow: hidden;
+}
+
+.bw-overview-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--layer0-border);
+  color: var(--outline);
+  /* The row is the only thing at this size in the shell, and it must not
+     shrink when the list below it fills. */
+  flex: none;
+}
+
+.bw-overview-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.bw-overview-field input::placeholder {
+  color: var(--outline);
+}
+
+.bw-overview-results {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  /* Takes the slack the field gives up, so the list scrolls rather than the
+     panel growing past its maximum. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bw-overview-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--rounding-normal);
+  cursor: pointer;
+}
+
+/* One highlight, driven by the keyboard. Hover moves the selection rather than
+   painting a second one, so the pointer and the arrow keys can never disagree
+   about which row Enter would take. */
+.bw-overview-row.selected {
+  background: var(--layer1-hover);
+}
+
+.bw-overview-icon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  object-fit: contain;
+}
+
+.bw-overview-glyph {
+  width: 28px;
+  flex: none;
+  color: var(--outline);
+}
+
+.bw-overview-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bw-overview-title,
+.bw-overview-subtitle {
+  /* A window title or a program path is routinely longer than the panel. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-overview-title {
+  font-size: 15px;
+}
+
+/* An answer is the thing that was asked for, not one candidate among several,
+   so it is not the same size as a program name. */
+.bw-overview-row.answer .bw-overview-title {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.bw-overview-title mark {
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.bw-overview-subtitle {
+  font-size: 12px;
+  color: var(--outline);
+}
+
+.bw-overview-enter {
+  flex: none;
+  color: var(--outline);
+}
+
+.bw-overview-empty,
+.bw-overview-failure {
+  margin: 0;
+  padding: 18px 20px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--outline);
+}
+
+.bw-overview-failure {
+  color: var(--primary);
+  text-align: left;
+  border-bottom: 1px solid var(--layer0-border);
+}

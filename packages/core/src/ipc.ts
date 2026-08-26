@@ -52,6 +52,11 @@ export const Event = {
   ChatEvent: "bw://chat-event",
   /** Asks the readout to appear, carrying what to show. */
   Osd: "bw://osd",
+  /**
+   * The scan of installed applications finished, or found a change. Carries
+   * nothing: the overview re-runs whatever query is in its box.
+   */
+  Apps: "bw://apps",
 } as const;
 
 export type EventName = (typeof Event)[keyof typeof Event];
@@ -123,6 +128,9 @@ export const Command = {
   RetryChat: "retry_chat",
   PickFiles: "pick_files",
   SearchBooru: "search_booru",
+  GetLauncherResults: "get_launcher_results",
+  LaunchEntry: "launch_entry",
+  RunCommand: "run_command",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -136,6 +144,7 @@ export const IpcTarget = {
   Settings: "settings",
   Wallpapers: "wallpapers",
   WallpaperSelector: "wallpaperSelector",
+  Overview: "overview",
 } as const;
 
 export interface WallpaperChanged {

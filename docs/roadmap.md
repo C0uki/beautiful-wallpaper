@@ -167,8 +167,46 @@ but safe-rated work, and the tab itself is hidden entirely until
 
 ## Phase 4 — Overlays
 
-The overview and launcher (Start menu and UWP enumeration with fuzzy search),
-region selection for screenshots and OCR, the session screen, the desktop
+### Done: the overview and launcher
+
+The search overlay, and the keyboard that reaches it.
+
+- **Global hotkeys**, which the original does not need: Hyprland owns the
+  keyboard there and a keybind runs `qs ipc call overview toggle`. Windows has
+  no such layer, so the shell registers system-wide hotkeys itself — and
+  Windows reserves a large part of the `Win`+letter space for its own shell
+  and refuses the rest. Which combinations are refused is undocumented and
+  moves with the version and the installed software, so a refusal is reported
+  in a notification naming the binding rather than leaving a key that silently
+  does nothing. The overview opens on `Alt+Space`, following PowerToys Run;
+  the original's bare `Super` is not available on Windows at all.
+- **The applications**, which have no single list to ask for. Desktop programs
+  are Start-menu shortcuts across two folder trees, each `.lnk` a
+  structured-storage document opened through COM to find its target; Store
+  applications are not files and come from WinRT. Both are read, merged and
+  de-duplicated, and shortcuts whose target is gone are dropped — those are
+  the residue of an uninstall. It is slow enough that it runs once in the
+  background and again when the Start menu changes, and the overview opens
+  before it finishes, listing open windows until the rest arrives.
+- **The matching**, in `bw-core` under tests. The best alignment is searched
+  for rather than taken from the first greedy pass: `vsc` finding Visual
+  Studio Code is the whole job, and a greedy scan matches the `s` inside
+  `Visual`. The positions it settles on are what the UI highlights.
+- **Arithmetic**, because the original hands it to `qalc` and there is no
+  `qalc` on Windows. The part that matters is knowing when _not_ to answer —
+  every keystroke goes through it, and `notepad` producing a calculator row
+  would push the program being opened off the list.
+- **The rest of the modes**: open windows, a `>` prefix that runs a command
+  line, a `/` prefix for what the shell itself does, and a web search that is
+  always last so a query matching nothing still goes somewhere.
+
+Not built: the workspace grid with live window previews, which needs
+`DwmRegisterThumbnail`, and ordering by how often something is used, which
+needs a history the shell does not keep.
+
+### Still to do
+
+Region selection for screenshots and OCR, the session screen, the desktop
 context menu, the drop shelf, screen corners, the screen frame, the floating
 overlays (crosshair, notes, resources, FPS limiter, recorder) and the screen
 translator.

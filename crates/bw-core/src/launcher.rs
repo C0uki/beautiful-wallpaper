@@ -82,6 +82,12 @@ pub struct LauncherResult {
     /// What activating this row acts on: a window id, an application target,
     /// a command line, a URL, or an action keyword.
     pub payload: String,
+    /// How to start it, on an application row and nowhere else.
+    ///
+    /// A packaged application and a shortcut are both a string in `payload`
+    /// and are started by entirely different mechanisms, so which one it is
+    /// travels with the row rather than being guessed from its shape.
+    pub app_kind: Option<AppKind>,
     /// Which characters of the title the query matched, for highlighting.
     ///
     /// Character indices, not bytes: the frontend has to index with
@@ -187,6 +193,7 @@ pub fn results(
                 icon: window.icon.clone(),
                 symbol: "select_window".to_owned(),
                 payload: window.id.clone(),
+                app_kind: None,
                 positions: found.positions,
             });
         }
@@ -206,6 +213,7 @@ pub fn results(
                 icon: app.icon.clone(),
                 symbol: "apps".to_owned(),
                 payload: app.target.clone(),
+                app_kind: Some(app.kind),
                 positions: found.positions,
             });
         }
@@ -225,6 +233,7 @@ pub fn results(
             icon: String::new(),
             symbol: "travel_explore".to_owned(),
             payload: web_search_url(&config.search_engine, rest),
+            app_kind: None,
             positions: Vec::new(),
         });
     }
@@ -244,6 +253,7 @@ fn calculator_row(query: &str) -> Option<LauncherResult> {
         icon: String::new(),
         symbol: "calculate".to_owned(),
         payload: answer,
+        app_kind: None,
         positions: Vec::new(),
     })
 }
@@ -259,6 +269,7 @@ fn command_results(rest: &str, config: &Overview) -> Vec<LauncherResult> {
         icon: String::new(),
         symbol: "terminal".to_owned(),
         payload: rest.to_owned(),
+        app_kind: None,
         positions: Vec::new(),
     }]
 }
@@ -276,6 +287,7 @@ fn action_results(rest: &str) -> Vec<LauncherResult> {
                 icon: String::new(),
                 symbol: action.symbol.to_owned(),
                 payload: action.keyword.to_owned(),
+                app_kind: None,
                 positions: found.positions,
             }
         })
@@ -491,6 +503,41 @@ mod tests {
         assert!(results("notepad", &windows, &apps, &without_apps)
             .iter()
             .all(|row| row.kind != ResultKind::App));
+    }
+
+    /// A packaged application and a shortcut are both a string in `payload`,
+    /// and starting one the other's way does nothing at all.
+    #[test]
+    fn an_application_row_carries_how_to_start_it() {
+        let packaged = AppEntry {
+            name: "Terminal".to_owned(),
+            target: "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App".to_owned(),
+            kind: AppKind::Packaged,
+            icon: String::new(),
+            subtitle: "Microsoft Store".to_owned(),
+        };
+
+        let rows = results(
+            "terminal",
+            &[],
+            &[packaged, app("Terminal Classic")],
+            &config(),
+        );
+        let kinds: Vec<Option<AppKind>> = rows
+            .iter()
+            .filter(|row| row.kind == ResultKind::App)
+            .map(|row| row.app_kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![Some(AppKind::Packaged), Some(AppKind::Shortcut)]
+        );
+
+        // Nothing else claims to be startable that way.
+        assert!(rows
+            .iter()
+            .filter(|row| row.kind != ResultKind::App)
+            .all(|row| row.app_kind.is_none()));
     }
 
     /// Splitting on the first space would try to run `C:\\Program`.
