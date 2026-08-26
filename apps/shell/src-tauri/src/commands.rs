@@ -974,3 +974,29 @@ pub async fn pick_files(app: AppHandle) -> Vec<String> {
         .map(|path| path.to_string_lossy().into_owned())
         .collect()
 }
+
+// --- The image-board browser ------------------------------------------------
+
+#[tauri::command]
+pub async fn search_booru(
+    state: State<'_, AppState>,
+    tags: String,
+    page: u32,
+) -> Result<bw_core::booru::BooruPage, String> {
+    let config = state.config();
+    let settings = &config.sidebar.left.booru;
+
+    let provider = bw_core::booru::BooruProvider::parse(&settings.provider)
+        .map_err(|error| error.to_string())?;
+
+    crate::services::wallpaper::search_booru(bw_core::booru::BooruQuery {
+        provider,
+        tags,
+        page: page.max(1),
+        limit: settings.per_page,
+        // Read from the config rather than taken as an argument: a surface
+        // cannot ask for unfiltered results by passing a flag.
+        allow_adult: settings.allow_adult,
+    })
+    .await
+}

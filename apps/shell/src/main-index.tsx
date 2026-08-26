@@ -226,6 +226,18 @@ function Harness() {
         </label>
 
         <Button
+          icon="image_search"
+          onClick={() =>
+            void actions.setConfigValue(
+              "policies.weeb",
+              config.policies.weeb === 1 ? 0 : 1,
+            )
+          }
+        >
+          {config.policies.weeb === 1 ? "booru on" : "booru off"}
+        </Button>
+
+        <Button
           icon={config.bar.bottom ? "expand_more" : "expand_less"}
           onClick={() =>
             void actions.setConfigValue("bar.bottom", !config.bar.bottom)

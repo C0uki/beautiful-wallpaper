@@ -380,6 +380,34 @@ describe("the mock backend", () => {
     expect(after.length).toBe(before.length - 1);
   });
 
+  it("a booru search returns a page of results", async () => {
+    const backend = mockBackend();
+    const page = await backend.invoke<{
+      page: number;
+      items: Array<{ id: string; adult: boolean; preview: string }>;
+    }>(Command.SearchBooru, { tags: "scenery", page: 1 });
+
+    expect(page.page).toBe(1);
+    expect(page.items.length).toBeGreaterThan(0);
+    expect(page.items.every((item) => item.preview.length > 0)).toBe(true);
+  });
+
+  it("paging gives different results rather than the same page again", async () => {
+    const backend = mockBackend();
+    const first = await backend.invoke<{ items: Array<{ id: string }> }>(
+      Command.SearchBooru,
+      { tags: "", page: 1 },
+    );
+    const second = await backend.invoke<{ items: Array<{ id: string }> }>(
+      Command.SearchBooru,
+      { tags: "", page: 2 },
+    );
+    const overlap = first.items.filter((item) =>
+      second.items.some((other) => other.id === item.id),
+    );
+    expect(overlap).toHaveLength(0);
+  });
+
   it("rejects a command it does not implement, rather than resolving undefined", async () => {
     const backend = mockBackend();
     await expect(backend.invoke("no_such_command")).rejects.toThrow(

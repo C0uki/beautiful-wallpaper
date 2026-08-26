@@ -122,6 +122,7 @@ fn main() {
             commands::clear_chat,
             commands::retry_chat,
             commands::pick_files,
+            commands::search_booru,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

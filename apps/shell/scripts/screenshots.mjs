@@ -220,6 +220,18 @@ const SHOTS = [
     url: "/sidebarLeft.html",
     viewport: { width: 460, height: 900 },
   },
+  // The browser is gated off by default (`policies.weeb`), so this one goes
+  // through the harness, which has the switch.
+  {
+    name: "22-sidebar-left-booru",
+    url: "/index.html",
+    viewport: { width: 980, height: 900 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: /booru off/ }).click();
+      await selectView(page, "Left");
+      await page.getByRole("tab", { name: "Anime" }).click();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

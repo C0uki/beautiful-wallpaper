@@ -341,6 +341,7 @@ config_struct! {
         pub width: f64 = 0.26,
         pub translator: Translator = Translator::default(),
         pub media: LeftMedia = LeftMedia::default(),
+        pub booru: Booru = Booru::default(),
     }
 }
 
@@ -359,6 +360,23 @@ config_struct! {
 config_struct! {
     pub struct LeftMedia {
         pub enable: bool = true,
+    }
+}
+
+config_struct! {
+    /// The image-board browser.
+    ///
+    /// Whether the tab exists at all is `policies.weeb`, which ships at 0.
+    /// These are its settings once it does.
+    pub struct Booru {
+        /// One of `safebooru`, `yandere`, `konachan`, `danbooru`, `gelbooru`.
+        /// Safebooru by default: it is the one board that carries nothing but
+        /// safe-rated work.
+        pub provider: String = s("safebooru"),
+        /// Lift the safe-rating filter. Off unless set deliberately, and it
+        /// does nothing on a board that has only safe work to return.
+        pub allow_adult: bool = false,
+        pub per_page: u32 = 30,
     }
 }
 

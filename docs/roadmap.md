@@ -129,10 +129,26 @@ obvious once seen: a fallback has no event type of its own, a failed web
 search arrives as HTTP 200 with an object where a list belongs, and thinking
 deltas must not be concatenated onto the reply.
 
+### Done: the image-board browser
+
+The last of the original's four left-sidebar tabs, and the end of Phase 3.
+Tag search over five boards in a masonry grid, each result settable as the
+wallpaper through the download path the wallpaper picker already uses.
+
+Two of the original's seven providers are deliberately not built: Zerochan has
+no tag search in its API (upstream substitutes the colour parameter, which is
+not what someone typing tags expects) and `t.alcy.cc` is a random-image CDN
+with no metadata to show.
+
+**The rating filter is part of the query, not a pass over the results.** A
+client-side filter is one forgotten branch away from displaying what it was
+meant to exclude, and it spends the request either way. It is on unless
+switched off deliberately, the board that ships as the default carries nothing
+but safe-rated work, and the tab itself is hidden entirely until
+`policies.weeb` is changed from the 0 it ships with.
+
 ### Still to do
 
-- **The booru browser**, the last of the original's four left-sidebar tabs
-  (~1,045 lines, and off by default upstream).
 - **The dock's drag-to-reorder and drop targets.** Pinning works; rearranging
   pinned icons by dragging does not.
 - **The media tab's visualiser and lyrics.** The visualiser needs a WASAPI

@@ -122,6 +122,7 @@ export const Command = {
   ClearChat: "clear_chat",
   RetryChat: "retry_chat",
   PickFiles: "pick_files",
+  SearchBooru: "search_booru",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
