@@ -56,6 +56,7 @@ config_struct! {
         pub audio: Audio = Audio::default(),
         pub background: Background = Background::default(),
         pub bar: Bar = Bar::default(),
+        pub capture: Capture = Capture::default(),
         pub dock: Dock = Dock::default(),
         pub hacks: Hacks = Hacks::default(),
         pub keybinds: Keybinds = Keybinds::default(),
@@ -289,6 +290,29 @@ config_struct! {
         pub sidebar_right: String = s("Super+Shift+N"),
         pub wallpaper_selector: String = s("Super+Shift+W"),
         pub widget_edit_mode: String = s("Super+Shift+D"),
+        /// `Win+Shift+S` is not available: Windows keeps it for the Snipping
+        /// Tool and will not hand it over.
+        pub capture_region: String = s("Print"),
+        pub capture_ocr: String = s("Ctrl+Print"),
+        pub capture_translate: String = s("Shift+Print"),
+    }
+}
+
+config_struct! {
+    /// Screenshots, and reading text off the screen.
+    pub struct Capture {
+        pub enable: bool = true,
+        /// Where screenshots go. Empty means `Pictures\Screenshots`, which is
+        /// where Windows itself puts them.
+        pub save_path: String = String::new(),
+        pub copy_to_clipboard: bool = true,
+        /// A BCP-47 tag for the recogniser, or empty for the languages the
+        /// user has already told Windows they read.
+        ///
+        /// Recognition only works for languages whose pack is installed, so
+        /// naming one here that is not present leaves the feature unavailable
+        /// rather than wrong.
+        pub ocr_language: String = String::new(),
     }
 }
 

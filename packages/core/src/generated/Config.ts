@@ -4,6 +4,7 @@ import type { Appearance } from "./Appearance";
 import type { Audio } from "./Audio";
 import type { Background } from "./Background";
 import type { Bar } from "./Bar";
+import type { Capture } from "./Capture";
 import type { Dock } from "./Dock";
 import type { Hacks } from "./Hacks";
 import type { Keybinds } from "./Keybinds";
@@ -29,6 +30,7 @@ export type Config = {
   audio: Audio;
   background: Background;
   bar: Bar;
+  capture: Capture;
   dock: Dock;
   hacks: Hacks;
   keybinds: Keybinds;
