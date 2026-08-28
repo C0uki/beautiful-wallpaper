@@ -291,6 +291,43 @@ const SHOTS = [
       await page.getByRole("textbox").fill("> ping 8.8.8.8");
     },
   },
+  // The region picker covers the screen, so these go through the harness —
+  // which is exactly where it sits on Windows too, over everything else.
+  {
+    name: "28-capture-region",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "shot" }).click();
+      await page.locator(".bw-region-frame").waitFor();
+      // Left mid-drag, so the selection box and its dimensions are on screen.
+      await page.mouse.move(140, 225);
+      await page.mouse.down();
+      await page.mouse.move(770, 320, { steps: 8 });
+    },
+  },
+  {
+    name: "29-capture-ocr",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "ocr" }).click();
+      await page.locator(".bw-region-frame").waitFor();
+      await dragRegion(page);
+      await page.locator(".bw-region-passage").first().waitFor();
+    },
+  },
+  {
+    name: "30-capture-translate",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "translate" }).click();
+      await page.locator(".bw-region-frame").waitFor();
+      await dragRegion(page);
+      await page.locator(".bw-region-passage").nth(1).waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",
@@ -300,6 +337,14 @@ const SHOTS = [
     },
   },
 ];
+
+/** Draws a selection around the mock screen's text and lets go. */
+async function dragRegion(page) {
+  await page.mouse.move(140, 225);
+  await page.mouse.down();
+  await page.mouse.move(770, 320, { steps: 8 });
+  await page.mouse.up();
+}
 
 async function selectView(page, label) {
   await page.getByRole("tab", { name: label }).click();

@@ -38,10 +38,12 @@ import {
   type AppEntry,
   type AppKind,
   type LauncherResult,
+  type CaptureMode,
+  type CaptureOutcome,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
-import { gradientWallpaper } from "./mockWallpaper";
+import { gradientWallpaper, mockScreen } from "./mockWallpaper";
 
 type Handler = (payload: unknown) => void;
 
@@ -397,6 +399,8 @@ export function mockBackend(): Backend {
       subtitle: "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
     },
   ];
+
+  let pendingCapture: CaptureMode | null = null;
 
   let dock: DockApp[] = [
     {
@@ -885,6 +889,59 @@ export function mockBackend(): Backend {
           return persistent as T;
         }
 
+        case Command.StartCapture: {
+          pendingCapture = args["mode"] as CaptureMode;
+          states.regionSelectOpen = true;
+          emit(Event.StateChanged, states);
+          emit(Event.Capture, {
+            image: mockScreen(),
+            width: 1920,
+            height: 1080,
+            mode: pendingCapture,
+          });
+          return undefined as T;
+        }
+
+        case Command.FinishCapture: {
+          const mode = pendingCapture;
+          if (mode === "screenshot") {
+            states.regionSelectOpen = false;
+            emit(Event.StateChanged, states);
+            pendingCapture = null;
+            return {
+              saved:
+                "C:\\Users\\you\\Pictures\\Screenshots\\Screenshot 2026-08-26 143012.png",
+              text: null,
+              translated: null,
+              problem: null,
+            } as T;
+          }
+
+          // Obviously synthetic, like everything else here: the "recognised"
+          // text is the text drawn into the mock screen.
+          const text =
+            "Windows has a text recogniser built in. It only exists for languages whose pack is installed, so the shell asks before it offers to read anything.";
+          const outcome: CaptureOutcome = {
+            saved: null,
+            text,
+            translated:
+              mode === "translate"
+                ? "Windows にはテキスト認識機能が組み込まれています。言語パックが導入されている言語でのみ利用できるため、シェルは読み取りを提案する前に確認します。"
+                : null,
+            problem: null,
+          };
+          return outcome as T;
+        }
+
+        case Command.CancelCapture:
+          pendingCapture = null;
+          states.regionSelectOpen = false;
+          emit(Event.StateChanged, states);
+          return undefined as T;
+
+        case Command.CanReadText:
+          return true as T;
+
         case Command.GetLauncherResults:
           return mockLauncherResults(
             String(args["query"] ?? ""),
@@ -1108,6 +1165,10 @@ export function mockBackend(): Backend {
     },
 
     assetUrl(path: string) {
+      // Already something a browser can load — the synthetic screen the region
+      // picker draws is a data URL — so it is handed back untouched. Without
+      // this every such image silently becomes a wallpaper gradient.
+      if (/^(?:data|blob|https?):/.test(path)) return path;
       return (
         gradients.get(path) ?? gradientWallpaper("#2a2126", "#7d5a68", path)
       );

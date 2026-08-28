@@ -692,19 +692,6 @@ pub fn set_persistent_value(
 
 // --- Screen capture --------------------------------------------------------
 
-/// The frozen frame the region overlay draws on.
-#[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct CaptureFrame {
-    /// A PNG under the cache directory, served through the asset protocol.
-    pub image: String,
-    /// The frame's own pixels, which is what the overlay scales against.
-    pub width: u32,
-    pub height: u32,
-    pub mode: bw_core::capture::CaptureMode,
-}
-
 /// Copies the screen and opens the overlay on top of the copy.
 ///
 /// The copy comes first deliberately: an overlay shown before the shutter is
@@ -745,7 +732,7 @@ pub fn start_capture(
         let frame = capture::grab(bounds)?;
 
         let image = write_frame(&frame)?;
-        let payload = CaptureFrame {
+        let payload = bw_core::capture::CaptureFrame {
             image: image.to_string_lossy().into_owned(),
             width: frame.width,
             height: frame.height,

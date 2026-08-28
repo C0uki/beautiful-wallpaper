@@ -133,6 +133,18 @@ pub const ACTIONS: &[Action] = &[
         keyword: "sidebar",
         symbol: "right_panel_open",
     },
+    Action {
+        keyword: "screenshot",
+        symbol: "photo_camera",
+    },
+    Action {
+        keyword: "ocr",
+        symbol: "text_fields",
+    },
+    Action {
+        keyword: "translate",
+        symbol: "translate",
+    },
 ];
 
 /// How a query is being read.

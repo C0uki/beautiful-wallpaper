@@ -52,6 +52,18 @@ const ACTIONS: Record<
     run: () => actions.setState("sidebarRightOpen", true),
     describe: () => tr("Open the control centre"),
   },
+  screenshot: {
+    run: () => actions.startCapture("screenshot"),
+    describe: () => tr("Pick a region and save it"),
+  },
+  ocr: {
+    run: () => actions.startCapture("ocr"),
+    describe: () => tr("Read the text in a region"),
+  },
+  translate: {
+    run: () => actions.startCapture("translate"),
+    describe: () => tr("Read a region and translate it"),
+  },
 };
 
 /** What a row says under its title when the backend left that blank.

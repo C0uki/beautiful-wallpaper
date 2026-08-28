@@ -57,6 +57,11 @@ export const Event = {
    * nothing: the overview re-runs whatever query is in its box.
    */
   Apps: "bw://apps",
+  /**
+   * The screen has been copied and the region overlay should draw it. Carries
+   * the frozen frame's path, its size and what to do with the selection.
+   */
+  Capture: "bw://capture",
 } as const;
 
 export type EventName = (typeof Event)[keyof typeof Event];
@@ -131,6 +136,10 @@ export const Command = {
   GetLauncherResults: "get_launcher_results",
   LaunchEntry: "launch_entry",
   RunCommand: "run_command",
+  StartCapture: "start_capture",
+  FinishCapture: "finish_capture",
+  CancelCapture: "cancel_capture",
+  CanReadText: "can_read_text",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -145,6 +154,7 @@ export const IpcTarget = {
   Wallpapers: "wallpapers",
   WallpaperSelector: "wallpaperSelector",
   Overview: "overview",
+  Capture: "capture",
 } as const;
 
 export interface WallpaperChanged {

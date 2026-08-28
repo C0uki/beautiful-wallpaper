@@ -33,6 +33,23 @@ impl CaptureMode {
     }
 }
 
+/// The frozen frame the region overlay draws on.
+///
+/// Defined here rather than beside the command that emits it: `ts-rs` writes
+/// its binding from a test, and the shell crate's tests only run on Windows —
+/// so a type declared there never reaches the frontend at all.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CaptureFrame {
+    /// A PNG under the cache directory, served through the asset protocol.
+    pub image: String,
+    /// The frame's own pixels, which is what the overlay measures against.
+    pub width: u32,
+    pub height: u32,
+    pub mode: CaptureMode,
+}
+
 /// What came of a capture, in the shape the overlay draws.
 ///
 /// Every field is optional because every mode fills in a different pair, and

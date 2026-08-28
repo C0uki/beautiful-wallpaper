@@ -41,6 +41,9 @@ import {
   type BooruPage,
   type LauncherResult,
   type AppKind,
+  type CaptureMode,
+  type CaptureOutcome,
+  type Rect,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -474,6 +477,19 @@ export const actions = {
   },
   runCommand(line: string) {
     return backend().invoke<void>(Command.RunCommand, { line });
+  },
+  startCapture(mode: CaptureMode) {
+    return backend().invoke<void>(Command.StartCapture, { mode });
+  },
+  /** `scale` turns the overlay's CSS pixels into the frozen frame's own. */
+  finishCapture(region: Rect, scale: number) {
+    return backend().invoke<CaptureOutcome>(Command.FinishCapture, {
+      region,
+      scale,
+    });
+  },
+  cancelCapture() {
+    return backend().invoke<void>(Command.CancelCapture);
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });
