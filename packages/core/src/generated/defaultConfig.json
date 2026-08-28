@@ -123,6 +123,12 @@
     "center": ["workspaces", "activeWindow"],
     "right": ["tray", "resources", "network", "battery", "utilButtons", "clock"]
   },
+  "capture": {
+    "enable": true,
+    "savePath": "",
+    "copyToClipboard": true,
+    "ocrLanguage": ""
+  },
   "dock": {
     "enable": false,
     "height": 60,
@@ -145,7 +151,10 @@
     "sidebarLeft": "Super+Shift+A",
     "sidebarRight": "Super+Shift+N",
     "wallpaperSelector": "Super+Shift+W",
-    "widgetEditMode": "Super+Shift+D"
+    "widgetEditMode": "Super+Shift+D",
+    "captureRegion": "Print",
+    "captureOcr": "Ctrl+Print",
+    "captureTranslate": "Shift+Print"
   },
   "language": {
     "ui": "auto"

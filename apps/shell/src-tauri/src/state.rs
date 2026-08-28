@@ -21,6 +21,7 @@ pub struct GlobalStates {
     pub sidebar_left_open: bool,
     pub sidebar_right_open: bool,
     pub overview_open: bool,
+    pub region_select_open: bool,
     pub settings_open: bool,
     pub session_open: bool,
     pub desktop_menu_open: bool,
@@ -506,6 +507,45 @@ impl CatalogueHandle {
         }
         #[cfg(not(windows))]
         Vec::new()
+    }
+}
+
+/// The frame a capture is waiting on.
+///
+/// The screen is copied when the hotkey fires and held here while the user
+/// draws on it, so the crop comes from what they were looking at rather than
+/// from whatever the screen has moved on to by the time they let go.
+#[derive(Default)]
+pub struct CaptureHandle {
+    #[cfg(windows)]
+    pending: parking_lot::Mutex<Option<Pending>>,
+    #[cfg(not(windows))]
+    _unused: (),
+}
+
+#[cfg(windows)]
+pub struct Pending {
+    pub mode: bw_core::capture::CaptureMode,
+    pub frame: crate::platform::capture::Frame,
+}
+
+#[cfg(windows)]
+impl CaptureHandle {
+    /// Holds a frame, replacing any that was already waiting.
+    pub fn hold(&self, pending: Pending) {
+        *self.pending.lock() = Some(pending);
+    }
+
+    /// Takes the waiting frame, leaving nothing behind.
+    ///
+    /// Taking rather than borrowing is what stops a second Enter acting on a
+    /// capture that has already been dealt with.
+    pub fn take(&self) -> Option<Pending> {
+        self.pending.lock().take()
+    }
+
+    pub fn clear(&self) {
+        *self.pending.lock() = None;
     }
 }
 

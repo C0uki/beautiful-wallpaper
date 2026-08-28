@@ -14,6 +14,7 @@ import { Dock } from "./surfaces/dock/Dock";
 import { SidebarLeft } from "./surfaces/sidebarLeft/SidebarLeft";
 import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
+import { RegionSelect } from "./surfaces/regionSelect/RegionSelect";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -245,6 +246,28 @@ function Harness() {
         >
           {config.bar.bottom ? "bottom" : "top"}
         </Button>
+
+        {/* On Windows these are keys; the region overlay covers the screen
+            either way, so it goes over the harness exactly as it would over
+            the desktop. */}
+        <Button
+          icon="photo_camera"
+          onClick={() => void actions.startCapture("screenshot")}
+        >
+          shot
+        </Button>
+        <Button
+          icon="text_fields"
+          onClick={() => void actions.startCapture("ocr")}
+        >
+          ocr
+        </Button>
+        <Button
+          icon="translate"
+          onClick={() => void actions.startCapture("translate")}
+        >
+          translate
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -324,6 +347,8 @@ function Harness() {
           </div>
         ) : null}
       </div>
+
+      <RegionSelect />
     </div>
   );
 }

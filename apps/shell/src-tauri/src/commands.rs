@@ -14,9 +14,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle, GlobalStates,
-    IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore,
-    VolumeHandle,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle,
+    GlobalStates, IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore,
+    TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -39,6 +39,9 @@ pub mod event {
     pub const PERSISTENT: &str = "bw://persistent";
     /// The dock's icons changed: a window opened, closed or came forward.
     pub const DOCK: &str = "bw://dock";
+    /// The screen has been copied and the region overlay should draw it.
+    /// Carries the frozen frame's path, its size and what to do with it.
+    pub const CAPTURE: &str = "bw://capture";
     /// The scan of installed applications finished, or found a change.
     /// Carries nothing: the overview re-runs whatever query is in the box.
     pub const APPS: &str = "bw://apps";
@@ -685,6 +688,268 @@ pub fn set_persistent_value(
         .map_err(|error| error.to_string())?;
     let _ = app.emit(event::PERSISTENT, &updated);
     Ok(updated)
+}
+
+// --- Screen capture --------------------------------------------------------
+
+/// Copies the screen and opens the overlay on top of the copy.
+///
+/// The copy comes first deliberately: an overlay shown before the shutter is
+/// in the picture, and a selection made against a live screen captures
+/// whatever the screen has moved on to rather than what was chosen.
+#[tauri::command]
+pub fn start_capture(
+    _app: AppHandle,
+    _state: State<'_, AppState>,
+    _capture: State<'_, CaptureHandle>,
+    _mode: bw_core::capture::CaptureMode,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use crate::platform::capture;
+
+        if !_state.config().capture.enable {
+            return Err("screen capture is switched off".to_owned());
+        }
+
+        // The shell's own transient surfaces would otherwise be in the shot.
+        // The bar and the dock stay: they are on screen all the time, and a
+        // screenshot of this desktop has them in it.
+        for surface in [
+            crate::surfaces::OVERVIEW,
+            crate::surfaces::SIDEBAR_LEFT,
+            crate::surfaces::SIDEBAR_RIGHT,
+            crate::surfaces::WALLPAPER_SELECTOR,
+            crate::surfaces::REGION_SELECT,
+        ] {
+            let _ = crate::surfaces::set_visible(&_app, surface.label, false);
+        }
+        // Hiding returns before the compositor has drawn the frame without
+        // them, so wait for it rather than guessing at a delay.
+        capture::settle();
+
+        let bounds = capture::primary_bounds().ok_or_else(|| "no monitor to capture".to_owned())?;
+        let frame = capture::grab(bounds)?;
+
+        let image = write_frame(&frame)?;
+        let payload = bw_core::capture::CaptureFrame {
+            image: image.to_string_lossy().into_owned(),
+            width: frame.width,
+            height: frame.height,
+            mode: _mode,
+        };
+
+        _capture.hold(crate::state::Pending { mode: _mode, frame });
+        let _ = _app.emit(event::CAPTURE, &payload);
+
+        set_capture_open(&_app, &_state, true);
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    Err("screen capture needs Windows".to_owned())
+}
+
+/// Acts on the region the user drew, and closes the overlay.
+///
+/// `scale` converts the overlay's CSS pixels into the frame's own, and is
+/// measured by the overlay from the image it is drawing rather than taken
+/// from `devicePixelRatio` — the two disagree often enough to matter.
+#[tauri::command]
+pub async fn finish_capture(
+    _app: AppHandle,
+    _state: State<'_, AppState>,
+    _capture: State<'_, CaptureHandle>,
+    _region: bw_core::capture::Rect,
+    _scale: f64,
+) -> Result<bw_core::capture::CaptureOutcome, String> {
+    #[cfg(windows)]
+    {
+        let pending = _capture
+            .take()
+            .ok_or_else(|| "there is no capture waiting".to_owned())?;
+        let config = _state.config();
+
+        // Only a screenshot is finished the moment the selection is: the two
+        // text modes have something to show, and closing the overlay first
+        // would leave the result with nowhere to appear.
+        if pending.mode.saves_a_file() {
+            set_capture_open(&_app, &_state, false);
+        }
+
+        let region = _region.to_physical(_scale);
+        let Some(crop) = pending.frame.crop(region) else {
+            return Ok(bw_core::capture::CaptureOutcome {
+                problem: Some("that selection is outside the screen".to_owned()),
+                ..Default::default()
+            });
+        };
+
+        match pending.mode {
+            bw_core::capture::CaptureMode::Screenshot => Ok(save_capture(&_app, &config, &crop)),
+            bw_core::capture::CaptureMode::Ocr => Ok(read_capture(&config, &crop)),
+            bw_core::capture::CaptureMode::Translate => {
+                let mut outcome = read_capture(&config, &crop);
+                if let Some(text) = outcome.text.clone() {
+                    let from = &config.sidebar.left.translator.from;
+                    let to = &config.sidebar.left.translator.to;
+                    match crate::services::ai::translate(&config, &text, from, to).await {
+                        Ok(translated) => outcome.translated = Some(translated),
+                        Err(error) => {
+                            outcome.problem = Some(format!("could not translate: {error:?}"));
+                        }
+                    }
+                }
+                Ok(outcome)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (&_app, &_state, &_capture, _region, _scale);
+        Err("screen capture needs Windows".to_owned())
+    }
+}
+
+/// Throws the held frame away and closes the overlay.
+#[tauri::command]
+pub fn cancel_capture(
+    _app: AppHandle,
+    _state: State<'_, AppState>,
+    _capture: State<'_, CaptureHandle>,
+) {
+    #[cfg(windows)]
+    {
+        _capture.clear();
+        set_capture_open(&_app, &_state, false);
+    }
+}
+
+/// Whether the machine has a recogniser at all.
+///
+/// Recognition only exists for languages whose pack is installed, so this is
+/// asked before the two text modes are offered.
+#[tauri::command]
+pub fn can_read_text(_state: State<'_, AppState>) -> bool {
+    #[cfg(windows)]
+    {
+        crate::platform::ocr::is_available(&_state.config().capture.ocr_language)
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+#[cfg(windows)]
+fn set_capture_open(app: &AppHandle, state: &AppState, open: bool) {
+    let Some(states) = state.set_state("regionSelectOpen", open) else {
+        return;
+    };
+    crate::surfaces::apply_states(app, &states);
+    let _ = app.emit(event::STATE_CHANGED, &states);
+}
+
+/// Writes the frozen frame where the overlay can load it.
+///
+/// A new name each time: the same path would be served from the webview's
+/// cache, and the second capture of a session would show the first.
+#[cfg(windows)]
+fn write_frame(frame: &crate::platform::capture::Frame) -> Result<std::path::PathBuf, String> {
+    let folder = bw_core::paths::cache_dir().join("capture");
+    // The previous frame is a full-screen PNG and nothing reads it again.
+    if let Ok(entries) = std::fs::read_dir(&folder) {
+        for entry in entries.flatten() {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis())
+        .unwrap_or_default();
+    let path = folder.join(format!("frame-{stamp}.png"));
+    frame.save(&path)?;
+    Ok(path)
+}
+
+#[cfg(windows)]
+fn save_capture(
+    app: &AppHandle,
+    config: &Config,
+    crop: &crate::platform::capture::Frame,
+) -> bw_core::capture::CaptureOutcome {
+    let folder = if config.capture.save_path.trim().is_empty() {
+        bw_core::paths::default_screenshot_dir()
+    } else {
+        std::path::PathBuf::from(&config.capture.save_path)
+    };
+
+    let when = chrono::Local::now().format("%Y-%m-%d %H%M%S").to_string();
+    let path = folder.join(bw_core::capture::screenshot_name(&when));
+
+    if let Err(problem) = crop.save(&path) {
+        return bw_core::capture::CaptureOutcome {
+            problem: Some(problem),
+            ..Default::default()
+        };
+    }
+
+    if config.capture.copy_to_clipboard {
+        if let Err(error) = crop.to_clipboard() {
+            // The file is written either way, so this is worth a line in the
+            // log and nothing more.
+            tracing::warn!(%error, "could not copy the capture to the clipboard");
+        }
+    }
+
+    let shown = path.to_string_lossy().into_owned();
+    if let Some(store) = app.try_state::<NotificationStore>() {
+        store.0.post(bw_core::NewNotification::from_shell(
+            "Screenshot saved",
+            shown.clone(),
+        ));
+        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+        let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
+    }
+
+    bw_core::capture::CaptureOutcome {
+        saved: Some(shown),
+        ..Default::default()
+    }
+}
+
+#[cfg(windows)]
+fn read_capture(
+    config: &Config,
+    crop: &crate::platform::capture::Frame,
+) -> bw_core::capture::CaptureOutcome {
+    use crate::platform::ocr::{self, OcrError};
+
+    match ocr::read(crop, &config.capture.ocr_language) {
+        Ok(text) => {
+            // Reading text and then not being able to paste it would leave the
+            // user retyping what they just had recognised.
+            if let Err(error) = crate::platform::capture::copy_text(&text) {
+                tracing::warn!(%error, "could not copy the recognised text");
+            }
+            bw_core::capture::CaptureOutcome {
+                text: Some(text),
+                ..Default::default()
+            }
+        }
+        Err(OcrError::Unavailable) => bw_core::capture::CaptureOutcome {
+            problem: Some(
+                "Windows has no text recogniser for your languages. Add a language pack in \
+                 Settings, or name an installed one under `capture.ocrLanguage`."
+                    .to_owned(),
+            ),
+            ..Default::default()
+        },
+        // Not a failure: a region with nothing written in it.
+        Err(OcrError::NothingFound) => bw_core::capture::CaptureOutcome::default(),
+        Err(OcrError::Failed(problem)) => bw_core::capture::CaptureOutcome {
+            problem: Some(problem),
+            ..Default::default()
+        },
+    }
 }
 
 // --- The overview ----------------------------------------------------------

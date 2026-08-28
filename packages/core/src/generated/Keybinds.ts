@@ -29,4 +29,11 @@ export type Keybinds = {
   sidebarRight: string;
   wallpaperSelector: string;
   widgetEditMode: string;
+  /**
+   * `Win+Shift+S` is not available: Windows keeps it for the Snipping
+   * Tool and will not hand it over.
+   */
+  captureRegion: string;
+  captureOcr: string;
+  captureTranslate: string;
 };

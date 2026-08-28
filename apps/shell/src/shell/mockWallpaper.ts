@@ -48,3 +48,40 @@ export function gradientWallpaper(
 
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
+/** A stand-in for "what is on the screen right now", as a data URL.
+ *
+ * The region picker draws a frozen copy of the screen, so the mock has to
+ * supply one. This is a plainly synthetic desktop — a gradient, a window and
+ * some lines of text — which is enough for the overlay's shading, its
+ * dimension readout and its result panel to be looked at off Windows. */
+export function mockScreen(): string {
+  const lines = [
+    "Windows has a text recogniser built in.",
+    "It only exists for languages whose pack is installed,",
+    "so the shell asks before it offers to read anything.",
+  ];
+  const text = lines
+    .map(
+      (line, index) =>
+        `<text x="228" y="${304 + index * 34}" font-family="Segoe UI, sans-serif" font-size="21" fill="#1c1a22">${line}</text>`,
+    )
+    .join("");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="d" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2436"/><stop offset="1" stop-color="#4a3350"/>
+    </linearGradient></defs>
+    <rect width="1920" height="1080" fill="url(#d)"/>
+    <rect x="200" y="180" width="1120" height="420" rx="14" fill="#f4f1f7"/>
+    <rect x="200" y="180" width="1120" height="44" rx="14" fill="#e2dee8"/>
+    <circle cx="228" cy="202" r="7" fill="#d98a8a"/>
+    <circle cx="252" cy="202" r="7" fill="#d9c58a"/>
+    <circle cx="276" cy="202" r="7" fill="#8ad99a"/>
+    <text x="228" y="264" font-family="Segoe UI, sans-serif" font-size="26" font-weight="600" fill="#1c1a22">Reading text off the screen</text>
+    ${text}
+    <rect x="1420" y="700" width="380" height="240" rx="14" fill="#2a2333" opacity="0.85"/>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}

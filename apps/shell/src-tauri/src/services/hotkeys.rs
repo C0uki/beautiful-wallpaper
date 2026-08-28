@@ -42,9 +42,9 @@ pub fn apply(app: &AppHandle) {
     let mut refused: Vec<String> = Vec::new();
 
     for (binding, chord) in bindings(&config.keybinds) {
-        let Some(flag) = flag_for(&binding) else {
-            // A binding for something this build does not have a surface for.
-            // Silence is right here: the user did not ask for it.
+        let Some(bound) = action_for(&binding) else {
+            // A binding for something this build does not have. Silence is
+            // right here: the user did not ask for it.
             continue;
         };
 
@@ -61,7 +61,7 @@ pub fn apply(app: &AppHandle) {
             if pressed.state != ShortcutState::Pressed {
                 return;
             }
-            toggle(&handle, flag);
+            run(&handle, bound);
         });
 
         if let Err(error) = registered {
@@ -91,19 +91,52 @@ fn bindings(keybinds: &bw_core::config::Keybinds) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Which `GlobalStates` flag a binding toggles.
+/// What a key does when it is pressed.
+#[derive(Debug, Clone, Copy)]
+enum Bound {
+    /// Flip a `GlobalStates` flag, which shows or hides a surface.
+    Flag(&'static str),
+    /// Take a picture of the screen. Not a toggle: pressing it twice should
+    /// start two captures, not undo the first.
+    Capture(bw_core::capture::CaptureMode),
+}
+
+/// What each binding is for.
 ///
-/// Only surfaces that exist are listed. A binding with no surface behind it
-/// would register a key that does nothing, which is the failure this module
-/// is written to avoid.
-fn flag_for(binding: &str) -> Option<&'static str> {
+/// Only things that exist are listed. A binding with nothing behind it would
+/// register a key that does nothing, which is the failure this module is
+/// written to avoid.
+fn action_for(binding: &str) -> Option<Bound> {
+    use bw_core::capture::CaptureMode;
+
     match binding {
-        "overview" => Some("overviewOpen"),
-        "sidebarLeft" => Some("sidebarLeftOpen"),
-        "sidebarRight" => Some("sidebarRightOpen"),
-        "wallpaperSelector" => Some("wallpaperSelectorOpen"),
-        "widgetEditMode" => Some("widgetEditMode"),
+        "overview" => Some(Bound::Flag("overviewOpen")),
+        "sidebarLeft" => Some(Bound::Flag("sidebarLeftOpen")),
+        "sidebarRight" => Some(Bound::Flag("sidebarRightOpen")),
+        "wallpaperSelector" => Some(Bound::Flag("wallpaperSelectorOpen")),
+        "widgetEditMode" => Some(Bound::Flag("widgetEditMode")),
+        "captureRegion" => Some(Bound::Capture(CaptureMode::Screenshot)),
+        "captureOcr" => Some(Bound::Capture(CaptureMode::Ocr)),
+        "captureTranslate" => Some(Bound::Capture(CaptureMode::Translate)),
         _ => None,
+    }
+}
+
+/// Runs what a key was bound to.
+fn run(app: &AppHandle, bound: Bound) {
+    match bound {
+        Bound::Flag(flag) => toggle(app, flag),
+        Bound::Capture(mode) => {
+            let (Some(state), Some(capture)) = (
+                app.try_state::<AppState>(),
+                app.try_state::<crate::state::CaptureHandle>(),
+            ) else {
+                return;
+            };
+            if let Err(error) = crate::commands::start_capture(app.clone(), state, capture, mode) {
+                tracing::warn!(%error, "could not start a capture");
+            }
+        }
     }
 }
 

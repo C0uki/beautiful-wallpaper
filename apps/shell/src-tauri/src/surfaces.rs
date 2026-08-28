@@ -86,6 +86,16 @@ pub const OVERVIEW: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The region picker. The whole screen, drawn on a frozen copy of it, and it
+/// takes focus so that Escape and Enter reach it rather than whatever is
+/// behind.
+pub const REGION_SELECT: Surface = Surface {
+    label: "regionSelect",
+    page: "regionSelect.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -113,6 +123,7 @@ pub const ALL: &[Surface] = &[
     SIDEBAR_LEFT,
     DOCK,
     OVERVIEW,
+    REGION_SELECT,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -125,6 +136,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "sidebarRightOpen" => Some(SIDEBAR_RIGHT.label),
         "sidebarLeftOpen" => Some(SIDEBAR_LEFT.label),
         "overviewOpen" => Some(OVERVIEW.label),
+        "regionSelectOpen" => Some(REGION_SELECT.label),
         _ => None,
     }
 }

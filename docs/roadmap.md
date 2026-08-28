@@ -204,12 +204,39 @@ Not built: the workspace grid with live window previews, which needs
 `DwmRegisterThumbnail`, and ordering by how often something is used, which
 needs a history the shell does not keep.
 
+### Done: screenshots, OCR and the screen translator
+
+The region picker, and the two things worth doing with a region besides
+saving it.
+
+- **The shutter fires before the overlay appears.** An overlay shown first is
+  in its own screenshot, and a selection drawn against a live screen captures
+  whatever the screen has moved on to rather than what was chosen. So the
+  shell's transient surfaces are hidden — the bar and the dock stay, being on
+  screen all the time — and `DwmFlush` waits for the compositor to draw a
+  frame without them. That is a documented wait rather than a guess at a
+  delay, and the picker then draws on the frozen copy.
+- **Reading text needs no dependency**, because Windows has a recogniser.
+  What it does not have is every language: one exists only for languages
+  whose pack is installed, so "this machine cannot read text" is a
+  first-class outcome, the way "this display has no brightness control"
+  already is. Joining what it returns is not a formality either — it hands
+  back lines, and a space between two Japanese lines is wrong.
+- **The screen translator** is the recogniser feeding the translator that was
+  already there for the left sidebar, so it is one path rather than two.
+- The clipboard gets twenty-four bits per pixel, not thirty-two: a screenshot
+  has no meaningful alpha and applications disagree about the fourth channel,
+  some pasting the image and some a black rectangle.
+
+`Win+Shift+S` is not among the defaults — Windows keeps it for the Snipping
+Tool — so the keys are `Print`, `Ctrl+Print` and `Shift+Print`, and the same
+three are `/screenshot`, `/ocr` and `/translate` in the launcher.
+
 ### Still to do
 
-Region selection for screenshots and OCR, the session screen, the desktop
-context menu, the drop shelf, screen corners, the screen frame, the floating
-overlays (crosshair, notes, resources, FPS limiter, recorder) and the screen
-translator.
+The session screen, the desktop context menu, the drop shelf, screen corners,
+the screen frame, and the floating overlays (crosshair, notes, resources, FPS
+limiter, recorder).
 
 ## Phase 5 — Finishing
 
@@ -244,3 +271,8 @@ the installer, and documentation.
 - **Per-monitor surfaces.** Only the primary monitor gets a background surface so
   far; `Variants { model: Quickshell.screens }` maps to one window per monitor
   plus `WM_DISPLAYCHANGE` handling.
+- **Capturing across monitors.** The region picker covers the primary monitor
+  only. A window has a single scale factor, so an overlay spanning two
+  monitors at different scales cannot map what was drawn on it back to pixels
+  on both; doing it properly means one picker window per monitor, which is the
+  same work as the point above.

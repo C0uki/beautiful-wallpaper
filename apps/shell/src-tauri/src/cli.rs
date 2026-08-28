@@ -19,6 +19,7 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw wallpapers random                   pick another from the same folder
   bw wallpaperSelector toggle|open|close the wallpaper picker
   bw background toggleWidgets            toggle desktop widget edit mode
+  bw capture region|ocr|translate        pick a region of the screen
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
   bw --help                              this message
@@ -87,6 +88,20 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
         }
         ("wallpaperSelector", action) => toggle_surface(app, "wallpaperSelectorOpen", action),
         ("background", "toggleWidgets") => toggle_surface(app, "widgetEditMode", "toggle"),
+        ("capture", mode) => {
+            let mode = match mode {
+                "region" | "screenshot" | "" => bw_core::capture::CaptureMode::Screenshot,
+                "ocr" | "text" => bw_core::capture::CaptureMode::Ocr,
+                "translate" => bw_core::capture::CaptureMode::Translate,
+                other => return Err(format!("`{other}` is not region, ocr or translate")),
+            };
+            crate::commands::start_capture(
+                app.clone(),
+                app.state::<AppState>(),
+                app.state::<crate::state::CaptureHandle>(),
+                mode,
+            )
+        }
         ("config", "set") => {
             let (path, value) = (
                 rest.first()

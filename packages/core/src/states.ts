@@ -9,6 +9,8 @@ export const StateFlag = {
   SidebarLeftOpen: "sidebarLeftOpen",
   SidebarRightOpen: "sidebarRightOpen",
   OverviewOpen: "overviewOpen",
+  /** True while a region of the screen is being picked. */
+  RegionSelectOpen: "regionSelectOpen",
   SettingsOpen: "settingsOpen",
   SessionOpen: "sessionOpen",
   DesktopMenuOpen: "desktopMenuOpen",
@@ -27,6 +29,7 @@ export const defaultStates: GlobalStates = {
   sidebarLeftOpen: false,
   sidebarRightOpen: false,
   overviewOpen: false,
+  regionSelectOpen: false,
   settingsOpen: false,
   sessionOpen: false,
   desktopMenuOpen: false,
