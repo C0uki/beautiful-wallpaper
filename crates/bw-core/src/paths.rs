@@ -54,6 +54,16 @@ pub fn default_download_dir() -> PathBuf {
         .join("Wallpapers")
 }
 
+/// Where screenshots go when the user has not chosen a folder.
+///
+/// `Pictures\\Screenshots` is where Windows itself puts them, so a capture
+/// taken here lands beside the ones taken with the system's own key.
+pub fn default_screenshot_dir() -> PathBuf {
+    dirs::picture_dir()
+        .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
+        .join("Screenshots")
+}
+
 /// The folder the wallpaper browser opens at.
 pub fn default_wallpaper_dir() -> PathBuf {
     dirs::picture_dir().unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))

@@ -13,9 +13,13 @@ pub mod audio;
 #[cfg(windows)]
 pub mod brightness;
 #[cfg(windows)]
+pub mod capture;
+#[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
 pub mod mixer;
+#[cfg(windows)]
+pub mod ocr;
 #[cfg(windows)]
 pub mod radios;
 #[cfg(windows)]

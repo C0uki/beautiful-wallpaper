@@ -12,7 +12,8 @@
     "sidebarRight",
     "sidebarLeft",
     "dock",
-    "overview"
+    "overview",
+    "regionSelect"
   ],
   "permissions": [
     "core:default",

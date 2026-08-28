@@ -33,6 +33,26 @@ impl CaptureMode {
     }
 }
 
+/// What came of a capture, in the shape the overlay draws.
+///
+/// Every field is optional because every mode fills in a different pair, and
+/// because "the selection had no text in it" is an outcome rather than a
+/// failure: `problem` carries a sentence for the user, and its absence with
+/// nothing else set means the region was simply empty.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CaptureOutcome {
+    /// Where the image was written, when one was.
+    pub saved: Option<String>,
+    /// What was read out of the region.
+    pub text: Option<String>,
+    /// The translation of `text`.
+    pub translated: Option<String>,
+    /// Why there is nothing to show, in the user's terms.
+    pub problem: Option<String>,
+}
+
 /// A rectangle in whatever coordinate space the caller is working in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

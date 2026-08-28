@@ -13,8 +13,9 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle, IdleHandle,
-    MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle,
+    IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore,
+    VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -126,6 +127,10 @@ fn main() {
             commands::get_launcher_results,
             commands::launch_entry,
             commands::run_command,
+            commands::start_capture,
+            commands::finish_capture,
+            commands::cancel_capture,
+            commands::can_read_text,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -160,6 +165,7 @@ fn main() {
             app.manage(ChatStore::default());
             app.manage(ChatBusy::default());
             app.manage(start_app_scan(&handle));
+            app.manage(CaptureHandle::default());
 
             // After the surfaces exist, so a key pressed the instant the
             // shell is up has something to open.
