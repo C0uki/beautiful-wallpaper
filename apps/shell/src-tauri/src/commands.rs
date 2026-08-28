@@ -39,6 +39,9 @@ pub mod event {
     pub const PERSISTENT: &str = "bw://persistent";
     /// The dock's icons changed: a window opened, closed or came forward.
     pub const DOCK: &str = "bw://dock";
+    /// The session screen has been opened or the machine's power
+    /// capabilities changed. Carries nothing; the surface re-asks.
+    pub const SESSION: &str = "bw://session";
     /// The screen has been copied and the region overlay should draw it.
     /// Carries the frozen frame's path, its size and what to do with it.
     pub const CAPTURE: &str = "bw://capture";
@@ -688,6 +691,65 @@ pub fn set_persistent_value(
         .map_err(|error| error.to_string())?;
     let _ = app.emit(event::PERSISTENT, &updated);
     Ok(updated)
+}
+
+// --- The session screen ----------------------------------------------------
+
+/// Which ways out this machine will actually offer.
+///
+/// The filtering lives in `bw-core` under tests; this only asks Windows what
+/// it can do.
+#[tauri::command]
+pub fn get_session_actions(state: State<'_, AppState>) -> Vec<bw_core::session::SessionAction> {
+    bw_core::session::available(&state.config().session, power_capabilities())
+}
+
+fn power_capabilities() -> bw_core::session::PowerCapabilities {
+    #[cfg(windows)]
+    {
+        crate::platform::power::capabilities()
+    }
+    #[cfg(not(windows))]
+    bw_core::session::PowerCapabilities::default()
+}
+
+/// Ends the session the way the user asked.
+///
+/// Closes the screen first: several of these take a moment to happen, and an
+/// overlay still up in the meantime looks like the button did nothing.
+#[tauri::command]
+pub fn run_session_action(
+    _app: AppHandle,
+    _state: State<'_, AppState>,
+    _action: bw_core::session::SessionAction,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let config = _state.config();
+        if !config.session.enable {
+            return Err("the session screen is switched off".to_owned());
+        }
+        // Refuse anything the machine said it cannot do, rather than trusting
+        // a frontend that might be showing a stale list.
+        if !bw_core::session::available(&config.session, power_capabilities()).contains(&_action) {
+            return Err(format!(
+                "`{}` is not available on this machine",
+                _action.keyword()
+            ));
+        }
+
+        if let Some(states) = _state.set_state("sessionOpen", false) {
+            crate::surfaces::apply_states(&_app, &states);
+            let _ = _app.emit(event::STATE_CHANGED, &states);
+        }
+
+        crate::platform::power::run(_action, config.session.force)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (&_app, &_state, _action);
+        Err("ending the session needs Windows".to_owned())
+    }
 }
 
 // --- Screen capture --------------------------------------------------------

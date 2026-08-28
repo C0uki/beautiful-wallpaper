@@ -86,6 +86,15 @@ pub const OVERVIEW: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The session screen. The whole screen, and it takes focus so the keyboard
+/// can reach the buttons.
+pub const SESSION: Surface = Surface {
+    label: "session",
+    page: "session.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The region picker. The whole screen, drawn on a frozen copy of it, and it
 /// takes focus so that Escape and Enter reach it rather than whatever is
 /// behind.
@@ -124,6 +133,7 @@ pub const ALL: &[Surface] = &[
     DOCK,
     OVERVIEW,
     REGION_SELECT,
+    SESSION,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -137,6 +147,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "sidebarLeftOpen" => Some(SIDEBAR_LEFT.label),
         "overviewOpen" => Some(OVERVIEW.label),
         "regionSelectOpen" => Some(REGION_SELECT.label),
+        "sessionOpen" => Some(SESSION.label),
         _ => None,
     }
 }

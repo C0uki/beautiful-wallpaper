@@ -20,6 +20,7 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw wallpaperSelector toggle|open|close the wallpaper picker
   bw background toggleWidgets            toggle desktop widget edit mode
   bw capture region|ocr|translate        pick a region of the screen
+  bw session toggle|open|close           the way out of the session
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
   bw --help                              this message
@@ -87,6 +88,7 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
             Ok(())
         }
         ("wallpaperSelector", action) => toggle_surface(app, "wallpaperSelectorOpen", action),
+        ("session", action) => toggle_surface(app, "sessionOpen", action),
         ("background", "toggleWidgets") => toggle_surface(app, "widgetEditMode", "toggle"),
         ("capture", mode) => {
             let mode = match mode {

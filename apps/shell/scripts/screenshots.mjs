@@ -329,6 +329,27 @@ const SHOTS = [
     },
   },
   {
+    name: "31-session",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "session" }).click();
+      await page.getByRole("dialog").waitFor();
+    },
+  },
+  // A refusal must leave the screen up: closing on one would leave the user
+  // with a machine that simply did not switch off.
+  {
+    name: "32-session-refused",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "session" }).click();
+      await page.getByRole("button", { name: "Shut down" }).click();
+      await page.locator(".bw-session-problem").waitFor();
+    },
+  },
+  {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",
     viewport: { width: 420, height: 720 },

@@ -16,6 +16,7 @@ import type { LauncherResult } from "@bw/core";
 import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
 import "./overview.css";
 
@@ -63,6 +64,10 @@ const ACTIONS: Record<
   translate: {
     run: () => actions.startCapture("translate"),
     describe: () => tr("Read a region and translate it"),
+  },
+  session: {
+    run: () => actions.setState("sessionOpen", true),
+    describe: () => tr("Lock, sleep, restart or shut down"),
   },
 };
 
@@ -166,7 +171,7 @@ export function Overview() {
         // Every one of these can be refused — Windows declines foreground
         // changes, a command names something that is not there. Saying so
         // beats a launcher that closed and did nothing.
-        setFailure(String(error));
+        setFailure(describeError(error));
         await actions.setState("overviewOpen", true);
       }
     },

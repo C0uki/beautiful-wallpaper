@@ -154,7 +154,8 @@
     "widgetEditMode": "Super+Shift+D",
     "captureRegion": "Print",
     "captureOcr": "Ctrl+Print",
-    "captureTranslate": "Shift+Print"
+    "captureTranslate": "Shift+Print",
+    "session": "Super+Shift+E"
   },
   "language": {
     "ui": "auto"
@@ -189,6 +190,16 @@
   "resources": {
     "pollInterval": 2000,
     "showSwap": false
+  },
+  "session": {
+    "enable": true,
+    "lock": true,
+    "sleep": true,
+    "hibernate": true,
+    "logOut": true,
+    "restart": true,
+    "shutDown": true,
+    "force": false
   },
   "sidebar": {
     "enable": true,

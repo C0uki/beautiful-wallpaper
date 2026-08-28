@@ -21,6 +21,8 @@ pub mod mixer;
 #[cfg(windows)]
 pub mod ocr;
 #[cfg(windows)]
+pub mod power;
+#[cfg(windows)]
 pub mod radios;
 #[cfg(windows)]
 pub mod session;

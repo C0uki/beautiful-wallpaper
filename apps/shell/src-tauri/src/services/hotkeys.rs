@@ -115,6 +115,7 @@ fn action_for(binding: &str) -> Option<Bound> {
         "sidebarRight" => Some(Bound::Flag("sidebarRightOpen")),
         "wallpaperSelector" => Some(Bound::Flag("wallpaperSelectorOpen")),
         "widgetEditMode" => Some(Bound::Flag("widgetEditMode")),
+        "session" => Some(Bound::Flag("sessionOpen")),
         "captureRegion" => Some(Bound::Capture(CaptureMode::Screenshot)),
         "captureOcr" => Some(Bound::Capture(CaptureMode::Ocr)),
         "captureTranslate" => Some(Bound::Capture(CaptureMode::Translate)),

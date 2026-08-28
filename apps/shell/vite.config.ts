@@ -36,6 +36,7 @@ export default defineConfig({
         dock: surface("dock"),
         overview: surface("overview"),
         regionSelect: surface("regionSelect"),
+        session: surface("session"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

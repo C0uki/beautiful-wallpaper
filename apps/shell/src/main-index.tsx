@@ -15,6 +15,7 @@ import { SidebarLeft } from "./surfaces/sidebarLeft/SidebarLeft";
 import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
 import { RegionSelect } from "./surfaces/regionSelect/RegionSelect";
+import { Session } from "./surfaces/session/Session";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -268,6 +269,12 @@ function Harness() {
         >
           translate
         </Button>
+        <Button
+          icon="power_settings_new"
+          onClick={() => void actions.setState("sessionOpen", true)}
+        >
+          session
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -349,6 +356,7 @@ function Harness() {
       </div>
 
       <RegionSelect />
+      <Session />
     </div>
   );
 }

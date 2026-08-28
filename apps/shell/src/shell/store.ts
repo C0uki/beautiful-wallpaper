@@ -44,6 +44,7 @@ import {
   type CaptureMode,
   type CaptureOutcome,
   type Rect,
+  type SessionAction,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -490,6 +491,12 @@ export const actions = {
   },
   cancelCapture() {
     return backend().invoke<void>(Command.CancelCapture);
+  },
+  sessionActions() {
+    return backend().invoke<SessionAction[]>(Command.GetSessionActions);
+  },
+  runSessionAction(action: SessionAction) {
+    return backend().invoke<void>(Command.RunSessionAction, { action });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

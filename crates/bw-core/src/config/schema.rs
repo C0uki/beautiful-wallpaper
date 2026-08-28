@@ -66,6 +66,7 @@ config_struct! {
         pub overview: Overview = Overview::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
+        pub session: Session = Session::default(),
         pub sidebar: Sidebar = Sidebar::default(),
         pub time: Time = Time::default(),
         pub wallpaper_selector: WallpaperSelector = WallpaperSelector::default(),
@@ -295,6 +296,7 @@ config_struct! {
         pub capture_region: String = s("Print"),
         pub capture_ocr: String = s("Ctrl+Print"),
         pub capture_translate: String = s("Shift+Print"),
+        pub session: String = s("Super+Shift+E"),
     }
 }
 
@@ -313,6 +315,29 @@ config_struct! {
         /// naming one here that is not present leaves the feature unavailable
         /// rather than wrong.
         pub ocr_language: String = String::new(),
+    }
+}
+
+config_struct! {
+    /// The way out of the session.
+    ///
+    /// Each button can be switched off, but the order they appear in cannot:
+    /// somebody reaching for "lock" should never find "shut down" where they
+    /// expected it because a config file was edited.
+    pub struct Session {
+        pub enable: bool = true,
+        pub lock: bool = true,
+        pub sleep: bool = true,
+        pub hibernate: bool = true,
+        pub log_out: bool = true,
+        pub restart: bool = true,
+        pub shut_down: bool = true,
+        /// Close applications without giving them the chance to save.
+        ///
+        /// Off, and worth leaving off. Without it an unsaved document stops
+        /// the shutdown and Windows says which program is holding it up,
+        /// which is the whole point of being asked.
+        pub force: bool = false,
     }
 }
 
