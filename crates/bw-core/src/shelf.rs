@@ -35,6 +35,12 @@ pub struct ShelfItem {
     pub name: String,
     pub kind: ShelfKind,
     /// Bytes. `None` for a folder, and for anything that cannot be read.
+    ///
+    /// Typed as a plain number on the TypeScript side rather than the `bigint`
+    /// a `u64` would generate: serde writes it as a JSON number, so a `bigint`
+    /// would be a lie about what actually arrives. A file large enough to lose
+    /// precision in a double is nine petabytes.
+    #[ts(type = "number | null")]
     pub size: Option<u64>,
     /// The path no longer leads anywhere. Kept, and said, rather than dropped.
     pub missing: bool,

@@ -1,0 +1,164 @@
+/* The drop shelf.
+ *
+ * A tall panel against one edge. The whole surface is the drop target, not
+ * just the list: aiming a drag at a list of rows is finicky, and there is
+ * nothing else on this window to hit by mistake. */
+
+.bw-shelf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  gap: 8px;
+  border-radius: var(--rounding-large);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 10px 40px var(--shadow);
+  color: var(--on-surface);
+  overflow: hidden;
+}
+
+/* Something is being dragged over. Said with the border rather than a colour
+   wash, so the names stay readable while it is being aimed at. */
+.bw-shelf.hovering {
+  border-color: var(--primary);
+  background: var(--layer1);
+}
+
+.bw-shelf-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 6px;
+}
+
+.bw-shelf-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bw-shelf-count {
+  flex: 1;
+  padding-left: 4px;
+  font-size: 12px;
+  color: var(--outline);
+}
+
+.bw-shelf-items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bw-shelf-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--rounding-small);
+  border: 1px solid transparent;
+  cursor: grab;
+  /* Nothing here is text to select: a drag on a row is a drag of the file. */
+  user-select: none;
+  transition: background var(--duration-small) var(--ease-effects-default);
+}
+
+.bw-shelf-item:hover {
+  background: var(--layer1-hover);
+}
+
+.bw-shelf-item.selected {
+  background: var(--layer1-active);
+  border-color: var(--primary);
+}
+
+/* The file is not where the shelf left it. Dimmed and named, rather than
+   removed: taking it away silently would leave the user wondering whether
+   they ever put it there. */
+.bw-shelf-item.missing .bw-shelf-name {
+  text-decoration: line-through;
+}
+
+.bw-shelf-item.missing .bw-shelf-glyph,
+.bw-shelf-item.missing .bw-shelf-detail {
+  color: var(--primary);
+}
+
+.bw-shelf-glyph {
+  flex: none;
+  color: var(--outline);
+}
+
+.bw-shelf-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bw-shelf-name {
+  font-size: 13px;
+  /* A long name is trimmed at the front-most part that fits; the whole path is
+     on the row's tooltip. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-shelf-detail {
+  font-size: 11px;
+  color: var(--outline);
+}
+
+/* Revealed on hover so twenty rows are twenty names rather than sixty
+   buttons; still reachable, because the row itself is a drag handle. */
+.bw-shelf-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-small) var(--ease-effects-default);
+}
+
+.bw-shelf-item:hover .bw-shelf-actions,
+.bw-shelf-item.selected .bw-shelf-actions {
+  opacity: 1;
+}
+
+.bw-shelf-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: center;
+  color: var(--outline);
+}
+
+.bw-shelf-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bw-shelf-note {
+  font-size: 11px !important;
+  opacity: 0.8;
+}
+
+.bw-shelf-problem {
+  margin: 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--primary);
+}

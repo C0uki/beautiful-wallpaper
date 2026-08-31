@@ -16,60 +16,10 @@ import type { LauncherResult } from "@bw/core";
 import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { ACTIONS } from "./actions";
 import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
 import "./overview.css";
-
-/** What each `/` action does, in the shell rather than on the machine.
- *
- * The keywords come from `bw-core` — they are what the user types, so they are
- * English there and matched there. What each one means is a sentence, so it is
- * written here where it can be translated. */
-const ACTIONS: Record<
-  string,
-  { run: () => void | Promise<unknown>; describe: () => string }
-> = {
-  light: {
-    run: () => actions.setMode("light"),
-    describe: () => tr("Switch to the light theme"),
-  },
-  dark: {
-    run: () => actions.setMode("dark"),
-    describe: () => tr("Switch to the dark theme"),
-  },
-  wallpaper: {
-    run: () => actions.setState("wallpaperSelectorOpen", true),
-    describe: () => tr("Open the wallpaper picker"),
-  },
-  random: {
-    run: () => actions.randomWallpaper(),
-    describe: () => tr("Pick another wallpaper"),
-  },
-  widgets: {
-    run: () => actions.toggleState("widgetEditMode"),
-    describe: () => tr("Rearrange the desktop widgets"),
-  },
-  sidebar: {
-    run: () => actions.setState("sidebarRightOpen", true),
-    describe: () => tr("Open the control centre"),
-  },
-  screenshot: {
-    run: () => actions.startCapture("screenshot"),
-    describe: () => tr("Pick a region and save it"),
-  },
-  ocr: {
-    run: () => actions.startCapture("ocr"),
-    describe: () => tr("Read the text in a region"),
-  },
-  translate: {
-    run: () => actions.startCapture("translate"),
-    describe: () => tr("Read a region and translate it"),
-  },
-  session: {
-    run: () => actions.setState("sessionOpen", true),
-    describe: () => tr("Lock, sleep, restart or shut down"),
-  },
-};
 
 /** What a row says under its title when the backend left that blank.
  *

@@ -17,6 +17,7 @@ import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelecto
 import { RegionSelect } from "./surfaces/regionSelect/RegionSelect";
 import { Session } from "./surfaces/session/Session";
 import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
+import { Shelf } from "./surfaces/shelf/Shelf";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -34,6 +35,7 @@ function Harness() {
   const selectorOpen = useShell((state) => state.states.wallpaperSelectorOpen);
   const sidebarOpen = useShell((state) => state.states.sidebarRightOpen);
   const leftOpen = useShell((state) => state.states.sidebarLeftOpen);
+  const shelfOpen = useShell((state) => state.states.shelfOpen);
 
   useEffect(() => {
     void connect();
@@ -285,6 +287,15 @@ function Harness() {
         >
           menu
         </Button>
+        {/* On Windows the shelf is its own window against a screen edge; here
+            it gets a pane of the same proportions, and a real file dragged in
+            from the desktop lands on it. */}
+        <Button
+          icon="inbox"
+          onClick={() => void actions.toggleState("shelfOpen")}
+        >
+          shelf
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -351,6 +362,12 @@ function Harness() {
                 <Bar />
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {shelfOpen ? (
+          <div style={{ width: 340, padding: 12, minHeight: 0 }}>
+            <Shelf />
           </div>
         ) : null}
 

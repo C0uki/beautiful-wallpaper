@@ -14,6 +14,8 @@ export const StateFlag = {
   SettingsOpen: "settingsOpen",
   SessionOpen: "sessionOpen",
   DesktopMenuOpen: "desktopMenuOpen",
+  /** True while the drop shelf is on screen and able to take a drop. */
+  ShelfOpen: "shelfOpen",
   MediaControlsOpen: "mediaControlsOpen",
   OverlayOpen: "overlayOpen",
   /** True while the desktop widgets are being rearranged. */
@@ -33,6 +35,7 @@ export const defaultStates: GlobalStates = {
   settingsOpen: false,
   sessionOpen: false,
   desktopMenuOpen: false,
+  shelfOpen: false,
   mediaControlsOpen: false,
   overlayOpen: false,
   widgetEditMode: false,

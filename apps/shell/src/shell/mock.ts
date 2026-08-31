@@ -43,6 +43,8 @@ import {
   type SessionAction,
   type MenuItem,
   type Placement,
+  type ShelfItem,
+  type DropOutcome,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -223,6 +225,60 @@ export function mockBackend(): Backend {
 
   const emit = (event: EventName, payload: unknown) => {
     for (const handler of listeners.get(event) ?? []) handler(payload);
+  };
+
+  // A shelf with something on it, so the surface can be seen without a
+  // Windows drag: one of each kind, and one whose file has gone — which is
+  // the state that has to be visible rather than quietly tidied away.
+  let shelfItems: ShelfItem[] = [
+    {
+      id: 3,
+      path: "C:/Users/you/Downloads/quarterly-report.pdf",
+      name: "quarterly-report.pdf",
+      kind: "document",
+      size: 2_411_008,
+      missing: false,
+    },
+    {
+      id: 2,
+      path: "C:/Users/you/Pictures/Wallpapers/dunes-at-dusk.jpg",
+      name: "dunes-at-dusk.jpg",
+      kind: "image",
+      size: 5_242_880,
+      missing: false,
+    },
+    {
+      id: 1,
+      path: "C:/Users/you/Projects/beautiful-wallpaper",
+      name: "beautiful-wallpaper",
+      kind: "folder",
+      size: null,
+      missing: false,
+    },
+    {
+      id: 0,
+      path: "D:/Archive/holiday-2025.zip",
+      name: "holiday-2025.zip",
+      kind: "archive",
+      size: 1_073_741_824,
+      missing: true,
+    },
+  ];
+  let nextShelfId = 4;
+
+  /** Coarsely what `ShelfKind::of` does, for a harness that has no disk. */
+  const shelfKind = (path: string): ShelfItem["kind"] => {
+    const extension = path.split(".").pop()?.toLowerCase() ?? "";
+    if (!path.includes(".")) return "folder";
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension))
+      return "image";
+    if (["mp4", "mkv", "webm", "mov"].includes(extension)) return "video";
+    if (["mp3", "flac", "wav", "ogg"].includes(extension)) return "audio";
+    if (["pdf", "docx", "txt", "md", "csv"].includes(extension))
+      return "document";
+    if (["zip", "7z", "rar", "tar"].includes(extension)) return "archive";
+    if (["ts", "tsx", "rs", "py", "json"].includes(extension)) return "code";
+    return "other";
   };
 
   // The harness's stand-in for `GetCursorPos`: the shell reads the pointer at
@@ -927,6 +983,71 @@ export function mockBackend(): Backend {
             return session.shutDown;
           }) as T;
         }
+
+        case Command.GetShelfItems:
+          return shelfItems as T;
+
+        case Command.AddToShelf: {
+          // The real rules are in `bw-core::shelf` under tests; this is the
+          // shape of them, which is all the harness needs to draw a shelf.
+          const incoming = (args["paths"] as string[] | undefined) ?? [];
+          const outcome: DropOutcome = { added: 0, moved: 0, refused: 0 };
+          const max = config.shelf.maxItems;
+
+          for (const path of incoming) {
+            const already = shelfItems.findIndex(
+              (item) => item.path.toLowerCase() === path.toLowerCase(),
+            );
+            if (already >= 0) {
+              const [existing] = shelfItems.splice(already, 1);
+              shelfItems.unshift(existing!);
+              outcome.moved += 1;
+              continue;
+            }
+            if (shelfItems.length >= max) {
+              outcome.refused += 1;
+              continue;
+            }
+            shelfItems.unshift({
+              id: nextShelfId++,
+              path,
+              name: path.split(/[/\\]/).pop() ?? path,
+              kind: shelfKind(path),
+              size: 1024 * 64,
+              missing: false,
+            });
+            outcome.added += 1;
+          }
+
+          emit(Event.Shelf, shelfItems);
+          return outcome as T;
+        }
+
+        case Command.RemoveFromShelf: {
+          shelfItems = shelfItems.filter((item) => item.id !== args["id"]);
+          emit(Event.Shelf, shelfItems);
+          return shelfItems as T;
+        }
+
+        case Command.ClearShelf: {
+          shelfItems = args["missingOnly"]
+            ? shelfItems.filter((item) => !item.missing)
+            : [];
+          emit(Event.Shelf, shelfItems);
+          return shelfItems as T;
+        }
+
+        case Command.OpenShelfItem:
+        case Command.RevealShelfItem:
+          // Nothing to open off Windows. Saying so beats pretending.
+          throw new Error(
+            "the mock backend cannot open files in a shell that is not running",
+          );
+
+        case Command.DragFromShelf:
+          throw new Error(
+            "the mock backend cannot hand files to Windows' drag and drop",
+          );
 
         case Command.GetDesktopMenuItems: {
           const menu = config.desktopMenu;

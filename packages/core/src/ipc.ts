@@ -62,9 +62,32 @@ export const Event = {
    * the frozen frame's path, its size and what to do with the selection.
    */
   Capture: "bw://capture",
+  /** What is on the drop shelf changed. Carries the whole list. */
+  Shelf: "bw://shelf",
 } as const;
 
-export type EventName = (typeof Event)[keyof typeof Event];
+/** Files being dragged over a surface.
+ *
+ * Tauri's own names, not the shell's: these come from the shell drop target
+ * the webview registers, so they arrive without the backend emitting anything.
+ * They are also the reason a surface cannot use the HTML5 drop events on
+ * Windows — the OS target takes the drop before the page sees it. */
+export const DragEvent = {
+  Enter: "tauri://drag-enter",
+  Over: "tauri://drag-over",
+  Drop: "tauri://drag-drop",
+  Leave: "tauri://drag-leave",
+} as const;
+
+export type DragEventName = (typeof DragEvent)[keyof typeof DragEvent];
+
+/** What a drag event carries. `paths` is absent while merely hovering. */
+export interface DragDropPayload {
+  paths?: string[];
+  position: { x: number; y: number };
+}
+
+export type EventName = (typeof Event)[keyof typeof Event] | DragEventName;
 
 /** Tauri commands callable from any surface. */
 export const Command = {
@@ -146,6 +169,13 @@ export const Command = {
   PlaceDesktopMenu: "place_desktop_menu",
   RunDesktopMenuItem: "run_desktop_menu_item",
   ToggleDesktopMenu: "toggle_desktop_menu",
+  GetShelfItems: "get_shelf_items",
+  AddToShelf: "add_to_shelf",
+  RemoveFromShelf: "remove_from_shelf",
+  ClearShelf: "clear_shelf",
+  OpenShelfItem: "open_shelf_item",
+  RevealShelfItem: "reveal_shelf_item",
+  DragFromShelf: "drag_from_shelf",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -163,6 +193,7 @@ export const IpcTarget = {
   Capture: "capture",
   Session: "session",
   DesktopMenu: "desktopMenu",
+  Shelf: "shelf",
 } as const;
 
 export interface WallpaperChanged {
