@@ -57,6 +57,7 @@ config_struct! {
         pub background: Background = Background::default(),
         pub bar: Bar = Bar::default(),
         pub capture: Capture = Capture::default(),
+        pub desktop_menu: DesktopMenu = DesktopMenu::default(),
         pub dock: Dock = Dock::default(),
         pub hacks: Hacks = Hacks::default(),
         pub keybinds: Keybinds = Keybinds::default(),
@@ -297,6 +298,7 @@ config_struct! {
         pub capture_ocr: String = s("Ctrl+Print"),
         pub capture_translate: String = s("Shift+Print"),
         pub session: String = s("Super+Shift+E"),
+        pub desktop_menu: String = s("Super+Shift+M"),
     }
 }
 
@@ -315,6 +317,25 @@ config_struct! {
         /// naming one here that is not present leaves the feature unavailable
         /// rather than wrong.
         pub ocr_language: String = String::new(),
+    }
+}
+
+config_struct! {
+    /// The menu the desktop's right button opens.
+    ///
+    /// Each entry can be switched off; the order cannot, for the same reason
+    /// the session screen's cannot — a menu whose entries move around is a
+    /// menu nobody can use without reading it every time.
+    pub struct DesktopMenu {
+        pub enable: bool = true,
+        pub change_wallpaper: bool = true,
+        pub next_wallpaper: bool = true,
+        pub edit_widgets: bool = true,
+        pub overview: bool = true,
+        pub screenshot: bool = true,
+        pub session: bool = true,
+        pub display_settings: bool = true,
+        pub personalise: bool = true,
     }
 }
 
@@ -654,5 +675,15 @@ config_struct! {
         /// Debounce, in milliseconds, between a config file write and the reload
         /// that follows it.
         pub config_reload_delay: u32 = 50,
+        /// Take over the desktop's right button, replacing Explorer's menu.
+        ///
+        /// **Off, and it is in `hacks` for a reason.** The background surface
+        /// sits *below* the desktop icons, so the click never reaches the
+        /// shell; the only way to intercept it is a system-wide low-level
+        /// mouse hook that swallows the button. Windows silently removes such
+        /// a hook if its thread ever stalls past `LowLevelHooksTimeout`, and
+        /// it is the kind of API security software watches. The menu is
+        /// reachable by its key and from the launcher either way.
+        pub desktop_menu: bool = false,
     }
 }
