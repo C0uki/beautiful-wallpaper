@@ -36,4 +36,5 @@ export type Keybinds = {
   captureRegion: string;
   captureOcr: string;
   captureTranslate: string;
+  session: string;
 };

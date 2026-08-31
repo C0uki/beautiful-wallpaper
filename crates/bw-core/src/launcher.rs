@@ -145,6 +145,10 @@ pub const ACTIONS: &[Action] = &[
         keyword: "translate",
         symbol: "translate",
     },
+    Action {
+        keyword: "session",
+        symbol: "power_settings_new",
+    },
 ];
 
 /// How a query is being read.

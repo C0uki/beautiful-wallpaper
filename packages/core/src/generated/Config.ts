@@ -14,6 +14,7 @@ import type { Osd } from "./Osd";
 import type { Overview } from "./Overview";
 import type { Policies } from "./Policies";
 import type { Resources } from "./Resources";
+import type { Session } from "./Session";
 import type { Sidebar } from "./Sidebar";
 import type { Time } from "./Time";
 import type { WallpaperSelector } from "./WallpaperSelector";
@@ -40,6 +41,7 @@ export type Config = {
   overview: Overview;
   policies: Policies;
   resources: Resources;
+  session: Session;
   sidebar: Sidebar;
   time: Time;
   wallpaperSelector: WallpaperSelector;

@@ -17,6 +17,7 @@ import { Event } from "@bw/core";
 import { IconButton, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
 import "./regionSelect.css";
 
@@ -100,7 +101,7 @@ export function RegionSelect() {
           saved: null,
           text: null,
           translated: null,
-          problem: String(error),
+          problem: describeError(error),
         });
       } finally {
         setWorking(false);

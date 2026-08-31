@@ -1,0 +1,92 @@
+/* The session screen.
+ *
+ * A row of large targets over a scrim. Large because these are the buttons
+ * nobody wants to press by accident, and a row because the order they are in
+ * is fixed and meaningful — least drastic on the left. */
+
+.bw-session {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrim);
+  color: var(--on-surface);
+  outline: none;
+}
+
+.bw-session-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 32px;
+  border-radius: var(--rounding-verylarge);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 12px 48px var(--shadow);
+  max-width: 92vw;
+}
+
+.bw-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bw-session-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 116px;
+  height: 116px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--rounding-large);
+  background: var(--layer1);
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background var(--duration-normal) var(--ease-effects-default),
+    border-color var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-session-action:hover {
+  background: var(--layer1-hover);
+}
+
+/* One highlight, and the pointer moves it rather than painting a second one,
+   so hover and the arrow keys can never disagree about what Enter would do. */
+.bw-session-action.focused {
+  background: var(--layer1-hover);
+  border-color: var(--primary);
+}
+
+/* The three that close every open program are marked as such. Not hidden, not
+   confirmed twice — just visibly not the same kind of thing as "lock". */
+.bw-session-action.ends .symbol {
+  color: var(--primary);
+}
+
+.bw-session-problem {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--primary);
+}
+
+.bw-session-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--outline);
+}

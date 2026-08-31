@@ -131,6 +131,8 @@ fn main() {
             commands::finish_capture,
             commands::cancel_capture,
             commands::can_read_text,
+            commands::get_session_actions,
+            commands::run_session_action,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

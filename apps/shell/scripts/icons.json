@@ -1,6 +1,7 @@
 {
   "comment": "Every Material Symbols name the shell renders. The bundled font is subset to exactly this list, so an icon added to the UI must be added here too — otherwise the ligature has nothing to substitute and the raw word is drawn instead. Regenerate with `pnpm gen:icons`, which reopens what it wrote and fails if any name did not survive. Note that names containing `_digit_` never survive subsetting: they are aliases whose output glyph is pruned, so pick a plain name instead.",
   "names": [
+    "ac_unit",
     "account_circle",
     "add",
     "air",
@@ -75,6 +76,7 @@
     "light_mode",
     "link",
     "lock",
+    "logout",
     "loop",
     "lyrics",
     "memory",
@@ -107,6 +109,7 @@
     "rainy",
     "refresh",
     "remove",
+    "restart_alt",
     "restore",
     "right_panel_open",
     "schedule",

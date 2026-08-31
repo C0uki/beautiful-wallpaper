@@ -232,11 +232,36 @@ saving it.
 Tool — so the keys are `Print`, `Ctrl+Print` and `Shift+Print`, and the same
 three are `/screenshot`, `/ocr` and `/translate` in the launcher.
 
+### Done: the session screen
+
+Six ways out, of which a given machine can rarely do all six.
+
+- **What the machine cannot do is not offered.** Hibernation needs a
+  hibernation file, and sleep is not just S3 — most machines built in the last
+  several years report every one of S1–S3 as unavailable and sleep through
+  modern standby instead, so checking S3 alone would hide the sleep button on
+  exactly the hardware that sleeps best.
+- **The keyboard never starts on a button that ends the session.** The screen
+  opens under a key the user pressed and Enter is one keystroke further, so
+  the caret starts on something recoverable; if nothing recoverable is on
+  offer it starts nowhere and the user has to say which they meant.
+- **Nothing forces by default.** A shutdown that closes programs without
+  letting them save is a data-loss button dressed as a convenience. Without
+  forcing, an unsaved document stops the shutdown and Windows says which
+  program is holding it up.
+- Restarting and shutting down need `SeShutdownPrivilege`, which is in an
+  ordinary user's token and switched off. Enabling it has a trap:
+  **`AdjustTokenPrivileges` reports success when it granted nothing**, and the
+  only way to know is to read the last error for `ERROR_NOT_ALL_ASSIGNED`.
+  Skip that and the shell believes it holds a privilege it does not.
+- A refusal leaves the screen up. Closing on one would leave the user with a
+  machine that simply did not switch off.
+
 ### Still to do
 
-The session screen, the desktop context menu, the drop shelf, screen corners,
-the screen frame, and the floating overlays (crosshair, notes, resources, FPS
-limiter, recorder).
+The desktop context menu, the drop shelf, screen corners, the screen frame,
+and the floating overlays (crosshair, notes, resources, FPS limiter,
+recorder).
 
 ## Phase 5 — Finishing
 

@@ -140,6 +140,8 @@ export const Command = {
   FinishCapture: "finish_capture",
   CancelCapture: "cancel_capture",
   CanReadText: "can_read_text",
+  GetSessionActions: "get_session_actions",
+  RunSessionAction: "run_session_action",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -155,6 +157,7 @@ export const IpcTarget = {
   WallpaperSelector: "wallpaperSelector",
   Overview: "overview",
   Capture: "capture",
+  Session: "session",
 } as const;
 
 export interface WallpaperChanged {

@@ -40,6 +40,7 @@ import {
   type LauncherResult,
   type CaptureMode,
   type CaptureOutcome,
+  type SessionAction,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -888,6 +889,34 @@ export function mockBackend(): Backend {
           emit(Event.Persistent, persistent);
           return persistent as T;
         }
+
+        case Command.GetSessionActions: {
+          // A plausible laptop: modern standby, and hibernation switched off
+          // — which is the usual state of a machine bought in the last few
+          // years, and the case that decides whether "sleep" is offered.
+          const offered: SessionAction[] = [
+            "lock",
+            "sleep",
+            "logOut",
+            "restart",
+            "shutDown",
+          ];
+          const session = config.session;
+          return offered.filter((action) => {
+            if (action === "lock") return session.lock;
+            if (action === "sleep") return session.sleep;
+            if (action === "logOut") return session.logOut;
+            if (action === "restart") return session.restart;
+            return session.shutDown;
+          }) as T;
+        }
+
+        case Command.RunSessionAction:
+          // Nothing to end off Windows. Refusing rather than pretending keeps
+          // the harness honest about which button was pressed.
+          throw new Error(
+            "the mock backend cannot end a session that is not running on Windows",
+          );
 
         case Command.StartCapture: {
           pendingCapture = args["mode"] as CaptureMode;

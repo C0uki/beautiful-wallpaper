@@ -13,7 +13,8 @@
     "sidebarLeft",
     "dock",
     "overview",
-    "regionSelect"
+    "regionSelect",
+    "session"
   ],
   "permissions": [
     "core:default",
