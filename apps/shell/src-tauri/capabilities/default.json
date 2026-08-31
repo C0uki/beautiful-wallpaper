@@ -15,7 +15,8 @@
     "overview",
     "regionSelect",
     "session",
-    "desktopMenu"
+    "desktopMenu",
+    "shelf"
   ],
   "permissions": [
     "core:default",

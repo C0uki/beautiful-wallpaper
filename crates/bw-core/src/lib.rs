@@ -24,6 +24,7 @@ pub mod paths;
 pub mod persistent;
 pub mod search;
 pub mod session;
+pub mod shelf;
 pub mod sysinfo;
 pub mod theme;
 pub mod todo;

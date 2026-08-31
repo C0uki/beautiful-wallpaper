@@ -373,6 +373,31 @@ const SHOTS = [
       await openDesktopMenu(page, 1200, 770);
     },
   },
+  // The shelf, with something on it — including an entry whose file has gone,
+  // which is the state that has to stay visible rather than be tidied away.
+  {
+    name: "35-shelf",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "shelf" }).click();
+      await page.locator(".bw-shelf-item").first().waitFor();
+    },
+  },
+  // Empty, because that is the state that has to explain what the thing is
+  // for — and that it holds places rather than copies.
+  {
+    name: "36-shelf-empty",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "shelf" }).click();
+      await page.getByRole("button", { name: "Empty the shelf" }).click();
+      await page.locator(".bw-shelf-empty").waitFor();
+      // Off the button, so the shot is the empty shelf rather than a hover.
+      await page.mouse.move(640, 700);
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

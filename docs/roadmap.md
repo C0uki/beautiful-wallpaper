@@ -290,10 +290,41 @@ open that way at all.
 Not built: Explorer's own entries (New, Refresh, Paste), which would mean
 enumerating shell extensions and driving `IContextMenu`.
 
+### Done: the drop shelf
+
+Somewhere to put a file down while the place it is going to is not on screen.
+
+- **It holds paths, not copies.** Copying would duplicate gigabytes for a
+  gesture that is meant to be free, and leave someone editing a copy while
+  believing it was the original. The cost is that the thing behind a path can
+  move, so an entry whose file has gone stays on the shelf, struck through and
+  labelled, and is only cleared when the user says so — doing it automatically
+  is how a shelf silently empties itself while a network drive is unplugged.
+- **A full shelf refuses rather than evicting.** What is already there was put
+  there deliberately; what is arriving may be a select-all nobody meant. And a
+  drop reports three numbers — added, moved, refused — because "eight of the
+  twenty I dropped" has to be explainable.
+- **Receiving is free; giving back is not.** The webview already registers a
+  shell drop target, so Windows hands the paths over as `tauri://drag-drop`
+  without the backend emitting anything — which is also why the page's own
+  `ondrop` never fires on Windows. Dragging back out cannot start from the page
+  at all: an application expecting a file wants shell items, so a press and a
+  few pixels of movement hand the selection to `SHCreateDataObject` and
+  `SHDoDragDrop`, which also supply the drag image every other drag on the
+  machine has. Copy and link only — a move would let the target delete the
+  original, which is not what putting something on a shelf asked for.
+- The drag command is deliberately synchronous. `SHDoDragDrop` is modal and
+  must run on the thread that owns the window with OLE initialised, which is
+  where Tauri runs a synchronous command and is not where the async runtime
+  would put it.
+- Names are worked out without `Path::file_name`: these are Windows paths and
+  `bw-core`'s tests run on Linux, where `\` is not a separator and every name
+  would come out as the whole path.
+
 ### Still to do
 
-The drop shelf, screen corners, the screen frame, and the floating overlays
-(crosshair, notes, resources, FPS limiter, recorder).
+Screen corners, the screen frame, and the floating overlays (crosshair, notes,
+resources, FPS limiter, recorder).
 
 ## Phase 5 — Finishing
 

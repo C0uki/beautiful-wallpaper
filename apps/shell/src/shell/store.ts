@@ -47,6 +47,8 @@ import {
   type SessionAction,
   type MenuItem,
   type Placement,
+  type ShelfItem,
+  type DropOutcome,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -519,6 +521,28 @@ export const actions = {
   /** Opening notes where the pointer is, so this cannot go through `setState`. */
   toggleDesktopMenu(action: "open" | "close" | "toggle" = "toggle") {
     return backend().invoke<void>(Command.ToggleDesktopMenu, { action });
+  },
+  shelfItems() {
+    return backend().invoke<ShelfItem[]>(Command.GetShelfItems);
+  },
+  addToShelf(paths: string[]) {
+    return backend().invoke<DropOutcome>(Command.AddToShelf, { paths });
+  },
+  removeFromShelf(id: number) {
+    return backend().invoke<ShelfItem[]>(Command.RemoveFromShelf, { id });
+  },
+  clearShelf(missingOnly = false) {
+    return backend().invoke<ShelfItem[]>(Command.ClearShelf, { missingOnly });
+  },
+  openShelfItem(id: number) {
+    return backend().invoke<void>(Command.OpenShelfItem, { id });
+  },
+  revealShelfItem(id: number) {
+    return backend().invoke<void>(Command.RevealShelfItem, { id });
+  },
+  /** Hands the files to Windows. Resolves to whether anything was dropped. */
+  dragFromShelf(ids: number[]) {
+    return backend().invoke<boolean>(Command.DragFromShelf, { ids });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

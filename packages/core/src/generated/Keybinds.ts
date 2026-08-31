@@ -38,4 +38,5 @@ export type Keybinds = {
   captureTranslate: string;
   session: string;
   desktopMenu: string;
+  shelf: string;
 };

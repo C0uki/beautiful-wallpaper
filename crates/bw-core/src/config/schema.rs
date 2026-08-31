@@ -68,6 +68,7 @@ config_struct! {
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
         pub session: Session = Session::default(),
+        pub shelf: Shelf = Shelf::default(),
         pub sidebar: Sidebar = Sidebar::default(),
         pub time: Time = Time::default(),
         pub wallpaper_selector: WallpaperSelector = WallpaperSelector::default(),
@@ -299,6 +300,7 @@ config_struct! {
         pub capture_translate: String = s("Shift+Print"),
         pub session: String = s("Super+Shift+E"),
         pub desktop_menu: String = s("Super+Shift+M"),
+        pub shelf: String = s("Super+Shift+D"),
     }
 }
 
@@ -336,6 +338,30 @@ config_struct! {
         pub session: bool = true,
         pub display_settings: bool = true,
         pub personalise: bool = true,
+    }
+}
+
+config_struct! {
+    /// The drop shelf: somewhere to put files down for a moment.
+    ///
+    /// It holds paths rather than copies, so nothing here is about storage —
+    /// `maxItems` bounds a list, not a disk.
+    pub struct Shelf {
+        pub enable: bool = true,
+        /// Which edge it sits against: `left` or `right`.
+        pub edge: String = s("right"),
+        /// Width as a fraction of the screen, as the sidebars are measured.
+        pub width: f64 = 0.2,
+        /// Entries beyond this are refused rather than pushing others off the
+        /// shelf. What is already there was put there deliberately; what is
+        /// arriving may be a select-all nobody meant.
+        pub max_items: u32 = 100,
+        /// Take an entry off the shelf once it has been dragged somewhere.
+        ///
+        /// Off, because a shelf is often the source of two drops — into a
+        /// chat and then into a folder — and the second one would have
+        /// nothing to drag.
+        pub clear_after_drag: bool = false,
     }
 }
 

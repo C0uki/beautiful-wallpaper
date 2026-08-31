@@ -123,6 +123,7 @@ fn action_for(binding: &str) -> Option<Bound> {
         "captureOcr" => Some(Bound::Capture(CaptureMode::Ocr)),
         "captureTranslate" => Some(Bound::Capture(CaptureMode::Translate)),
         "desktopMenu" => Some(Bound::Menu),
+        "shelf" => Some(Bound::Flag("shelfOpen")),
         _ => None,
     }
 }
