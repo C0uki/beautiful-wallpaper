@@ -257,11 +257,43 @@ Six ways out, of which a given machine can rarely do all six.
 - A refusal leaves the screen up. Closing on one would leave the user with a
   machine that simply did not switch off.
 
+### Done: the desktop menu
+
+The menu the desktop's right button opens — and the reason it needs a hack to
+open that way at all.
+
+- **The right-click cannot reach the shell.** The background surface is
+  reparented under `WorkerW` so it sits below the desktop icons, which is what
+  makes it a wallpaper rather than a window over one. A click on the desktop
+  therefore goes to Explorer's `SysListView32`. Floating the surface above the
+  icons instead would take the click and cost the icons: no selection, no
+  drag, no double-click to open.
+- **So replacing Explorer's menu needs a system-wide low-level mouse hook**,
+  and that is switched off by default under `hacks.desktopMenu`. Windows
+  removes such a hook silently if the owning thread fails to answer within
+  `LowLevelHooksTimeout` — nothing is reported, the menu just stops appearing
+  one day — and it is the kind of API security software watches. So the hook's
+  own callback does a hit test and a non-blocking send and nothing else; the
+  work happens on a thread that is allowed to take time. The menu opens from
+  its key, the launcher's `/desktop` and `bw desktopMenu` whether or not the
+  hook is on.
+- **At the edge the menu flips rather than sliding.** A menu nudged back onto
+  the screen leaves the pointer sitting on an entry nobody aimed at, one
+  twitch from selecting it, so it opens on the other side of the cursor
+  instead. That rule and the entry list live in `bw-core` under tests, and the
+  surface measures what it drew and asks rather than working it out again.
+- **An entry appears only if the thing it opens exists.** Switching the
+  overview off removes the overview line as well: a menu item pointing at a
+  surface that has been turned off does nothing, and there is no way to tell
+  that from a bug.
+
+Not built: Explorer's own entries (New, Refresh, Paste), which would mean
+enumerating shell extensions and driving `IContextMenu`.
+
 ### Still to do
 
-The desktop context menu, the drop shelf, screen corners, the screen frame,
-and the floating overlays (crosshair, notes, resources, FPS limiter,
-recorder).
+The drop shelf, screen corners, the screen frame, and the floating overlays
+(crosshair, notes, resources, FPS limiter, recorder).
 
 ## Phase 5 — Finishing
 

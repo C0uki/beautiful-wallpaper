@@ -17,6 +17,7 @@ pub mod chat;
 pub mod config;
 pub mod dock;
 pub mod launcher;
+pub mod menu;
 pub mod notifications;
 pub mod ocr;
 pub mod paths;

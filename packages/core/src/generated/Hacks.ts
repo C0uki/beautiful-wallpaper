@@ -6,4 +6,16 @@ export type Hacks = {
    * that follows it.
    */
   configReloadDelay: number;
+  /**
+   * Take over the desktop's right button, replacing Explorer's menu.
+   *
+   * **Off, and it is in `hacks` for a reason.** The background surface
+   * sits *below* the desktop icons, so the click never reaches the
+   * shell; the only way to intercept it is a system-wide low-level
+   * mouse hook that swallows the button. Windows silently removes such
+   * a hook if its thread ever stalls past `LowLevelHooksTimeout`, and
+   * it is the kind of API security software watches. The menu is
+   * reachable by its key and from the launcher either way.
+   */
+  desktopMenu: boolean;
 };

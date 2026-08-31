@@ -549,6 +549,49 @@ impl CaptureHandle {
     }
 }
 
+/// The desktop menu's hook, and where it should open.
+///
+/// Two things that have to outlive a single command. The hook is only
+/// registered when `hacks.desktopMenu` is on and has to be replaceable, since
+/// the config can be edited while the shell runs. The anchor is read at the
+/// moment the menu is asked for — from the click, or from wherever the pointer
+/// is when a key opens it — because by the time the surface has rendered and
+/// measured itself the mouse may have moved.
+#[derive(Default)]
+pub struct DesktopMenuHandle {
+    #[cfg(windows)]
+    hook: parking_lot::Mutex<Option<crate::platform::deskclick::DesktopClickHook>>,
+    /// Physical screen pixels, as every Win32 source of a point reports them.
+    anchor: parking_lot::Mutex<bw_core::menu::Placement>,
+}
+
+impl DesktopMenuHandle {
+    /// Replaces the hook, unregistering whatever was there before.
+    #[cfg(windows)]
+    pub fn set_hook(&self, hook: Option<crate::platform::deskclick::DesktopClickHook>) {
+        // Taken out under the lock and dropped outside it: the old hook's
+        // `Drop` joins its thread, and waiting for that while holding the lock
+        // would block anything else asking about the hook meanwhile.
+        let previous = std::mem::replace(&mut *self.hook.lock(), hook);
+        drop(previous);
+    }
+
+    pub fn is_hooked(&self) -> bool {
+        #[cfg(windows)]
+        return self.hook.lock().is_some();
+        #[cfg(not(windows))]
+        false
+    }
+
+    pub fn set_anchor(&self, at: bw_core::menu::Placement) {
+        *self.anchor.lock() = at;
+    }
+
+    pub fn anchor(&self) -> bw_core::menu::Placement {
+        *self.anchor.lock()
+    }
+}
+
 /// The chat's conversation, managed so commands can reach it.
 pub struct ChatStore(pub bw_core::chat::Store);
 

@@ -45,6 +45,8 @@ import {
   type CaptureOutcome,
   type Rect,
   type SessionAction,
+  type MenuItem,
+  type Placement,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -497,6 +499,26 @@ export const actions = {
   },
   runSessionAction(action: SessionAction) {
     return backend().invoke<void>(Command.RunSessionAction, { action });
+  },
+  desktopMenuItems() {
+    return backend().invoke<MenuItem[]>(Command.GetDesktopMenuItems);
+  },
+  /** Where a menu this size should go, given where it was asked for.
+   *
+   * The flip-at-the-edge rule lives in `bw-core` under tests, so the surface
+   * measures what it drew and asks rather than working it out again here. */
+  placeDesktopMenu(width: number, height: number) {
+    return backend().invoke<Placement>(Command.PlaceDesktopMenu, {
+      width,
+      height,
+    });
+  },
+  runDesktopMenuItem(item: MenuItem) {
+    return backend().invoke<void>(Command.RunDesktopMenuItem, { item });
+  },
+  /** Opening notes where the pointer is, so this cannot go through `setState`. */
+  toggleDesktopMenu(action: "open" | "close" | "toggle" = "toggle") {
+    return backend().invoke<void>(Command.ToggleDesktopMenu, { action });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

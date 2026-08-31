@@ -142,6 +142,10 @@ export const Command = {
   CanReadText: "can_read_text",
   GetSessionActions: "get_session_actions",
   RunSessionAction: "run_session_action",
+  GetDesktopMenuItems: "get_desktop_menu_items",
+  PlaceDesktopMenu: "place_desktop_menu",
+  RunDesktopMenuItem: "run_desktop_menu_item",
+  ToggleDesktopMenu: "toggle_desktop_menu",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -158,6 +162,7 @@ export const IpcTarget = {
   Overview: "overview",
   Capture: "capture",
   Session: "session",
+  DesktopMenu: "desktopMenu",
 } as const;
 
 export interface WallpaperChanged {

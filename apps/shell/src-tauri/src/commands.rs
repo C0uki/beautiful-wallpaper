@@ -14,9 +14,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle,
-    GlobalStates, IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore,
-    TodoStore, VolumeHandle,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
+    DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
+    NotificationStore, PersistentStore, TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -783,6 +783,7 @@ pub fn start_capture(
             crate::surfaces::SIDEBAR_RIGHT,
             crate::surfaces::WALLPAPER_SELECTOR,
             crate::surfaces::REGION_SELECT,
+            crate::surfaces::DESKTOP_MENU,
         ] {
             let _ = crate::surfaces::set_visible(&_app, surface.label, false);
         }
@@ -1012,6 +1013,204 @@ fn read_capture(
             ..Default::default()
         },
     }
+}
+
+// --- The desktop menu ------------------------------------------------------
+
+/// The entries to draw, filtered for this configuration and this build.
+#[tauri::command]
+pub fn get_desktop_menu_items(state: State<'_, AppState>) -> Vec<bw_core::menu::MenuItem> {
+    bw_core::menu::items(&state.config())
+}
+
+/// Where to put a menu of this size, given where it was asked for.
+///
+/// The frontend measures what it drew and asks; it does not work the position
+/// out. Two implementations of the flip-at-the-edge rule would disagree the
+/// first time either was touched, and the one that matters is under tests in
+/// `bw-core`.
+#[tauri::command]
+pub fn place_desktop_menu(
+    app: AppHandle,
+    menu: State<'_, DesktopMenuHandle>,
+    width: i32,
+    height: i32,
+) -> bw_core::menu::Placement {
+    /// Enough that a menu against the edge does not look wedged into it.
+    const MARGIN: i32 = 8;
+
+    let anchor = menu.anchor();
+    let (screen, scale) = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|monitor| {
+            let size = monitor.size();
+            (
+                (size.width as i32, size.height as i32),
+                monitor.scale_factor(),
+            )
+        })
+        // A machine that will not name its monitor still gets a menu on
+        // screen; 1080p is the safest guess to be wrong in the small direction.
+        .unwrap_or(((1920, 1080), 1.0));
+
+    // The anchor and the screen are physical pixels, because that is what every
+    // Win32 source of a point reports. The size arrives from the webview in CSS
+    // pixels. They are reconciled here, once, rather than at each call site.
+    //
+    // A scale of zero should not happen and would divide every coordinate into
+    // infinity, so it is treated as the identity rather than trusted.
+    let scale = if scale > 0.0 { scale } else { 1.0 };
+    let to_css = |value: i32| (f64::from(value) / scale).round() as i32;
+
+    bw_core::menu::place(
+        bw_core::menu::Placement {
+            x: to_css(anchor.x),
+            y: to_css(anchor.y),
+        },
+        (width, height),
+        (to_css(screen.0), to_css(screen.1)),
+        MARGIN,
+    )
+}
+
+/// Does what an entry says, having first put the menu away.
+#[tauri::command]
+pub fn run_desktop_menu_item(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    capture: State<'_, CaptureHandle>,
+    item: bw_core::menu::MenuItem,
+) -> Result<(), String> {
+    use bw_core::menu::MenuItem;
+
+    // Closed first, whatever comes next: every entry either opens something
+    // else or hands the user over to Windows, and a menu still on screen in
+    // front of that would be holding the focus it needs.
+    set_menu_open(&app, &state, false);
+
+    match item {
+        MenuItem::ChangeWallpaper => open_flag(&app, &state, "wallpaperSelectorOpen"),
+        MenuItem::NextWallpaper => random_wallpaper(app, state).map(|_path| ()),
+        MenuItem::EditWidgets => {
+            // The only entry that is a toggle: it is how the user gets *out* of
+            // edit mode as well as into it.
+            let states = state
+                .toggle_state("widgetEditMode")
+                .ok_or_else(|| "there is no widget edit mode".to_owned())?;
+            crate::surfaces::apply_states(&app, &states);
+            let _ = app.emit(event::STATE_CHANGED, &states);
+            Ok(())
+        }
+        MenuItem::Overview => open_flag(&app, &state, "overviewOpen"),
+        MenuItem::Session => open_flag(&app, &state, "sessionOpen"),
+        MenuItem::Screenshot => start_capture(
+            app,
+            state,
+            capture,
+            bw_core::capture::CaptureMode::Screenshot,
+        ),
+        MenuItem::DisplaySettings => open_settings_page("ms-settings:display"),
+        MenuItem::Personalise => open_settings_page("ms-settings:personalization"),
+    }
+}
+
+/// Opens the menu where the pointer is.
+///
+/// Every way in ends up here — the key, the launcher, the CLI, and the mouse
+/// hook when it is switched on — because every one of them needs the anchor
+/// recorded before the surface is shown. By the time the menu has rendered and
+/// measured itself the pointer may well have moved.
+pub fn open_desktop_menu_at(app: &AppHandle, at: bw_core::menu::Placement) {
+    let (Some(state), Some(menu)) = (
+        app.try_state::<AppState>(),
+        app.try_state::<DesktopMenuHandle>(),
+    ) else {
+        return;
+    };
+    if !state.config().desktop_menu.enable {
+        return;
+    }
+
+    menu.set_anchor(at);
+    set_menu_open(app, &state, true);
+}
+
+/// Opens the menu, or closes it if it is already up.
+///
+/// `open` and `close` exist for the CLI, where a script wants to say which.
+#[tauri::command]
+pub fn toggle_desktop_menu(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    menu: State<'_, DesktopMenuHandle>,
+    action: Option<String>,
+) -> Result<(), String> {
+    let open = match action.as_deref().unwrap_or("toggle") {
+        "open" => true,
+        "close" => false,
+        "toggle" | "" => !state.states().desktop_menu_open,
+        other => return Err(format!("`{other}` is not open, close or toggle")),
+    };
+
+    if !open {
+        set_menu_open(&app, &state, false);
+        return Ok(());
+    }
+    if !state.config().desktop_menu.enable {
+        return Err("the desktop menu is switched off".to_owned());
+    }
+
+    menu.set_anchor(pointer());
+    set_menu_open(&app, &state, true);
+    Ok(())
+}
+
+/// Where the pointer is, in physical screen pixels.
+fn pointer() -> bw_core::menu::Placement {
+    #[cfg(windows)]
+    {
+        let mut point = windows::Win32::Foundation::POINT::default();
+        if unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut point) }.is_ok() {
+            return bw_core::menu::Placement {
+                x: point.x,
+                y: point.y,
+            };
+        }
+    }
+    bw_core::menu::Placement::default()
+}
+
+fn set_menu_open(app: &AppHandle, state: &AppState, open: bool) {
+    let Some(states) = state.set_state("desktopMenuOpen", open) else {
+        return;
+    };
+    crate::surfaces::apply_states(app, &states);
+    let _ = app.emit(event::STATE_CHANGED, &states);
+}
+
+/// Raises a surface the menu points at.
+fn open_flag(app: &AppHandle, state: &AppState, flag: &str) -> Result<(), String> {
+    let states = state
+        .set_state(flag, true)
+        .ok_or_else(|| format!("there is no surface flag called `{flag}`"))?;
+    crate::surfaces::apply_states(app, &states);
+    let _ = app.emit(event::STATE_CHANGED, &states);
+    Ok(())
+}
+
+/// Hands the user to one of Windows' own settings pages.
+///
+/// `ms-settings:` is a protocol rather than a file, so it goes the same way a
+/// typed command does rather than through the file opener.
+fn open_settings_page(_uri: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::platform::launch::uri(_uri)
+    }
+    #[cfg(not(windows))]
+    Err("the Windows settings need Windows".to_owned())
 }
 
 // --- The overview ----------------------------------------------------------

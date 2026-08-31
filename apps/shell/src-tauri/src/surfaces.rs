@@ -105,6 +105,16 @@ pub const REGION_SELECT: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The desktop menu. The whole screen — the menu itself is a small panel
+/// drawn on a transparent sheet — and it takes focus so the arrow keys and
+/// Escape reach it rather than whatever is behind.
+pub const DESKTOP_MENU: Surface = Surface {
+    label: "desktopMenu",
+    page: "desktopMenu.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -134,6 +144,7 @@ pub const ALL: &[Surface] = &[
     OVERVIEW,
     REGION_SELECT,
     SESSION,
+    DESKTOP_MENU,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -148,6 +159,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "overviewOpen" => Some(OVERVIEW.label),
         "regionSelectOpen" => Some(REGION_SELECT.label),
         "sessionOpen" => Some(SESSION.label),
+        "desktopMenuOpen" => Some(DESKTOP_MENU.label),
         _ => None,
     }
 }

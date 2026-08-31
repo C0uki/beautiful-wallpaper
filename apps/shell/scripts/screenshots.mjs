@@ -349,6 +349,30 @@ const SHOTS = [
       await page.locator(".bw-session-problem").waitFor();
     },
   },
+  // The desktop menu opens at the pointer, so both of these move the mouse
+  // first and right-click where they want it.
+  {
+    name: "33-desktop-menu",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await openDesktopMenu(page, 360, 330);
+    },
+  },
+  // Near the corner it flips to the other side of the cursor rather than
+  // sliding back on screen — a menu nudged under the pointer puts an entry
+  // nobody aimed at one twitch away from being chosen.
+  {
+    name: "34-desktop-menu-flipped",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      // The desktop has to fill the window for there to be a bottom-right
+      // corner of it to click in; the default view splits it with the picker.
+      await selectView(page, "Desktop");
+      await openDesktopMenu(page, 1200, 770);
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",
@@ -358,6 +382,15 @@ const SHOTS = [
     },
   },
 ];
+
+/** Right-clicks the desktop pane at a point and waits for the menu. */
+async function openDesktopMenu(page, x, y) {
+  // Moved before clicking: the mock reads the pointer the way the shell reads
+  // `GetCursorPos`, which means it has to have seen it move.
+  await page.mouse.move(x, y);
+  await page.mouse.click(x, y, { button: "right" });
+  await page.locator(".bw-desktop-menu-panel").waitFor();
+}
 
 /** Draws a selection around the mock screen's text and lets go. */
 async function dragRegion(page) {

@@ -86,6 +86,37 @@ pub fn command(line: &str) -> Result<(), String> {
     })
 }
 
+/// Opens a protocol URI — `ms-settings:display` and the like.
+///
+/// Not the file opener: there is no file. `ShellExecuteW` resolves the scheme
+/// through the same registry lookup Explorer uses, which is what makes the
+/// Settings app open on the right page rather than at its front door.
+pub fn uri(uri: &str) -> Result<(), String> {
+    let wide_uri = wide(uri);
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            windows::core::w!("open"),
+            PCWSTR(wide_uri.as_ptr()),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    // Same contract as `command`: at or below 32 is an error code, not a handle.
+    if result.0 as usize > 32 {
+        return Ok(());
+    }
+    Err(match result.0 as usize {
+        // The page the shell asked for is not one this Windows has — the
+        // settings app was reorganised more than once.
+        2 | 31 => format!("this version of Windows has no `{uri}` page"),
+        5 => format!("Windows refused to open `{uri}`"),
+        code => format!("could not open `{uri}` (error {code})"),
+    })
+}
+
 fn wide(value: &str) -> Vec<u16> {
     std::ffi::OsStr::new(value)
         .encode_wide()

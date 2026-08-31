@@ -16,6 +16,7 @@ import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
 import { RegionSelect } from "./surfaces/regionSelect/RegionSelect";
 import { Session } from "./surfaces/session/Session";
+import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -275,6 +276,15 @@ function Harness() {
         >
           session
         </Button>
+        {/* On Windows this is a key, or the desktop's right button when the
+            hook is switched on. Right-clicking the desktop pane below does the
+            same thing here. */}
+        <Button
+          icon="desktop_windows"
+          onClick={() => void actions.toggleDesktopMenu("open")}
+        >
+          menu
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -302,7 +312,13 @@ function Harness() {
         ) : null}
 
         {showDesktop ? (
-          <div style={{ flex: 3, minWidth: 0, position: "relative" }}>
+          <div
+            style={{ flex: 3, minWidth: 0, position: "relative" }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              void actions.toggleDesktopMenu("open");
+            }}
+          >
             <Background />
             {/* On Windows the bar is its own window along a reserved edge; here
                 it is overlaid on the desktop pane so both can be seen at once. */}
@@ -357,6 +373,7 @@ function Harness() {
 
       <RegionSelect />
       <Session />
+      <DesktopMenu />
     </div>
   );
 }

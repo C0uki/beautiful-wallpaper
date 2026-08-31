@@ -149,6 +149,10 @@ pub const ACTIONS: &[Action] = &[
         keyword: "session",
         symbol: "power_settings_new",
     },
+    Action {
+        keyword: "desktop",
+        symbol: "desktop_windows",
+    },
 ];
 
 /// How a query is being read.

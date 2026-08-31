@@ -41,6 +41,8 @@ import {
   type CaptureMode,
   type CaptureOutcome,
   type SessionAction,
+  type MenuItem,
+  type Placement,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -222,6 +224,21 @@ export function mockBackend(): Backend {
   const emit = (event: EventName, payload: unknown) => {
     for (const handler of listeners.get(event) ?? []) handler(payload);
   };
+
+  // The harness's stand-in for `GetCursorPos`: the shell reads the pointer at
+  // the moment the menu is asked for, and in a browser the only way to know
+  // where it is, is to have been watching.
+  const pointer: Placement = { x: 0, y: 0 };
+  if (typeof window !== "undefined") {
+    window.addEventListener(
+      "mousemove",
+      (event) => {
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+      },
+      { passive: true },
+    );
+  }
 
   const resources = (): ResourceReading => {
     const wobble = (base: number, amplitude: number) =>
@@ -909,6 +926,86 @@ export function mockBackend(): Backend {
             if (action === "restart") return session.restart;
             return session.shutDown;
           }) as T;
+        }
+
+        case Command.GetDesktopMenuItems: {
+          const menu = config.desktopMenu;
+          const offered: [MenuItem, boolean][] = [
+            ["changeWallpaper", menu.changeWallpaper],
+            ["nextWallpaper", menu.nextWallpaper],
+            [
+              "editWidgets",
+              menu.editWidgets && config.background.widgets.enable,
+            ],
+            ["overview", menu.overview && config.overview.enable],
+            ["screenshot", menu.screenshot && config.capture.enable],
+            ["session", menu.session && config.session.enable],
+            ["displaySettings", menu.displaySettings],
+            ["personalise", menu.personalise],
+          ];
+          return offered
+            .filter(([, shown]) => shown)
+            .map(([item]) => item) as T;
+        }
+
+        // Deliberately the simple version. The rule that matters — flip to the
+        // other side of the cursor rather than sliding back on screen — lives
+        // in `bw-core::menu::place` under tests; the harness only needs the
+        // menu to end up somewhere visible.
+        case Command.PlaceDesktopMenu: {
+          const width = Number(args["width"] ?? 0);
+          const height = Number(args["height"] ?? 0);
+          const margin = 8;
+          const screen = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          };
+          const fit = (at: number, size: number, limit: number) => {
+            if (at + size + margin <= limit) return at;
+            if (at - size >= margin) return at - size;
+            return Math.min(margin, Math.max(limit - size, 0));
+          };
+          return {
+            x: fit(pointer.x, width, screen.width),
+            y: fit(pointer.y, height, screen.height),
+          } as T;
+        }
+
+        case Command.RunDesktopMenuItem: {
+          states.desktopMenuOpen = false;
+          const item = args["item"] as MenuItem;
+          switch (item) {
+            case "changeWallpaper":
+              states.wallpaperSelectorOpen = true;
+              break;
+            case "editWidgets":
+              states.widgetEditMode = !states.widgetEditMode;
+              break;
+            case "overview":
+              states.overviewOpen = true;
+              break;
+            case "session":
+              states.sessionOpen = true;
+              break;
+            default:
+              // The rest need a machine — a wallpaper folder, a shutter, the
+              // Settings app. Closing the menu is the whole visible effect.
+              break;
+          }
+          emit(Event.StateChanged, states);
+          return undefined as T;
+        }
+
+        case Command.ToggleDesktopMenu: {
+          const action = String(args["action"] ?? "toggle");
+          states.desktopMenuOpen =
+            action === "open"
+              ? true
+              : action === "close"
+                ? false
+                : !states.desktopMenuOpen;
+          emit(Event.StateChanged, states);
+          return undefined as T;
         }
 
         case Command.RunSessionAction:

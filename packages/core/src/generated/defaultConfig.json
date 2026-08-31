@@ -129,6 +129,17 @@
     "copyToClipboard": true,
     "ocrLanguage": ""
   },
+  "desktopMenu": {
+    "enable": true,
+    "changeWallpaper": true,
+    "nextWallpaper": true,
+    "editWidgets": true,
+    "overview": true,
+    "screenshot": true,
+    "session": true,
+    "displaySettings": true,
+    "personalise": true
+  },
   "dock": {
     "enable": false,
     "height": 60,
@@ -143,7 +154,8 @@
     "pinnedOnStartup": false
   },
   "hacks": {
-    "configReloadDelay": 50
+    "configReloadDelay": 50,
+    "desktopMenu": false
   },
   "keybinds": {
     "enable": true,
@@ -155,7 +167,8 @@
     "captureRegion": "Print",
     "captureOcr": "Ctrl+Print",
     "captureTranslate": "Shift+Print",
-    "session": "Super+Shift+E"
+    "session": "Super+Shift+E",
+    "desktopMenu": "Super+Shift+M"
   },
   "language": {
     "ui": "auto"

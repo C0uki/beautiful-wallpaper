@@ -15,6 +15,8 @@ pub mod brightness;
 #[cfg(windows)]
 pub mod capture;
 #[cfg(windows)]
+pub mod deskclick;
+#[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
 pub mod mixer;

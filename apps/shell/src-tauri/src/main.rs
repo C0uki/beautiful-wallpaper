@@ -13,9 +13,9 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, DockHandle,
-    IdleHandle, MicHandle, MixerHandle, NotificationStore, PersistentStore, TodoStore,
-    VolumeHandle,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
+    DesktopMenuHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
+    PersistentStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -133,6 +133,10 @@ fn main() {
             commands::can_read_text,
             commands::get_session_actions,
             commands::run_session_action,
+            commands::get_desktop_menu_items,
+            commands::place_desktop_menu,
+            commands::run_desktop_menu_item,
+            commands::toggle_desktop_menu,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -168,6 +172,10 @@ fn main() {
             app.manage(ChatBusy::default());
             app.manage(start_app_scan(&handle));
             app.manage(CaptureHandle::default());
+            app.manage(DesktopMenuHandle::default());
+            // After the handle is managed, and after the surfaces exist: the
+            // first click has somewhere to go.
+            services::deskmenu::apply(&handle);
 
             // After the surfaces exist, so a key pressed the instant the
             // shell is up has something to open.

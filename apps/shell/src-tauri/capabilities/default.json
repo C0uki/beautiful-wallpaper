@@ -14,7 +14,8 @@
     "dock",
     "overview",
     "regionSelect",
-    "session"
+    "session",
+    "desktopMenu"
   ],
   "permissions": [
     "core:default",
