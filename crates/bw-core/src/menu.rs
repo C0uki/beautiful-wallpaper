@@ -101,7 +101,7 @@ pub fn items(config: &Config) -> Vec<MenuItem> {
 }
 
 /// A position, in whatever units the caller is working in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Placement {

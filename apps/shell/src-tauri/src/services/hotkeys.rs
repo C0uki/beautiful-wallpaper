@@ -99,6 +99,9 @@ enum Bound {
     /// Take a picture of the screen. Not a toggle: pressing it twice should
     /// start two captures, not undo the first.
     Capture(bw_core::capture::CaptureMode),
+    /// Open the desktop menu. A toggle like a flag, but it also has to note
+    /// where the pointer is before the surface appears.
+    Menu,
 }
 
 /// What each binding is for.
@@ -119,6 +122,7 @@ fn action_for(binding: &str) -> Option<Bound> {
         "captureRegion" => Some(Bound::Capture(CaptureMode::Screenshot)),
         "captureOcr" => Some(Bound::Capture(CaptureMode::Ocr)),
         "captureTranslate" => Some(Bound::Capture(CaptureMode::Translate)),
+        "desktopMenu" => Some(Bound::Menu),
         _ => None,
     }
 }
@@ -136,6 +140,18 @@ fn run(app: &AppHandle, bound: Bound) {
             };
             if let Err(error) = crate::commands::start_capture(app.clone(), state, capture, mode) {
                 tracing::warn!(%error, "could not start a capture");
+            }
+        }
+        Bound::Menu => {
+            let (Some(state), Some(menu)) = (
+                app.try_state::<AppState>(),
+                app.try_state::<crate::state::DesktopMenuHandle>(),
+            ) else {
+                return;
+            };
+            if let Err(error) = crate::commands::toggle_desktop_menu(app.clone(), state, menu, None)
+            {
+                tracing::warn!(%error, "could not open the desktop menu");
             }
         }
     }

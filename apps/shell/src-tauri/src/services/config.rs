@@ -49,6 +49,9 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                 Ok(config) => {
                     let appearance_changed = config.appearance != state.config().appearance;
                     let keybinds_changed = config.keybinds != state.config().keybinds;
+                    let menu_changed = config.hacks.desktop_menu
+                        != state.config().hacks.desktop_menu
+                        || config.desktop_menu.enable != state.config().desktop_menu.enable;
                     state.replace_config(config.clone());
                     let _ = app.emit(event::CONFIG_CHANGED, &config);
 
@@ -56,6 +59,12 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                     // chord only takes effect if the old one is given back.
                     if keybinds_changed {
                         crate::services::hotkeys::apply(&app);
+                    }
+
+                    // Switching the hack on or off in the file has to take
+                    // effect without a restart, like everything else here.
+                    if menu_changed {
+                        crate::services::deskmenu::apply(&app);
                     }
 
                     if appearance_changed {
