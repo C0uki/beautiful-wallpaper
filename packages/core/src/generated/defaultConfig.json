@@ -168,7 +168,8 @@
     "captureOcr": "Ctrl+Print",
     "captureTranslate": "Shift+Print",
     "session": "Super+Shift+E",
-    "desktopMenu": "Super+Shift+M"
+    "desktopMenu": "Super+Shift+M",
+    "shelf": "Super+Shift+D"
   },
   "language": {
     "ui": "auto"
@@ -213,6 +214,13 @@
     "restart": true,
     "shutDown": true,
     "force": false
+  },
+  "shelf": {
+    "enable": true,
+    "edge": "right",
+    "width": 0.2,
+    "maxItems": 100,
+    "clearAfterDrag": false
   },
   "sidebar": {
     "enable": true,

@@ -153,6 +153,10 @@ pub const ACTIONS: &[Action] = &[
         keyword: "desktop",
         symbol: "desktop_windows",
     },
+    Action {
+        keyword: "shelf",
+        symbol: "inbox",
+    },
 ];
 
 /// How a query is being read.
