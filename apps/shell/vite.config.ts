@@ -34,6 +34,7 @@ export default defineConfig({
         osd: surface("osd"),
         notifications: surface("notifications"),
         dock: surface("dock"),
+        desktopMenu: surface("desktopMenu"),
         overview: surface("overview"),
         regionSelect: surface("regionSelect"),
         session: surface("session"),

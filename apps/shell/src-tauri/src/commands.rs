@@ -1058,6 +1058,10 @@ pub fn place_desktop_menu(
     // The anchor and the screen are physical pixels, because that is what every
     // Win32 source of a point reports. The size arrives from the webview in CSS
     // pixels. They are reconciled here, once, rather than at each call site.
+    //
+    // A scale of zero should not happen and would divide every coordinate into
+    // infinity, so it is treated as the identity rather than trusted.
+    let scale = if scale > 0.0 { scale } else { 1.0 };
     let to_css = |value: i32| (f64::from(value) / scale).round() as i32;
 
     bw_core::menu::place(

@@ -1,0 +1,80 @@
+/* The desktop menu.
+ *
+ * The sheet is transparent rather than scrimmed: this covers the whole screen
+ * to catch the dismissing click, and darkening the desktop for a context menu
+ * would be a much bigger gesture than the menu is. */
+
+.bw-desktop-menu {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  color: var(--on-surface);
+  outline: none;
+}
+
+.bw-desktop-menu-panel {
+  position: absolute;
+  min-width: 210px;
+  max-width: 320px;
+  padding: 6px;
+  border-radius: var(--rounding-normal);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.bw-desktop-menu-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bw-desktop-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--rounding-small);
+  background: transparent;
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duration-small) var(--ease-effects-default);
+}
+
+.bw-desktop-menu-item:hover {
+  background: var(--layer1-hover);
+}
+
+/* One highlight, moved by the pointer as well as the arrow keys, so hover and
+   the keyboard can never disagree about what Enter would do. */
+.bw-desktop-menu-item.focused {
+  background: var(--layer1-hover);
+}
+
+.bw-desktop-menu-item .symbol {
+  color: var(--primary);
+}
+
+/* Drawn in front of the entries that hand the user over to Windows' own
+   settings: they go somewhere else entirely, and a menu that mixes them in
+   without saying so is a menu that surprises people. */
+.bw-desktop-menu-rule {
+  height: 1px;
+  margin: 5px 8px;
+  border: 0;
+  background: var(--outline-variant);
+}
+
+.bw-desktop-menu-problem {
+  margin: 4px 12px 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--primary);
+  white-space: normal;
+}
