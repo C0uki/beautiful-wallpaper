@@ -15,7 +15,7 @@ use bw_shell::services;
 use bw_shell::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
-    PersistentStore, TodoStore, VolumeHandle,
+    PersistentStore, ShelfStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -137,6 +137,13 @@ fn main() {
             commands::place_desktop_menu,
             commands::run_desktop_menu_item,
             commands::toggle_desktop_menu,
+            commands::get_shelf_items,
+            commands::add_to_shelf,
+            commands::remove_from_shelf,
+            commands::clear_shelf,
+            commands::open_shelf_item,
+            commands::reveal_shelf_item,
+            commands::drag_from_shelf,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -173,6 +180,7 @@ fn main() {
             app.manage(start_app_scan(&handle));
             app.manage(CaptureHandle::default());
             app.manage(DesktopMenuHandle::default());
+            app.manage(ShelfStore::default());
             // After the handle is managed, and after the surfaces exist: the
             // first click has somewhere to go.
             services::deskmenu::apply(&handle);

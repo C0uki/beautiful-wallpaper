@@ -25,6 +25,7 @@ pub struct GlobalStates {
     pub settings_open: bool,
     pub session_open: bool,
     pub desktop_menu_open: bool,
+    pub shelf_open: bool,
     pub media_controls_open: bool,
     pub overlay_open: bool,
     pub widget_edit_mode: bool,
@@ -589,6 +590,15 @@ impl DesktopMenuHandle {
 
     pub fn anchor(&self) -> bw_core::menu::Placement {
         *self.anchor.lock()
+    }
+}
+
+/// What is on the drop shelf.
+pub struct ShelfStore(pub bw_core::shelf::Store);
+
+impl Default for ShelfStore {
+    fn default() -> Self {
+        Self(bw_core::shelf::Store::load(bw_core::shelf::shelf_path()))
     }
 }
 

@@ -115,6 +115,16 @@ pub const DESKTOP_MENU: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The drop shelf. A tall panel against one edge, and it takes focus: files
+/// are dragged on to it and off it, and a window that cannot be clicked into
+/// cannot be dragged out of either.
+pub const SHELF: Surface = Surface {
+    label: "shelf",
+    page: "shelf.html",
+    layer: Layer::Overlay,
+    size: Some((0.2, 1.0)),
+};
+
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -145,6 +155,7 @@ pub const ALL: &[Surface] = &[
     REGION_SELECT,
     SESSION,
     DESKTOP_MENU,
+    SHELF,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -160,6 +171,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "regionSelectOpen" => Some(REGION_SELECT.label),
         "sessionOpen" => Some(SESSION.label),
         "desktopMenuOpen" => Some(DESKTOP_MENU.label),
+        "shelfOpen" => Some(SHELF.label),
         _ => None,
     }
 }
@@ -326,6 +338,51 @@ fn overlay_geometry(
 
         return (
             left_inset + margin,
+            top + margin,
+            width,
+            (screen.1 - top - bottom - margin * 2.0).max(1.0),
+        );
+    }
+
+    if surface.label == SHELF.label {
+        // Against whichever edge was asked for, and clear of the bar rather
+        // than sliding under it — the same reasoning as the sidebars.
+        let width = screen.0 * config.shelf.width;
+        let vertical_bar = config.bar.enable && config.bar.vertical;
+        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
+            bar
+        } else {
+            0.0
+        };
+        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
+            horizontal_bar
+        } else {
+            0.0
+        };
+
+        let x = if config.shelf.edge == "left" {
+            let inset = if vertical_bar && !config.bar.bottom {
+                bar
+            } else {
+                0.0
+            };
+            inset + margin
+        } else {
+            let inset = if vertical_bar && config.bar.bottom {
+                bar
+            } else {
+                0.0
+            };
+            screen.0 - width - inset - margin
+        };
+
+        return (
+            x,
             top + margin,
             width,
             (screen.1 - top - bottom - margin * 2.0).max(1.0),

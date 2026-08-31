@@ -16,7 +16,7 @@ use crate::services;
 use crate::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
-    NotificationStore, PersistentStore, TodoStore, VolumeHandle,
+    NotificationStore, PersistentStore, ShelfStore, TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -39,6 +39,8 @@ pub mod event {
     pub const PERSISTENT: &str = "bw://persistent";
     /// The dock's icons changed: a window opened, closed or came forward.
     pub const DOCK: &str = "bw://dock";
+    /// What is on the drop shelf changed. Carries the whole list.
+    pub const SHELF: &str = "bw://shelf";
     /// The session screen has been opened or the machine's power
     /// capabilities changed. Carries nothing; the surface re-asks.
     pub const SESSION: &str = "bw://session";
@@ -784,6 +786,7 @@ pub fn start_capture(
             crate::surfaces::WALLPAPER_SELECTOR,
             crate::surfaces::REGION_SELECT,
             crate::surfaces::DESKTOP_MENU,
+            crate::surfaces::SHELF,
         ] {
             let _ = crate::surfaces::set_visible(&_app, surface.label, false);
         }
@@ -1012,6 +1015,143 @@ fn read_capture(
             problem: Some(problem),
             ..Default::default()
         },
+    }
+}
+
+// --- The drop shelf --------------------------------------------------------
+
+#[tauri::command]
+pub fn get_shelf_items(shelf: State<'_, ShelfStore>) -> Vec<bw_core::shelf::ShelfItem> {
+    shelf.0.list()
+}
+
+/// Puts dropped paths on the shelf.
+///
+/// The outcome goes back to the caller rather than only into the log: a drop
+/// of twenty that lands eight has to be explainable, and the surface is where
+/// the explaining happens.
+#[tauri::command]
+pub fn add_to_shelf(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    shelf: State<'_, ShelfStore>,
+    paths: Vec<String>,
+) -> Result<bw_core::shelf::DropOutcome, String> {
+    let config = state.config();
+    if !config.shelf.enable {
+        return Err("the drop shelf is switched off".to_owned());
+    }
+
+    let outcome = shelf.0.add(&paths, config.shelf.max_items as usize);
+    if !outcome.nothing_happened() {
+        let _ = app.emit(event::SHELF, shelf.0.list());
+    }
+    Ok(outcome)
+}
+
+#[tauri::command]
+pub fn remove_from_shelf(
+    app: AppHandle,
+    shelf: State<'_, ShelfStore>,
+    id: u32,
+) -> Vec<bw_core::shelf::ShelfItem> {
+    shelf.0.remove(id);
+    let items = shelf.0.list();
+    let _ = app.emit(event::SHELF, &items);
+    items
+}
+
+/// Empties the shelf, or only the entries whose files have gone.
+#[tauri::command]
+pub fn clear_shelf(
+    app: AppHandle,
+    shelf: State<'_, ShelfStore>,
+    missing_only: bool,
+) -> Vec<bw_core::shelf::ShelfItem> {
+    if missing_only {
+        shelf.0.clear_missing();
+    } else {
+        shelf.0.clear();
+    }
+    let items = shelf.0.list();
+    let _ = app.emit(event::SHELF, &items);
+    items
+}
+
+/// Opens an entry with whatever Windows opens it with.
+#[tauri::command]
+pub fn open_shelf_item(shelf: State<'_, ShelfStore>, id: u32) -> Result<(), String> {
+    let path = shelf
+        .0
+        .path_of(id)
+        .ok_or_else(|| "that is no longer on the shelf".to_owned())?;
+    tauri_plugin_opener::open_path(&path, None::<&str>)
+        .map_err(|error| format!("could not open {path}: {error}"))
+}
+
+/// Shows an entry in Explorer, with the file selected.
+#[tauri::command]
+pub fn reveal_shelf_item(_shelf: State<'_, ShelfStore>, _id: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let path = _shelf
+            .0
+            .path_of(_id)
+            .ok_or_else(|| "that is no longer on the shelf".to_owned())?;
+        crate::platform::dragout::reveal(&path)
+    }
+    #[cfg(not(windows))]
+    Err("showing a file in Explorer needs Windows".to_owned())
+}
+
+/// Drags entries off the shelf and into whatever the pointer lands on.
+///
+/// Deliberately **not** an `async` command. `SHDoDragDrop` is modal and has to
+/// run on the thread that owns the window with OLE initialised, which is the
+/// thread Tauri runs a synchronous command on; on the async runtime's pool it
+/// would simply fail.
+///
+/// Returns whether anything was actually dropped. Letting go over nothing is
+/// how somebody changes their mind, not a failure.
+#[tauri::command]
+pub fn drag_from_shelf(
+    _app: AppHandle,
+    _state: State<'_, AppState>,
+    _shelf: State<'_, ShelfStore>,
+    _ids: Vec<u32>,
+) -> Result<bool, String> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Foundation::HWND;
+
+        let paths: Vec<String> = _ids.iter().filter_map(|id| _shelf.0.path_of(*id)).collect();
+        if paths.is_empty() {
+            return Err("nothing to drag".to_owned());
+        }
+
+        let window = _app
+            .get_webview_window(crate::surfaces::SHELF.label)
+            .ok_or_else(|| "the shelf is not open".to_owned())?;
+        let handle = window
+            .hwnd()
+            .map_err(|error| format!("the shelf has no window handle: {error}"))?;
+
+        let dropped = crate::platform::dragout::drag_out(HWND(handle.0), &paths)?;
+
+        // Only on a real drop, and only if asked: a shelf is often the source
+        // of two drops, and the second one would have nothing left to drag.
+        if dropped && _state.config().shelf.clear_after_drag {
+            for id in &_ids {
+                _shelf.0.remove(*id);
+            }
+            let _ = _app.emit(event::SHELF, _shelf.0.list());
+        }
+        Ok(dropped)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (&_app, &_state, &_shelf, &_ids);
+        Err("dragging files needs Windows".to_owned())
     }
 }
 

@@ -17,6 +17,8 @@ pub mod capture;
 #[cfg(windows)]
 pub mod deskclick;
 #[cfg(windows)]
+pub mod dragout;
+#[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
 pub mod mixer;
