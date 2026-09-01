@@ -181,7 +181,8 @@
     "captureTranslate": "Shift+Print",
     "session": "Super+Shift+E",
     "desktopMenu": "Super+Shift+M",
-    "shelf": "Super+Shift+D"
+    "shelf": "Super+Shift+D",
+    "overlay": "Super+Shift+O"
   },
   "language": {
     "ui": "auto"
@@ -200,6 +201,14 @@
     "position": "top",
     "volume": true,
     "brightness": true
+  },
+  "overlay": {
+    "enable": true,
+    "darkenScreen": true,
+    "clickthroughOpacity": 0.8,
+    "crosshair": {
+      "code": "0;P;d;1;0l;10;0o;2;1b;0"
+    }
   },
   "overview": {
     "enable": true,

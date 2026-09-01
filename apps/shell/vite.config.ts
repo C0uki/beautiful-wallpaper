@@ -41,6 +41,8 @@ export default defineConfig({
         shelf: surface("shelf"),
         screenChrome: surface("screenChrome"),
         hotCorners: surface("hotCorners"),
+        overlay: surface("overlay"),
+        overlayPinned: surface("overlayPinned"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

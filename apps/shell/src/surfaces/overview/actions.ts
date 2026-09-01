@@ -66,4 +66,8 @@ export const ACTIONS: Record<string, LauncherAction> = {
     run: () => actions.setState("shelfOpen", true),
     describe: () => tr("Open the drop shelf"),
   },
+  overlay: {
+    run: () => actions.setState("overlayOpen", true),
+    describe: () => tr("Open the floating overlay"),
+  },
 };

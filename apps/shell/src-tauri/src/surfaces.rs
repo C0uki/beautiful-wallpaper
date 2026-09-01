@@ -130,6 +130,27 @@ pub const SHELF: Surface = Surface {
     size: Some((0.2, 1.0)),
 };
 
+/// The floating overlay's canvas. Covers the screen; its input region is cut
+/// down to the pinned widgets whenever the overlay itself is shut, so it is
+/// deliberately not click-through — the region is the mask.
+pub const OVERLAY: Surface = Surface {
+    label: "overlay",
+    page: "overlay.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
+/// The half of the overlay that never takes the pointer: pinned widgets that
+/// are meant to be seen through, which in practice means the crosshair. A
+/// separate window because a region masks drawing and input together, and this
+/// half has to be drawn without being clickable.
+pub const OVERLAY_PINNED: Surface = Surface {
+    label: "overlayPinned",
+    page: "overlayPinned.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The screen's decorations: fake rounded corners and the frame. Covers the
 /// whole display and is click-through everywhere, because none of it is
 /// something to press.
@@ -184,6 +205,8 @@ pub const ALL: &[Surface] = &[
     SHELF,
     SCREEN_CHROME,
     HOT_CORNERS,
+    OVERLAY,
+    OVERLAY_PINNED,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -200,6 +223,9 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "sessionOpen" => Some(SESSION.label),
         "desktopMenuOpen" => Some(DESKTOP_MENU.label),
         "shelfOpen" => Some(SHELF.label),
+        // `overlayOpen` is deliberately absent: the overlay stays on screen
+        // after the flag clears if anything on it was pinned, so only
+        // `services::overlay::apply` can decide whether its windows are up.
         _ => None,
     }
 }
@@ -221,6 +247,11 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
             tracing::warn!(%error, surface = label, "could not change a surface's visibility");
         }
     }
+
+    // The overlay is not in that table, and every path that flips a flag comes
+    // through here — the commands, the hotkey and the CLI alike — so this is
+    // the one place its two windows can be kept honest.
+    crate::services::overlay::apply(app);
 }
 
 /// Holds the bar's app-bar registration for the life of the process.

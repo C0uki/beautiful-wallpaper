@@ -148,6 +148,9 @@ fn main() {
             commands::get_hot_corners,
             commands::run_hot_corner,
             commands::scroll_hot_corner,
+            commands::get_overlay_layout,
+            commands::get_crosshair,
+            commands::toggle_overlay_widget,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -189,6 +192,10 @@ fn main() {
             // After the surfaces exist and the state is managed: the hot
             // corners need their window before they can be cut down to size.
             services::chrome::apply(&handle);
+            // The passive half is masked by transparency rather than by a
+            // region, and its window has to exist before that can be set.
+            services::overlay::make_passive_clickthrough(&handle);
+            services::overlay::apply(&handle);
             // After the handle is managed, and after the surfaces exist: the
             // first click has somewhere to go.
             services::deskmenu::apply(&handle);

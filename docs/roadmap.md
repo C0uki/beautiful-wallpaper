@@ -365,9 +365,57 @@ tune how close to the very corner the pointer has to get before a hover opens
 something. They exist to make the Hyprland version usable; the region here is
 already the exact strip.
 
+### Done: the floating overlay
+
+A canvas of small widgets over everything else — and pinning, which is the
+whole point of it.
+
+- **A pinned widget stays on screen after the overlay closes.** A crosshair is
+  only useful while you are playing, which is exactly when the overlay is
+  shut. That is also what makes this need two windows rather than one: Windows
+  decides what a window draws and what it hit-tests with the same region, so a
+  pinned crosshair — visible, and emphatically not clickable — cannot share a
+  window with a pinned note, which is both. They are split by that one
+  property, and getting it wrong is either a crosshair that eats every click
+  in the middle of the screen or a note nobody can type into.
+- **The crosshair is configured by pasting a Valorant share code**, because
+  people already have one they like and typing twenty numbers into a config
+  file is not the same offer. Reading that format has three traps and all
+  three are silent: a code is a patch on the game's defaults rather than a
+  document, unknown keys have to be stepped over (every real code opens with a
+  profile marker), and the unbind flags have to be applied last — a vertical
+  arm length means nothing until the axes are unbound, whichever order the two
+  fields arrive in. All of it is in `bw-core` under tests.
+- **The crosshair ships unpinned.** Click-through is the only mode it is
+  useful in, so that is its default; pinning is a decision, because a pinned
+  crosshair is over everything until somebody takes it away and nobody asked
+  for one by installing a shell.
+- The open overlay takes the keyboard — Escape closes it, and a note is there
+  to be typed into. The window left behind by a pinned widget must not: the
+  user is playing a game, and a shell that stole the keyboard when a crosshair
+  appeared would be worse than no crosshair.
+
+Not built, and not because of time:
+
+- **The FPS limiter.** The original writes `fps_limit=` into MangoHud's config
+  and sends it a signal. There is no MangoHud on Windows, and the nearest
+  equivalent — RivaTuner — has no interface a shell is invited to drive. There
+  is nothing here to port to.
+- **The recorder.** The original shells out to `wf-recorder` through a script.
+  Doing it here means `Windows.Graphics.Capture` into a `MediaTranscoder`,
+  which is a body of D3D11 interop the size of its own change. The screenshot
+  half of that panel already exists as the region picker, reachable from
+  `Print`, the launcher and the desktop menu.
+- **Resizing a widget by dragging its corner**, which the original allows.
+  Widgets take the size their content asks for and can be moved but not
+  stretched.
+- `floatingImage` and `volumeMixer`, the two overlay widgets the original has
+  that this does not: the mixer is already in the right sidebar, and a
+  floating GIF is a joke that does not need porting.
+
 ### Still to do
 
-The floating overlays: crosshair, notes, resources, FPS limiter and recorder.
+Nothing: Phase 4 is complete.
 
 ## Phase 5 — Finishing
 

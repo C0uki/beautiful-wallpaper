@@ -52,6 +52,7 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                     let menu_changed = config.hacks.desktop_menu
                         != state.config().hacks.desktop_menu
                         || config.desktop_menu.enable != state.config().desktop_menu.enable;
+                    let overlay_changed = config.overlay != state.config().overlay;
                     let chrome_changed = config.sidebar.corner_open
                         != state.config().sidebar.corner_open
                         || config.appearance != state.config().appearance
@@ -77,6 +78,10 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                     if chrome_changed {
                         crate::services::chrome::apply(&app);
                         crate::services::chrome::emit(&app);
+                    }
+
+                    if overlay_changed {
+                        crate::services::overlay::apply(&app);
                     }
 
                     if appearance_changed {

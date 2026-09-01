@@ -157,6 +157,10 @@ pub const ACTIONS: &[Action] = &[
         keyword: "shelf",
         symbol: "inbox",
     },
+    Action {
+        keyword: "overlay",
+        symbol: "layers",
+    },
 ];
 
 /// How a query is being read.

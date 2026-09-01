@@ -420,6 +420,34 @@ const SHOTS = [
       await page.locator(".bw-hot-corner.visible").first().waitFor();
     },
   },
+  // The overlay: its taskbar, and the widgets on the canvas with their title
+  // bars, pin and see-through buttons.
+  {
+    name: "39-overlay",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "overlay" }).click();
+      await page.locator(".bw-overlay.open").waitFor();
+      await page.locator(".bw-overlay-widget").first().waitFor();
+    },
+  },
+  // The crosshair on its own, which is what a pinned one looks like over a
+  // game once the overlay itself is shut.
+  {
+    name: "40-overlay-crosshair",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "overlay" }).click();
+      await page.locator(".bw-overlay.open").waitFor();
+      // Take the resources panel off, so the shot is the crosshair.
+      await page
+        .getByRole("button", { name: "Resources", exact: true })
+        .click();
+      await page.locator(".bw-crosshair").waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

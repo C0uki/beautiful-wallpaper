@@ -18,6 +18,10 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+fn s(value: &str) -> String {
+    value.to_owned()
+}
+
 /// Declares a state struct with camelCase keys, defaults for every field, and
 /// TypeScript bindings. Deliberately tolerant of unknown fields.
 macro_rules! state_struct {
@@ -56,6 +60,7 @@ state_struct! {
     pub struct Persistent {
         pub sidebar: SidebarState = SidebarState::default(),
         pub idle: IdleState = IdleState::default(),
+        pub overlay: OverlayState = OverlayState::default(),
     }
 }
 
@@ -74,6 +79,60 @@ state_struct! {
         /// Index into the tab list — calendar, to-do, timer.
         pub tab: u32 = 0,
         pub collapsed: bool = false,
+    }
+}
+
+state_struct! {
+    /// Which overlay widgets are out, and where the user left them.
+    pub struct OverlayState {
+        /// The widgets currently placed on the canvas, by keyword.
+        pub open: Vec<String> = vec![s("crosshair"), s("resources")],
+        /// What is written on the note. Kept here rather than in a file of its
+        /// own: it is a scratchpad, not a document.
+        pub notes_text: String = String::new(),
+        pub crosshair: OverlayWidgetState = OverlayWidgetState::centred_clickthrough(),
+        pub notes: OverlayWidgetState = OverlayWidgetState::at(80, 120),
+        pub resources: OverlayWidgetState = OverlayWidgetState::at(80, 380),
+    }
+}
+
+state_struct! {
+    /// One widget's place on the canvas.
+    pub struct OverlayWidgetState {
+        /// Stay on screen after the overlay closes.
+        pub pinned: bool = false,
+        /// Let the pointer through, so what is underneath still works.
+        pub clickthrough: bool = false,
+        /// CSS pixels, the way the page that draws the overlay measures them.
+        pub x: i32 = 80,
+        pub y: i32 = 80,
+        /// Zero means "whatever this widget's own default is".
+        pub width: i32 = 0,
+        pub height: i32 = 0,
+    }
+}
+
+impl OverlayWidgetState {
+    fn at(x: i32, y: i32) -> Self {
+        Self {
+            x,
+            y,
+            ..Self::default()
+        }
+    }
+
+    /// The crosshair's starting state: on the canvas and see-through, but
+    /// **not** pinned. Click-through is the only mode it is useful in, so that
+    /// is the default; pinning it is a decision, because a pinned crosshair is
+    /// on screen over everything until somebody takes it away, and nobody
+    /// asked for one by installing a shell.
+    fn centred_clickthrough() -> Self {
+        Self {
+            clickthrough: true,
+            x: 928,
+            y: 508,
+            ..Self::default()
+        }
     }
 }
 

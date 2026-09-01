@@ -5,5 +5,6 @@ pub mod chrome;
 pub mod config;
 pub mod deskmenu;
 pub mod hotkeys;
+pub mod overlay;
 pub mod theme;
 pub mod wallpaper;
