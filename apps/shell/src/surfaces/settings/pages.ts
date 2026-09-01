@@ -18,6 +18,15 @@ export interface SettingsPage {
   sections: string[];
   /** Shown above the first section, when the page needs a warning. */
   caution?: () => string;
+  /**
+   * A page that is not a list of settings.
+   *
+   * Presets are the whole config under a name rather than one key each, so
+   * they have no rows the schema could generate; the page draws itself. A
+   * `custom` page carries no sections, which is why `pages.test.ts` still
+   * holds for it.
+   */
+  custom?: "presets";
 }
 
 export const PAGES: SettingsPage[] = [
@@ -78,6 +87,13 @@ export const PAGES: SettingsPage[] = [
       tr(
         "Everything under hacks reaches past what Windows offers a shell. Each one says what it costs.",
       ),
+  },
+  {
+    id: "presets",
+    icon: "bookmarks",
+    title: () => tr("Presets"),
+    sections: [],
+    custom: "presets",
   },
 ];
 

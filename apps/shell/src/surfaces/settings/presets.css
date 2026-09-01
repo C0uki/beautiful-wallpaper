@@ -1,0 +1,300 @@
+/* The presets page.
+ *
+ * Two shapes: a grid of cards, and the list of what applying one would change.
+ * The second is the one that has to stay readable at two hundred rows, so it
+ * is a plain list with the change on the right rather than anything clever. */
+
+.bw-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bw-presets-lead {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.bw-presets-save {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bw-presets-save input {
+  flex: 1 1 180px;
+  min-width: 140px;
+  padding: 9px 12px;
+  border-radius: var(--rounding-small);
+  border: 1px solid var(--outline-variant);
+  background: var(--layer1);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.bw-presets-save input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+/* Not a toast: applying a preset is undoable for exactly as long as this is
+   on screen, so it stays until it is used rather than fading. */
+.bw-presets-undo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  border-radius: var(--rounding-normal);
+  background: var(--layer2);
+  color: var(--on-surface);
+  font-size: 13px;
+}
+
+.bw-presets-undo span {
+  flex: 1;
+}
+
+.bw-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.bw-preset {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  overflow: hidden;
+}
+
+.bw-preset header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.bw-preset header div {
+  min-width: 0;
+}
+
+.bw-preset h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two lines rather than one: the second line is usually a description, but on
+   a preset that will not parse it is the reason, and one truncated line of a
+   file path says nothing at all. */
+.bw-preset header p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--on-surface-variant);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.bw-preset-initial {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rounding-full);
+  background: var(--primary);
+  color: var(--primary-on);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.bw-preset-shot {
+  position: relative;
+  flex: none;
+  height: 118px;
+  display: grid;
+  place-items: center;
+  background: var(--layer2);
+  /* The image is laid out against this box, not against its own proportions.
+     Centring a grid item makes it content-sized, so `height: 100%` on the
+     image resolves to its natural height — a 16:9 thumbnail came out 213px
+     tall in a 118px box and painted over the buttons underneath it. */
+  overflow: hidden;
+}
+
+.bw-preset-shot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bw-preset-shot[data-broken="true"] {
+  background: var(--layer0);
+}
+
+.bw-preset footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px;
+}
+
+.bw-preset-ask {
+  margin-right: auto;
+  padding-left: 4px;
+  font-size: 13px;
+  color: var(--on-surface);
+}
+
+/* --- The confirm list ---------------------------------------------------- */
+
+.bw-presets-same {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}
+
+.bw-presets-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.bw-presets-all span {
+  flex: 1;
+}
+
+.bw-presets-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.bw-presets-changes li + li {
+  border-top: 1px solid var(--outline-variant);
+}
+
+.bw-presets-changes label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  cursor: pointer;
+}
+
+.bw-presets-changes input {
+  flex: none;
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+}
+
+.bw-presets-what {
+  flex: 1 1 55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bw-presets-what strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The dotted path, so what this writes and what `bw config set` takes are
+   visibly the same thing — the settings rows show it for the same reason. */
+.bw-presets-what code {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Half the row rather than a fixed few characters, and both sides carry the
+   full value as a title. */
+.bw-presets-move {
+  flex: 1 1 45%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* Whatever is still too long after `contrast` has trimmed the shared
+   beginning off both sides. */
+.bw-presets-move del,
+.bw-presets-move ins {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bw-presets-move del {
+  color: var(--on-surface-variant);
+}
+
+.bw-presets-move ins {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.bw-presets-unknown {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--rounding-small);
+  background: var(--layer2);
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+.bw-presets-unknown p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.bw-presets-unknown ul {
+  margin: 0;
+  padding-left: 22px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* The dialog sizes itself to whatever it is drawn over, and here that is the
+   whole settings surface — a change list stretched across 1200 pixels puts the
+   name at one end of the screen and its new value at the other. */
+.bw-presets .bw-dialog {
+  max-width: 720px;
+}

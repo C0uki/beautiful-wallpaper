@@ -18,6 +18,7 @@ import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
 import { PAGES, pageFor } from "./pages";
+import { Presets } from "./Presets";
 import "./settings.css";
 
 /** Reads a dotted path out of the config. */
@@ -159,7 +160,13 @@ export function Settings() {
           ) : null}
 
           <div className="bw-settings-rows">
-            {shown.length ? (
+            {/* A page that is not a list of settings draws itself. Presets are
+                the whole config under a name rather than one key each, so
+                there is nothing for the generated form to generate. Searching
+                still puts the rows back: the answer is wherever it is. */}
+            {!searching && current?.custom === "presets" ? (
+              <Presets />
+            ) : shown.length ? (
               <Rows
                 fields={shown}
                 config={config}
