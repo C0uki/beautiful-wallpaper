@@ -53,6 +53,48 @@ impl FakeRounding {
     }
 }
 
+/// Everything the chrome surface needs, already decided.
+///
+/// Resolved here rather than in the surface so the policy exists once. The
+/// alternative is a three-line rule about full-screen windows written in Rust
+/// and again in TypeScript, which is two rules the first time either is
+/// touched.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ScreenChrome {
+    /// Whether the fake rounded corners are drawn right now.
+    pub corners_visible: bool,
+    /// Their radius, in pixels.
+    pub radius: u32,
+    /// The edges the frame is drawn on. Empty when there is no frame.
+    pub frame_edges: Vec<Edge>,
+    pub frame_thickness: u32,
+    /// A palette role name or a CSS colour, passed through untouched.
+    pub frame_color: String,
+    /// Whether the corners should be listening for the pointer.
+    pub hot_corners_active: bool,
+}
+
+impl ScreenChrome {
+    /// What to draw, given the config and whether anything is full-screen.
+    pub fn resolve(config: &crate::Config, fullscreen: bool) -> Self {
+        let rounding = FakeRounding::from_config(config.appearance.fake_screen_rounding);
+
+        Self {
+            corners_visible: rounding.shows(fullscreen),
+            radius: config.appearance.screen_rounding,
+            frame_edges: frame_edges(&config.bar),
+            frame_thickness: config.bar.frame_thickness,
+            frame_color: config.bar.frame_color.clone(),
+            // A hot corner firing during a full-screen game is the exact
+            // annoyance the rounding setting already exists to avoid, so the
+            // two go quiet together.
+            hot_corners_active: config.sidebar.corner_open.enable && !fullscreen,
+        }
+    }
+}
+
 /// One of the four corners of the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -374,6 +416,34 @@ mod tests {
         assert_eq!(scroll_target(Corner::BottomLeft), ScrollTarget::Brightness);
         assert_eq!(scroll_target(Corner::TopRight), ScrollTarget::Volume);
         assert_eq!(scroll_target(Corner::BottomRight), ScrollTarget::Volume);
+    }
+
+    #[test]
+    fn the_resolved_chrome_carries_the_rounding_decision() {
+        let mut config = Config::default();
+        config.appearance.fake_screen_rounding = 2;
+
+        assert!(ScreenChrome::resolve(&config, false).corners_visible);
+        assert!(!ScreenChrome::resolve(&config, true).corners_visible);
+
+        config.appearance.fake_screen_rounding = 1;
+        assert!(ScreenChrome::resolve(&config, true).corners_visible);
+    }
+
+    /// A hot corner firing during a full-screen game is the same annoyance the
+    /// rounding setting exists to avoid, so the two go quiet together.
+    #[test]
+    fn the_hot_corners_go_quiet_with_the_rounding() {
+        let config = Config::default();
+        assert!(ScreenChrome::resolve(&config, false).hot_corners_active);
+        assert!(!ScreenChrome::resolve(&config, true).hot_corners_active);
+    }
+
+    #[test]
+    fn switching_the_corners_off_stops_them_listening_even_when_nothing_is_full_screen() {
+        let mut config = Config::default();
+        config.sidebar.corner_open.enable = false;
+        assert!(!ScreenChrome::resolve(&config, false).hot_corners_active);
     }
 
     #[test]

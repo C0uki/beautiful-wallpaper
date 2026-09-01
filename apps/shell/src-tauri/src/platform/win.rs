@@ -18,7 +18,8 @@ use windows::Win32::Graphics::Dwm::{
     DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
 };
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO, MONITORINFOEXW,
+    EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO,
+    MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
 };
 use windows::Win32::UI::Shell::{
     SHAppBarMessage, ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE,
@@ -26,9 +27,10 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
-    GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -414,6 +416,9 @@ pub struct ActiveWindow {
     pub title: String,
     /// The window class, which is the closest Windows has to an app id.
     pub class: String,
+    /// Whether it covers its whole monitor, so the shell's decorations can
+    /// get out of the way of a film.
+    pub fullscreen: bool,
 }
 
 /// Reads the foreground window's title and class.
@@ -432,11 +437,58 @@ pub fn active_window() -> ActiveWindow {
         let mut class = [0u16; 256];
         let class_written = GetClassNameW(hwnd, &mut class);
 
+        let class = String::from_utf16_lossy(&class[..class_written.max(0) as usize]);
         ActiveWindow {
             title: String::from_utf16_lossy(&title[..written.max(0) as usize]),
-            class: String::from_utf16_lossy(&class[..class_written.max(0) as usize]),
+            fullscreen: is_fullscreen(hwnd, &class),
+            class,
         }
     }
+}
+
+/// Whether this window covers its whole monitor.
+///
+/// There is no flag to read — Windows has no concept of a full-screen window,
+/// only of a window that happens to be the size of the screen — so this
+/// compares rectangles, which is also what actually matters visually.
+///
+/// The shell's own furniture is excluded by class. Explorer's desktop spans
+/// the monitor by definition and the taskbar's parent does too, so without
+/// this the corners would vanish the moment the user clicked the wallpaper.
+unsafe fn is_fullscreen(hwnd: HWND, class: &str) -> bool {
+    if matches!(
+        class,
+        "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "SysListView32"
+    ) {
+        return false;
+    }
+
+    let mut bounds = RECT::default();
+    if GetWindowRect(hwnd, &mut bounds).is_err() {
+        return false;
+    }
+
+    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    if monitor.is_invalid() {
+        return false;
+    }
+    let mut info = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+        return false;
+    }
+
+    // Exactly, not approximately: a maximised window stops at the work area
+    // and a full-screen one does not, and the difference between them is the
+    // taskbar. Treating "close enough" as full screen would hide the corners
+    // for every maximised window on the machine.
+    let screen = info.rcMonitor;
+    bounds.left <= screen.left
+        && bounds.top <= screen.top
+        && bounds.right >= screen.right
+        && bounds.bottom >= screen.bottom
 }
 
 /// Shows or hides the stock taskbar.

@@ -52,6 +52,10 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                     let menu_changed = config.hacks.desktop_menu
                         != state.config().hacks.desktop_menu
                         || config.desktop_menu.enable != state.config().desktop_menu.enable;
+                    let chrome_changed = config.sidebar.corner_open
+                        != state.config().sidebar.corner_open
+                        || config.appearance != state.config().appearance
+                        || config.bar != state.config().bar;
                     state.replace_config(config.clone());
                     let _ = app.emit(event::CONFIG_CHANGED, &config);
 
@@ -65,6 +69,14 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
                     // effect without a restart, like everything else here.
                     if menu_changed {
                         crate::services::deskmenu::apply(&app);
+                    }
+
+                    // The hot corners' region is a property of their window,
+                    // so a resized strip needs re-cutting rather than just a
+                    // repaint.
+                    if chrome_changed {
+                        crate::services::chrome::apply(&app);
+                        crate::services::chrome::emit(&app);
                     }
 
                     if appearance_changed {

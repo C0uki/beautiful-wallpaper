@@ -29,6 +29,8 @@ pub mod power;
 #[cfg(windows)]
 pub mod radios;
 #[cfg(windows)]
+pub mod region;
+#[cfg(windows)]
 pub mod session;
 #[cfg(windows)]
 pub mod tray;

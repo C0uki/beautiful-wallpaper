@@ -26,6 +26,11 @@ pub enum Layer {
     Bar,
     /// Topmost, never focused.
     Overlay,
+    /// Topmost and on screen from the start, like the bar, but covering the
+    /// whole display: the screen's own decorations. Unlike an overlay it is
+    /// not shown and hidden by a `GlobalStates` flag, because it is not
+    /// something the user opens.
+    Chrome,
 }
 
 pub const BACKGROUND: Surface = Surface {
@@ -125,6 +130,27 @@ pub const SHELF: Surface = Surface {
     size: Some((0.2, 1.0)),
 };
 
+/// The screen's decorations: fake rounded corners and the frame. Covers the
+/// whole display and is click-through everywhere, because none of it is
+/// something to press.
+pub const SCREEN_CHROME: Surface = Surface {
+    label: "screenChrome",
+    page: "screenChrome.html",
+    layer: Layer::Chrome,
+    size: Some((1.0, 1.0)),
+};
+
+/// The hot corners. Also covers the whole display, but it is emphatically not
+/// click-through: what keeps it out of the way is its window region, which is
+/// cut down to the corner strips so every click outside them lands on whatever
+/// is underneath.
+pub const HOT_CORNERS: Surface = Surface {
+    label: "hotCorners",
+    page: "hotCorners.html",
+    layer: Layer::Chrome,
+    size: Some((1.0, 1.0)),
+};
+
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -156,6 +182,8 @@ pub const ALL: &[Surface] = &[
     SESSION,
     DESKTOP_MENU,
     SHELF,
+    SCREEN_CHROME,
+    HOT_CORNERS,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -218,7 +246,7 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let config = app.state::<AppState>().config();
 
     let (x, y, width, height) = match surface.layer {
-        Layer::Background => (0.0, 0.0, screen.0, screen.1),
+        Layer::Background | Layer::Chrome => (0.0, 0.0, screen.0, screen.1),
         Layer::Bar => bar_geometry(&config, screen),
         Layer::Overlay => overlay_geometry(surface, &config, screen),
     };
@@ -237,7 +265,9 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
     builder = match surface.layer {
         Layer::Background => builder.focused(false).always_on_bottom(true),
-        Layer::Bar => builder.focused(false).always_on_top(true),
+        // On screen from the start, and never taking the focus off whatever
+        // the user is actually working in.
+        Layer::Bar | Layer::Chrome => builder.focused(false).always_on_top(true),
         // Overlays start hidden and are shown by their `GlobalStates` flag.
         Layer::Overlay => builder.always_on_top(true).visible(false),
     };
@@ -516,12 +546,19 @@ fn apply_layer(
 
     let target = match layer {
         Layer::Background => WinLayer::Wallpaper,
-        Layer::Bar | Layer::Overlay => WinLayer::Overlay,
+        Layer::Bar | Layer::Overlay | Layer::Chrome => WinLayer::Overlay,
     };
 
     unsafe {
         if let Err(error) = win::set_layer(hwnd, target) {
             tracing::warn!(%error, "could not place the surface on its layer");
+        }
+
+        // The decorations are drawn over everything and pressed by nobody. The
+        // hot corners are the exception: they are masked by their window
+        // region instead, which is applied once the strips are known.
+        if layer == Layer::Chrome && window.label() != HOT_CORNERS.label {
+            win::set_click_through(hwnd, true);
         }
     }
 
