@@ -45,6 +45,8 @@ import {
   type MenuItem,
   type Placement,
   type ShelfItem,
+  type PresetSummary,
+  type Comparison,
   type DropOutcome,
   type ScreenChrome,
   type HotCorner,
@@ -265,6 +267,68 @@ export function mockBackend(): Backend {
       hotCornersActive: config.sidebar.cornerOpen.enable,
     };
   };
+
+  // Two presets to look at without having to save one first, and a third that
+  // will not parse — the case where a preset is still on disk and the screen
+  // has to say so rather than quietly dropping it.
+  const presetConfig = (change: (draft: Config) => void): Config => {
+    const draft = structuredClone(config);
+    change(draft);
+    return draft;
+  };
+  let presets: Array<{ summary: PresetSummary; config: Config }> = [
+    {
+      summary: {
+        name: "Midnight",
+        description: "dark, floating bar, no frame",
+        created: "2026-08-11T22:14:00+09:00",
+        wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[1]!.name}`,
+        problem: null,
+      },
+      config: presetConfig((draft) => {
+        draft.appearance.roundingScale = 1.4;
+        draft.appearance.screenRounding = 32;
+        draft.appearance.transparency.extra = 0.15;
+        draft.bar.style = "float";
+        draft.bar.height = 44;
+        draft.bar.showFrame = true;
+        draft.bar.left = ["media", "clock"];
+        draft.dock.enable = true;
+        draft.sidebar.width = 0.3;
+        draft.notifications.timeout = 4000;
+        draft.overlay.clickthroughOpacity = 0.6;
+        draft.background.wallpaperPath = `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[1]!.name}`;
+      }),
+    },
+    {
+      summary: {
+        name: "Daylight",
+        description: "light, bar at the bottom",
+        created: "2026-07-03T09:02:00+09:00",
+        wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`,
+        problem: null,
+      },
+      config: presetConfig((draft) => {
+        draft.appearance.palette.mode = "light";
+        draft.bar.bottom = true;
+        draft.bar.height = 36;
+        draft.dock.enable = true;
+        draft.background.wallpaperPath = `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`;
+      }),
+    },
+    {
+      summary: {
+        name: "Bent",
+        description: "",
+        created: "",
+        wallpaper: "",
+        problem:
+          "C:\\Users\\you\\AppData\\Roaming\\beautiful-wallpaper\\presets\\Bent.json is not a preset: expected value at line 1 column 3",
+      },
+      config,
+    },
+  ];
+  let presetUndo: Config | null = null;
 
   // A shelf with something on it, so the surface can be seen without a
   // Windows drag: one of each kind, and one whose file has gone — which is
@@ -1635,6 +1699,102 @@ export function mockBackend(): Backend {
             },
           ] as T;
 
+        case Command.GetPresets:
+          return presets.map((entry) => entry.summary) as T;
+
+        case Command.SavePreset: {
+          const name = String(args["name"] ?? "").trim();
+          // The real rules — device names, trailing dots, the characters a
+          // file name cannot hold — are in `bw-core::preset` under tests. The
+          // harness needs only the two the screen reacts to.
+          if (!name) throw new Error("a preset needs a name");
+          const taken = presets.find(
+            (entry) => entry.summary.name.toLowerCase() === name.toLowerCase(),
+          );
+          if (taken && !args["overwrite"]) {
+            throw new Error(`there is already a preset called \`${name}\``);
+          }
+          const summary: PresetSummary = {
+            name: taken?.summary.name ?? name,
+            description: String(args["description"] ?? "").trim(),
+            created: new Date().toISOString(),
+            wallpaper: config.background.wallpaperPath,
+            problem: null,
+          };
+          presets = [
+            ...presets.filter((entry) => entry !== taken),
+            { summary, config: structuredClone(config) },
+          ].sort((left, right) =>
+            left.summary.name.localeCompare(right.summary.name),
+          );
+          return presets.map((entry) => entry.summary) as T;
+        }
+
+        case Command.RemovePreset: {
+          const name = String(args["name"] ?? "");
+          presets = presets.filter((entry) => entry.summary.name !== name);
+          return presets.map((entry) => entry.summary) as T;
+        }
+
+        case Command.ComparePreset: {
+          const found = presets.find(
+            (entry) => entry.summary.name === String(args["name"] ?? ""),
+          );
+          if (!found) throw new Error("there is no preset called that");
+          if (found.summary.problem) throw new Error(found.summary.problem);
+          return comparePresets(config, found.config) as T;
+        }
+
+        case Command.ApplyPreset: {
+          const found = presets.find(
+            (entry) => entry.summary.name === String(args["name"] ?? ""),
+          );
+          if (!found) throw new Error("there is no preset called that");
+          presetUndo = structuredClone(config);
+
+          const next = structuredClone(config);
+          for (const path of (args["paths"] as string[] | undefined) ?? []) {
+            setByPath(
+              next as unknown as Record<string, unknown>,
+              path,
+              readByPath(
+                found.config as unknown as Record<string, unknown>,
+                path,
+              ),
+            );
+          }
+          config = next;
+          theme = retint(
+            sampleTheme(
+              config.appearance.palette.mode === "light" ? "light" : "dark",
+            ),
+            config.background.wallpaperPath,
+          );
+          emit(Event.ConfigChanged, config);
+          emit(Event.ThemeChanged, theme);
+          emit(Event.Chrome, screenChrome());
+          return config as T;
+        }
+
+        case Command.HasPresetUndo:
+          return (presetUndo !== null) as T;
+
+        case Command.UndoPreset: {
+          if (!presetUndo) throw new Error("there is nothing to undo");
+          config = presetUndo;
+          presetUndo = null;
+          theme = retint(
+            sampleTheme(
+              config.appearance.palette.mode === "light" ? "light" : "dark",
+            ),
+            config.background.wallpaperPath,
+          );
+          emit(Event.ConfigChanged, config);
+          emit(Event.ThemeChanged, theme);
+          emit(Event.Chrome, screenChrome());
+          return config as T;
+        }
+
         default:
           throw new Error(`the mock backend has no command \`${command}\``);
       }
@@ -1746,6 +1906,55 @@ function retint(theme: GeneratedTheme, seed: string): GeneratedTheme {
     source: rotate(theme.source),
     colors: Object.fromEntries(
       Object.entries(theme.colors).map(([key, value]) => [key, rotate(value)]),
+    ),
+  };
+}
+
+function readByPath(root: Record<string, unknown>, path: string): unknown {
+  let cursor: unknown = root;
+  for (const segment of path.split(".")) {
+    if (typeof cursor !== "object" || cursor === null) return undefined;
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+  return cursor;
+}
+
+/** The shape of `bw-core::preset::compare`.
+ *
+ * The rules that matter — which paths are safe to write, what happens to a key
+ * this build has never heard of — are in Rust under tests. This walks the two
+ * trees far enough for the confirm list to have something in it, with the one
+ * rule that changes what the list looks like: an array is a leaf, so a
+ * rearranged bar is one row rather than one per widget. */
+function comparePresets(current: Config, preset: Config): Comparison {
+  const shown = (value: unknown): string =>
+    typeof value === "string"
+      ? value
+      : value === null || value === undefined
+        ? ""
+        : JSON.stringify(value);
+
+  const leaves = (node: unknown, path: string): Array<[string, unknown]> =>
+    node !== null && typeof node === "object" && !Array.isArray(node)
+      ? Object.entries(node).flatMap(([key, child]) =>
+          leaves(child, path ? `${path}.${key}` : key),
+        )
+      : path
+        ? [[path, node]]
+        : [];
+
+  const mine = leaves(current, "");
+  const theirs = new Map(leaves(preset, ""));
+
+  return {
+    changes: mine.flatMap(([path, value]) => {
+      if (!theirs.has(path)) return [];
+      const incoming = theirs.get(path);
+      if (JSON.stringify(incoming) === JSON.stringify(value)) return [];
+      return [{ path, from: shown(value), to: shown(incoming) }];
+    }),
+    unknown: [...theirs.keys()].filter(
+      (path) => !mine.some(([mine]) => mine === path),
     ),
   };
 }

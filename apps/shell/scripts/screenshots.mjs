@@ -477,6 +477,35 @@ const SHOTS = [
       await page.locator(".bw-settings-row").first().waitFor();
     },
   },
+  // The presets page: the whole config under a name.
+  {
+    name: "43-presets",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page
+        .getByRole("button", { name: "settings", exact: true })
+        .click();
+      await page.getByRole("dialog", { name: "Settings" }).waitFor();
+      await page.getByRole("button", { name: "Presets", exact: true }).click();
+      await page.locator(".bw-preset").first().waitFor();
+    },
+  },
+  // What Apply would change, which is the whole reason it is safe to press.
+  {
+    name: "44-preset-changes",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page
+        .getByRole("button", { name: "settings", exact: true })
+        .click();
+      await page.getByRole("dialog", { name: "Settings" }).waitFor();
+      await page.getByRole("button", { name: "Presets", exact: true }).click();
+      await page.getByRole("button", { name: "Apply Midnight" }).click();
+      await page.locator(".bw-presets-changes li").first().waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

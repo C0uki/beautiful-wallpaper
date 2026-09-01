@@ -447,9 +447,55 @@ Every config key, reachable without opening a text editor.
 - Every row shows its dotted path, so what the screen changes and what
   `bw config set` takes are visibly the same thing.
 
+### Done: presets
+
+The whole config under a name, and back again.
+
+- **Applying shows what it would change first.** The original merges the file
+  and tells you afterwards, which is fine for something you saved an hour ago
+  and not fine for one somebody sent you: it rewrites a couple of hundred
+  settings and there is no list of which. So Apply opens that list — every row
+  with its label, its dotted path and both values — every row can be unticked,
+  and the button says how many it will write. A row whose two ends read the
+  same is worse than no row, so when both sides begin alike the shared
+  beginning is dropped from each: two wallpaper paths become
+  `…dunes-at-dusk.jpg → …pine-fog.png` rather than `C:/Users/you/…` twice.
+- **And it can be taken back.** The config a preset replaced is kept for one
+  press. Nothing else in this shell changes that much in one click, and nobody
+  is putting two hundred settings back by hand. In memory and only the most
+  recent one: persisting it would be offering to revert a decision made days
+  ago, which is not an undo but a second preset nobody saved.
+- **Applying is not a merge.** A preset written by a newer build carries keys
+  this one has never heard of, and merging those in produces a `config.json`
+  the shell then refuses to load — a shell that will not start, from pressing
+  Apply. So applying is a list of paths, every one of which the comparison
+  found on _both_ sides. The rest are reported, because "it applied and that
+  part did nothing" is indistinguishable from a bug. A key the preset leaves
+  out keeps its current value; nothing is ever deleted.
+- **A name is a file name, and on Windows that is a rule with teeth.** The
+  original replaces whitespace with `_` and stops, which is enough for a Bash
+  argument: `..` walks out of the folder, `NUL` is a device whatever extension
+  follows it, and a trailing dot is not refused but _dropped_, so saving `Dark.`
+  would silently overwrite `Dark`. Names are checked in `bw-core` under tests,
+  and matched case-insensitively — `dark` and `Dark` cannot both exist, so the
+  button says Replace rather than finding out afterwards.
+- A preset that will not parse is listed saying so rather than hidden. It is
+  still on disk, and only the second kind of failure tells you that.
+- **Applying one goes through the same path a hand-edited `config.json` does.**
+  Two lists of what a wholesale config change invalidates would drift the first
+  time either was added to, and the symptom would be a setting that works when
+  typed into the file and not when a preset sets it. Folding them together
+  found one that was already missing: `background.wallpaperPath` moved every
+  surface to the new colours and left the desktop showing the old picture,
+  because nothing told Windows. It does now, from either direction.
+- `bw preset list|save|apply|remove` works without the shell running, the way
+  `bw config` does — a preset is a file and applying one is a config edit.
+- Nothing secret is in one: API keys live in the credential manager, not in
+  `config.json`, which is what makes a preset safe to send to somebody.
+
 ### Still to do
 
-Presets, the first-run wizard, the MSIX sparse package, the installer, and
+The first-run wizard, the MSIX sparse package, the installer, and
 documentation.
 
 ## Deliberately not built
