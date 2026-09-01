@@ -1,0 +1,1654 @@
+[
+  {
+    "path": "ai.model",
+    "section": "ai",
+    "label": "Model",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "ai.maxTokens",
+    "section": "ai",
+    "label": "Max tokens",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "ai.webSearch",
+    "section": "ai",
+    "label": "Web search",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "ai.maxSearches",
+    "section": "ai",
+    "label": "Max searches",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "ai.showThinking",
+    "section": "ai",
+    "label": "Show thinking",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "appearance.palette.type",
+    "section": "appearance",
+    "label": "Type",
+    "group": "Palette",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.palette.accentColor",
+    "section": "appearance",
+    "label": "Accent color",
+    "group": "Palette",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.palette.mode",
+    "section": "appearance",
+    "label": "Mode",
+    "group": "Palette",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.main",
+    "section": "appearance",
+    "label": "Main",
+    "group": "Fonts",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.title",
+    "section": "appearance",
+    "label": "Title",
+    "group": "Fonts",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.monospace",
+    "section": "appearance",
+    "label": "Monospace",
+    "group": "Fonts",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.reading",
+    "section": "appearance",
+    "label": "Reading",
+    "group": "Fonts",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.expressive",
+    "section": "appearance",
+    "label": "Expressive",
+    "group": "Fonts",
+    "kind": "text"
+  },
+  {
+    "path": "appearance.fonts.pixelSize",
+    "section": "appearance",
+    "label": "Pixel size",
+    "group": "Fonts",
+    "kind": "decimal"
+  },
+  {
+    "path": "appearance.transparency.enable",
+    "section": "appearance",
+    "label": "Enable",
+    "group": "Transparency",
+    "kind": "toggle"
+  },
+  {
+    "path": "appearance.transparency.extra",
+    "section": "appearance",
+    "label": "Extra",
+    "group": "Transparency",
+    "kind": "decimal"
+  },
+  {
+    "path": "appearance.wallpaperTheming.syncSystemAccent",
+    "section": "appearance",
+    "label": "Sync system accent",
+    "group": "Wallpaper theming",
+    "kind": "toggle"
+  },
+  {
+    "path": "appearance.wallpaperTheming.syncWindowsTerminal",
+    "section": "appearance",
+    "label": "Sync windows terminal",
+    "group": "Wallpaper theming",
+    "kind": "toggle"
+  },
+  {
+    "path": "appearance.roundingScale",
+    "section": "appearance",
+    "label": "Rounding scale",
+    "group": "",
+    "kind": "decimal"
+  },
+  {
+    "path": "appearance.fakeScreenRounding",
+    "section": "appearance",
+    "label": "Fake screen rounding",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "appearance.screenRounding",
+    "section": "appearance",
+    "label": "Screen rounding",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "audio.step",
+    "section": "audio",
+    "label": "Step",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "audio.protection.enable",
+    "section": "audio",
+    "label": "Enable",
+    "group": "Protection",
+    "kind": "toggle"
+  },
+  {
+    "path": "audio.protection.maxVolume",
+    "section": "audio",
+    "label": "Max volume",
+    "group": "Protection",
+    "kind": "integer"
+  },
+  {
+    "path": "background.wallpaperPath",
+    "section": "background",
+    "label": "Wallpaper path",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "background.thumbnailPath",
+    "section": "background",
+    "label": "Thumbnail path",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "background.wallpaperAnimation",
+    "section": "background",
+    "label": "Wallpaper animation",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "background.transitionDuration",
+    "section": "background",
+    "label": "Transition duration",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "background.centeredWallpaper",
+    "section": "background",
+    "label": "Centered wallpaper",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.centeredWallpaperShape",
+    "section": "background",
+    "label": "Centered wallpaper shape",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "background.centeredWallpaperSize",
+    "section": "background",
+    "label": "Centered wallpaper size",
+    "group": "",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.parallax.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Parallax",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.parallax.zoom",
+    "section": "background",
+    "label": "Zoom",
+    "group": "Parallax",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.parallax.workspacePan",
+    "section": "background",
+    "label": "Workspace pan",
+    "group": "Parallax",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Widgets",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.grid",
+    "section": "background",
+    "label": "Grid",
+    "group": "Widgets",
+    "kind": "integer"
+  },
+  {
+    "path": "background.widgets.clock.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Clock",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.clock.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Clock",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.clock.x",
+    "section": "background",
+    "label": "X",
+    "group": "Clock",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.clock.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Clock",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.clock.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Clock",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.clock.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Clock",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.media.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Media",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.media.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Media",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.media.x",
+    "section": "background",
+    "label": "X",
+    "group": "Media",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.media.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Media",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.media.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Media",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.media.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Media",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.weather.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Weather",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.weather.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Weather",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.weather.x",
+    "section": "background",
+    "label": "X",
+    "group": "Weather",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.weather.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Weather",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.weather.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Weather",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.weather.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Weather",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.resources.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Resources",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.resources.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Resources",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.resources.x",
+    "section": "background",
+    "label": "X",
+    "group": "Resources",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.resources.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Resources",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.resources.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Resources",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.resources.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Resources",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.calendar.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Calendar",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.calendar.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Calendar",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.calendar.x",
+    "section": "background",
+    "label": "X",
+    "group": "Calendar",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.calendar.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Calendar",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.calendar.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Calendar",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.calendar.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Calendar",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.userCard.id",
+    "section": "background",
+    "label": "ID",
+    "group": "User card",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.userCard.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "User card",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.userCard.x",
+    "section": "background",
+    "label": "X",
+    "group": "User card",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.userCard.y",
+    "section": "background",
+    "label": "Y",
+    "group": "User card",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.userCard.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "User card",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.userCard.style",
+    "section": "background",
+    "label": "Style",
+    "group": "User card",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.notes.id",
+    "section": "background",
+    "label": "ID",
+    "group": "Notes",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.notes.enable",
+    "section": "background",
+    "label": "Enable",
+    "group": "Notes",
+    "kind": "toggle"
+  },
+  {
+    "path": "background.widgets.notes.x",
+    "section": "background",
+    "label": "X",
+    "group": "Notes",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.notes.y",
+    "section": "background",
+    "label": "Y",
+    "group": "Notes",
+    "kind": "decimal"
+  },
+  {
+    "path": "background.widgets.notes.placementStrategy",
+    "section": "background",
+    "label": "Placement strategy",
+    "group": "Notes",
+    "kind": "text"
+  },
+  {
+    "path": "background.widgets.notes.style",
+    "section": "background",
+    "label": "Style",
+    "group": "Notes",
+    "kind": "text"
+  },
+  {
+    "path": "bar.enable",
+    "section": "bar",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.bottom",
+    "section": "bar",
+    "label": "Bottom",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.vertical",
+    "section": "bar",
+    "label": "Vertical",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.height",
+    "section": "bar",
+    "label": "Height",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "bar.reserveSpace",
+    "section": "bar",
+    "label": "Reserve space",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.autoHide",
+    "section": "bar",
+    "label": "Auto hide",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.style",
+    "section": "bar",
+    "label": "Style",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "bar.left",
+    "section": "bar",
+    "label": "Left",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "bar.center",
+    "section": "bar",
+    "label": "Center",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "bar.right",
+    "section": "bar",
+    "label": "Right",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "bar.showFrame",
+    "section": "bar",
+    "label": "Show frame",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "bar.frameThickness",
+    "section": "bar",
+    "label": "Frame thickness",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "bar.frameColor",
+    "section": "bar",
+    "label": "Frame color",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "capture.enable",
+    "section": "capture",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "capture.savePath",
+    "section": "capture",
+    "label": "Save path",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "capture.copyToClipboard",
+    "section": "capture",
+    "label": "Copy to clipboard",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "capture.ocrLanguage",
+    "section": "capture",
+    "label": "OCR language",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "desktopMenu.enable",
+    "section": "desktopMenu",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.changeWallpaper",
+    "section": "desktopMenu",
+    "label": "Change wallpaper",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.nextWallpaper",
+    "section": "desktopMenu",
+    "label": "Next wallpaper",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.editWidgets",
+    "section": "desktopMenu",
+    "label": "Edit widgets",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.overview",
+    "section": "desktopMenu",
+    "label": "Overview",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.screenshot",
+    "section": "desktopMenu",
+    "label": "Screenshot",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.session",
+    "section": "desktopMenu",
+    "label": "Session",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.displaySettings",
+    "section": "desktopMenu",
+    "label": "Display settings",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "desktopMenu.personalise",
+    "section": "desktopMenu",
+    "label": "Personalise",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.enable",
+    "section": "dock",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.height",
+    "section": "dock",
+    "label": "Height",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "dock.iconSize",
+    "section": "dock",
+    "label": "Icon size",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "dock.pinnedApps",
+    "section": "dock",
+    "label": "Pinned apps",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "dock.ignored",
+    "section": "dock",
+    "label": "Ignored",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "dock.showBackground",
+    "section": "dock",
+    "label": "Show background",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.showPinButton",
+    "section": "dock",
+    "label": "Show pin button",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.showMedia",
+    "section": "dock",
+    "label": "Show media",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.autoHide",
+    "section": "dock",
+    "label": "Auto hide",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "dock.hoverRegionHeight",
+    "section": "dock",
+    "label": "Hover region height",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "dock.pinnedOnStartup",
+    "section": "dock",
+    "label": "Pinned on startup",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "hacks.configReloadDelay",
+    "section": "hacks",
+    "label": "Config reload delay",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "hacks.desktopMenu",
+    "section": "hacks",
+    "label": "Desktop menu",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "keybinds.enable",
+    "section": "keybinds",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "keybinds.overview",
+    "section": "keybinds",
+    "label": "Overview",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.sidebarLeft",
+    "section": "keybinds",
+    "label": "Sidebar left",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.sidebarRight",
+    "section": "keybinds",
+    "label": "Sidebar right",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.wallpaperSelector",
+    "section": "keybinds",
+    "label": "Wallpaper selector",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.widgetEditMode",
+    "section": "keybinds",
+    "label": "Widget edit mode",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.captureRegion",
+    "section": "keybinds",
+    "label": "Capture region",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.captureOcr",
+    "section": "keybinds",
+    "label": "Capture OCR",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.captureTranslate",
+    "section": "keybinds",
+    "label": "Capture translate",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.session",
+    "section": "keybinds",
+    "label": "Session",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.desktopMenu",
+    "section": "keybinds",
+    "label": "Desktop menu",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.shelf",
+    "section": "keybinds",
+    "label": "Shelf",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "keybinds.overlay",
+    "section": "keybinds",
+    "label": "Overlay",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "language.ui",
+    "section": "language",
+    "label": "UI",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "notifications.enable",
+    "section": "notifications",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "notifications.timeout",
+    "section": "notifications",
+    "label": "Timeout",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "notifications.position",
+    "section": "notifications",
+    "label": "Position",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "notifications.maxVisible",
+    "section": "notifications",
+    "label": "Max visible",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "notifications.doNotDisturb",
+    "section": "notifications",
+    "label": "Do not disturb",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "notifications.width",
+    "section": "notifications",
+    "label": "Width",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "osd.enable",
+    "section": "osd",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "osd.timeout",
+    "section": "osd",
+    "label": "Timeout",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "osd.position",
+    "section": "osd",
+    "label": "Position",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "osd.volume",
+    "section": "osd",
+    "label": "Volume",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "osd.brightness",
+    "section": "osd",
+    "label": "Brightness",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overlay.enable",
+    "section": "overlay",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overlay.darkenScreen",
+    "section": "overlay",
+    "label": "Darken screen",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overlay.clickthroughOpacity",
+    "section": "overlay",
+    "label": "Clickthrough opacity",
+    "group": "",
+    "kind": "decimal"
+  },
+  {
+    "path": "overlay.crosshair.code",
+    "section": "overlay",
+    "label": "Code",
+    "group": "Crosshair",
+    "kind": "text"
+  },
+  {
+    "path": "overview.enable",
+    "section": "overview",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overview.maxResults",
+    "section": "overview",
+    "label": "Max results",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "overview.searchEngine",
+    "section": "overview",
+    "label": "Search engine",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "overview.showWindows",
+    "section": "overview",
+    "label": "Show windows",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overview.showApps",
+    "section": "overview",
+    "label": "Show apps",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "overview.allowRunCommand",
+    "section": "overview",
+    "label": "Allow run command",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "policies.ai",
+    "section": "policies",
+    "label": "AI",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "policies.weeb",
+    "section": "policies",
+    "label": "Weeb",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "resources.pollInterval",
+    "section": "resources",
+    "label": "Poll interval",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "resources.showSwap",
+    "section": "resources",
+    "label": "Show swap",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.enable",
+    "section": "session",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.lock",
+    "section": "session",
+    "label": "Lock",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.sleep",
+    "section": "session",
+    "label": "Sleep",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.hibernate",
+    "section": "session",
+    "label": "Hibernate",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.logOut",
+    "section": "session",
+    "label": "Log out",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.restart",
+    "section": "session",
+    "label": "Restart",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.shutDown",
+    "section": "session",
+    "label": "Shut down",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "session.force",
+    "section": "session",
+    "label": "Force",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "shelf.enable",
+    "section": "shelf",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "shelf.edge",
+    "section": "shelf",
+    "label": "Edge",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "shelf.width",
+    "section": "shelf",
+    "label": "Width",
+    "group": "",
+    "kind": "decimal"
+  },
+  {
+    "path": "shelf.maxItems",
+    "section": "shelf",
+    "label": "Max items",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "shelf.clearAfterDrag",
+    "section": "shelf",
+    "label": "Clear after drag",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.width",
+    "section": "sidebar",
+    "label": "Width",
+    "group": "",
+    "kind": "decimal"
+  },
+  {
+    "path": "sidebar.banner",
+    "section": "sidebar",
+    "label": "Banner",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.bannerImage",
+    "section": "sidebar",
+    "label": "Banner image",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.mediaPlayer",
+    "section": "sidebar",
+    "label": "Media player",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.notificationCentre",
+    "section": "sidebar",
+    "label": "Notification centre",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.profile.displayName",
+    "section": "sidebar",
+    "label": "Display name",
+    "group": "Profile",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.profile.avatarPath",
+    "section": "sidebar",
+    "label": "Avatar path",
+    "group": "Profile",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.quickToggles.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Quick toggles",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.quickToggles.style",
+    "section": "sidebar",
+    "label": "Style",
+    "group": "Quick toggles",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.quickSliders.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Quick sliders",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.quickSliders.showBrightness",
+    "section": "sidebar",
+    "label": "Show brightness",
+    "group": "Quick sliders",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.quickSliders.showVolume",
+    "section": "sidebar",
+    "label": "Show volume",
+    "group": "Quick sliders",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.quickSliders.showMic",
+    "section": "sidebar",
+    "label": "Show mic",
+    "group": "Quick sliders",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.nightLight.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Night light",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.nightLight.temperature",
+    "section": "sidebar",
+    "label": "Temperature",
+    "group": "Night light",
+    "kind": "integer"
+  },
+  {
+    "path": "sidebar.nightLight.automatic",
+    "section": "sidebar",
+    "label": "Automatic",
+    "group": "Night light",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.nightLight.from",
+    "section": "sidebar",
+    "label": "From",
+    "group": "Night light",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.nightLight.to",
+    "section": "sidebar",
+    "label": "To",
+    "group": "Night light",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.left.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Left",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.left.width",
+    "section": "sidebar",
+    "label": "Width",
+    "group": "Left",
+    "kind": "decimal"
+  },
+  {
+    "path": "sidebar.left.translator.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Translator",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.left.translator.delay",
+    "section": "sidebar",
+    "label": "Delay",
+    "group": "Translator",
+    "kind": "integer"
+  },
+  {
+    "path": "sidebar.left.translator.from",
+    "section": "sidebar",
+    "label": "From",
+    "group": "Translator",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.left.translator.to",
+    "section": "sidebar",
+    "label": "To",
+    "group": "Translator",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.left.media.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Media",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.left.booru.provider",
+    "section": "sidebar",
+    "label": "Provider",
+    "group": "Booru",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.left.booru.allowAdult",
+    "section": "sidebar",
+    "label": "Allow adult",
+    "group": "Booru",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.left.booru.perPage",
+    "section": "sidebar",
+    "label": "Per page",
+    "group": "Booru",
+    "kind": "integer"
+  },
+  {
+    "path": "sidebar.cornerOpen.enable",
+    "section": "sidebar",
+    "label": "Enable",
+    "group": "Corner open",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.cornerOpen.bottom",
+    "section": "sidebar",
+    "label": "Bottom",
+    "group": "Corner open",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.cornerOpen.valueScroll",
+    "section": "sidebar",
+    "label": "Value scroll",
+    "group": "Corner open",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.cornerOpen.clickless",
+    "section": "sidebar",
+    "label": "Clickless",
+    "group": "Corner open",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.cornerOpen.cornerRegionWidth",
+    "section": "sidebar",
+    "label": "Corner region width",
+    "group": "Corner open",
+    "kind": "integer"
+  },
+  {
+    "path": "sidebar.cornerOpen.cornerRegionHeight",
+    "section": "sidebar",
+    "label": "Corner region height",
+    "group": "Corner open",
+    "kind": "integer"
+  },
+  {
+    "path": "sidebar.cornerOpen.visualize",
+    "section": "sidebar",
+    "label": "Visualize",
+    "group": "Corner open",
+    "kind": "toggle"
+  },
+  {
+    "path": "sidebar.cornerOpen.topLeftAction",
+    "section": "sidebar",
+    "label": "Top left action",
+    "group": "Corner open",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.cornerOpen.topRightAction",
+    "section": "sidebar",
+    "label": "Top right action",
+    "group": "Corner open",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.cornerOpen.bottomLeftAction",
+    "section": "sidebar",
+    "label": "Bottom left action",
+    "group": "Corner open",
+    "kind": "text"
+  },
+  {
+    "path": "sidebar.cornerOpen.bottomRightAction",
+    "section": "sidebar",
+    "label": "Bottom right action",
+    "group": "Corner open",
+    "kind": "text"
+  },
+  {
+    "path": "time.format",
+    "section": "time",
+    "label": "Format",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "time.dateFormat",
+    "section": "time",
+    "label": "Date format",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "time.weekStartsOnMonday",
+    "section": "time",
+    "label": "Week starts on monday",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "wallpaperSelector.userPath",
+    "section": "wallpaperSelector",
+    "label": "User path",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "wallpaperSelector.columns",
+    "section": "wallpaperSelector",
+    "label": "Columns",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "wallpaperSelector.showSearchbar",
+    "section": "wallpaperSelector",
+    "label": "Show searchbar",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "wallpaperSelector.closeAfterSelection",
+    "section": "wallpaperSelector",
+    "label": "Close after selection",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "wallpaperSelector.changeInterval",
+    "section": "wallpaperSelector",
+    "label": "Change interval",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "wallpaperSelector.extensions",
+    "section": "wallpaperSelector",
+    "label": "Extensions",
+    "group": "",
+    "kind": "textList"
+  },
+  {
+    "path": "wallpaperSelector.online.enable",
+    "section": "wallpaperSelector",
+    "label": "Enable",
+    "group": "Online",
+    "kind": "toggle"
+  },
+  {
+    "path": "wallpaperSelector.online.defaultProvider",
+    "section": "wallpaperSelector",
+    "label": "Default provider",
+    "group": "Online",
+    "kind": "text"
+  },
+  {
+    "path": "wallpaperSelector.online.resolution",
+    "section": "wallpaperSelector",
+    "label": "Resolution",
+    "group": "Online",
+    "kind": "text"
+  },
+  {
+    "path": "wallpaperSelector.online.purity",
+    "section": "wallpaperSelector",
+    "label": "Purity",
+    "group": "Online",
+    "kind": "text"
+  },
+  {
+    "path": "wallpaperSelector.online.category",
+    "section": "wallpaperSelector",
+    "label": "Category",
+    "group": "Online",
+    "kind": "text"
+  },
+  {
+    "path": "wallpaperSelector.online.downloadPath",
+    "section": "wallpaperSelector",
+    "label": "Download path",
+    "group": "Online",
+    "kind": "text"
+  },
+  {
+    "path": "weather.enable",
+    "section": "weather",
+    "label": "Enable",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "weather.city",
+    "section": "weather",
+    "label": "City",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "weather.useUscUnits",
+    "section": "weather",
+    "label": "Use usc units",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "weather.refreshInterval",
+    "section": "weather",
+    "label": "Refresh interval",
+    "group": "",
+    "kind": "integer"
+  },
+  {
+    "path": "windows.windowManager",
+    "section": "windows",
+    "label": "Window manager",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "windows.glazewm.port",
+    "section": "windows",
+    "label": "Port",
+    "group": "GlazeWM",
+    "kind": "integer"
+  },
+  {
+    "path": "windows.komorebi.pipeName",
+    "section": "windows",
+    "label": "Pipe name",
+    "group": "komorebi",
+    "kind": "text"
+  },
+  {
+    "path": "windows.hideSystemTaskbar",
+    "section": "windows",
+    "label": "Hide system taskbar",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "windows.startWithWindows",
+    "section": "windows",
+    "label": "Start with windows",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "windows.backdrop",
+    "section": "windows",
+    "label": "Backdrop",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "workSafety.blankWallpaper",
+    "section": "workSafety",
+    "label": "Blank wallpaper",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
+    "path": "workSafety.keywords",
+    "section": "workSafety",
+    "label": "Keywords",
+    "group": "",
+    "kind": "textList"
+  }
+]

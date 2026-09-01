@@ -33,6 +33,8 @@ export type { DropOutcome } from "./generated/DropOutcome";
 export type { Edge } from "./generated/Edge";
 export type { Entry } from "./generated/Entry";
 export type { FakeRounding } from "./generated/FakeRounding";
+export type { Field } from "./generated/Field";
+export type { FieldKind } from "./generated/FieldKind";
 export type { Fonts } from "./generated/Fonts";
 export type { GeneratedTheme } from "./generated/GeneratedTheme";
 export type { GlazeWm } from "./generated/GlazeWm";
