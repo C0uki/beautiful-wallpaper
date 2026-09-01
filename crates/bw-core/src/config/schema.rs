@@ -64,6 +64,7 @@ config_struct! {
         pub language: Language = Language::default(),
         pub notifications: Notifications = Notifications::default(),
         pub osd: Osd = Osd::default(),
+        pub overlay: Overlay = Overlay::default(),
         pub overview: Overview = Overview::default(),
         pub policies: Policies = Policies::default(),
         pub resources: Resources = Resources::default(),
@@ -376,6 +377,30 @@ config_struct! {
         /// chat and then into a folder — and the second one would have
         /// nothing to drag.
         pub clear_after_drag: bool = false,
+    }
+}
+
+config_struct! {
+    /// The floating overlay: a canvas of small widgets over everything else.
+    pub struct Overlay {
+        pub enable: bool = true,
+        /// Darken what is behind while the overlay is open.
+        pub darken_screen: bool = true,
+        /// How solid a widget looks once the pointer passes through it —
+        /// visibly different, so "pinned and clickable" is not mistaken for
+        /// "pinned and not".
+        pub clickthrough_opacity: f64 = 0.8,
+        pub crosshair: CrosshairOptions = CrosshairOptions::default(),
+    }
+}
+
+config_struct! {
+    /// The overlay's crosshair.
+    pub struct CrosshairOptions {
+        /// A Valorant crosshair share code. Paste one from the game or from a
+        /// builder site — https://www.vcrdb.net/builder — rather than typing
+        /// twenty numbers in by hand.
+        pub code: String = s("0;P;d;1;0l;10;0o;2;1b;0"),
     }
 }
 

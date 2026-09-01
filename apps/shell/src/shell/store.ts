@@ -121,6 +121,33 @@ const initial: ShellState = {
   persistent: {
     sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
     idle: { inhibit: false },
+    overlay: {
+      open: ["crosshair", "resources"],
+      crosshair: {
+        pinned: false,
+        clickthrough: true,
+        x: 928,
+        y: 508,
+        width: 0,
+        height: 0,
+      },
+      notes: {
+        pinned: false,
+        clickthrough: false,
+        x: 80,
+        y: 120,
+        width: 0,
+        height: 0,
+      },
+      resources: {
+        pinned: false,
+        clickthrough: false,
+        x: 80,
+        y: 380,
+        width: 0,
+        height: 0,
+      },
+    },
   },
   systemInfo: null,
   dock: [],

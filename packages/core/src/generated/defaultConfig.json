@@ -201,6 +201,14 @@
     "volume": true,
     "brightness": true
   },
+  "overlay": {
+    "enable": true,
+    "darkenScreen": true,
+    "clickthroughOpacity": 0.8,
+    "crosshair": {
+      "code": "0;P;d;1;0l;10;0o;2;1b;0"
+    }
+  },
   "overview": {
     "enable": true,
     "maxResults": 8,

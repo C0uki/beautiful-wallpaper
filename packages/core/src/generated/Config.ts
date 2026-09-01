@@ -12,6 +12,7 @@ import type { Keybinds } from "./Keybinds";
 import type { Language } from "./Language";
 import type { Notifications } from "./Notifications";
 import type { Osd } from "./Osd";
+import type { Overlay } from "./Overlay";
 import type { Overview } from "./Overview";
 import type { Policies } from "./Policies";
 import type { Resources } from "./Resources";
@@ -41,6 +42,7 @@ export type Config = {
   language: Language;
   notifications: Notifications;
   osd: Osd;
+  overlay: Overlay;
   overview: Overview;
   policies: Policies;
   resources: Resources;
