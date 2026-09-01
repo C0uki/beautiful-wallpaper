@@ -125,6 +125,7 @@ fn action_for(binding: &str) -> Option<Bound> {
         "desktopMenu" => Some(Bound::Menu),
         "shelf" => Some(Bound::Flag("shelfOpen")),
         "overlay" => Some(Bound::Flag("overlayOpen")),
+        "settings" => Some(Bound::Flag("settingsOpen")),
         _ => None,
     }
 }

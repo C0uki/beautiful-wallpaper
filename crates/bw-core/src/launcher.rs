@@ -161,6 +161,10 @@ pub const ACTIONS: &[Action] = &[
         keyword: "overlay",
         symbol: "layers",
     },
+    Action {
+        keyword: "settings",
+        symbol: "settings",
+    },
 ];
 
 /// How a query is being read.

@@ -317,6 +317,7 @@ config_struct! {
         pub desktop_menu: String = s("Super+Shift+M"),
         pub shelf: String = s("Super+Shift+D"),
         pub overlay: String = s("Super+Shift+O"),
+        pub settings: String = s("Super+Shift+S"),
     }
 }
 

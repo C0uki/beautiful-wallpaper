@@ -40,4 +40,5 @@ export type Keybinds = {
   desktopMenu: string;
   shelf: string;
   overlay: string;
+  settings: string;
 };

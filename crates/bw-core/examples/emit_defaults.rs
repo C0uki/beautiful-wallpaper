@@ -3,11 +3,14 @@
 //!
 //! `cargo run -p bw-core --example emit_defaults -- <directory>`
 //!
-//! Two files come out. `defaultConfig.json` is what the mock backend and the
+//! Three files come out. `defaultConfig.json` is what the mock backend and the
 //! settings UI start from. `launcherActions.json` is the list of `/` keywords
 //! the launcher offers — the frontend has to know what each one *does*, and a
 //! keyword added here with nothing behind it there is a row that appears in
-//! the list and does nothing when it is chosen.
+//! the list and does nothing when it is chosen. `configSchema.json` is every
+//! editable value with its type, which is what the settings screen builds its
+//! form from: a key added to the schema gets a control without anybody having
+//! to remember to add one.
 
 fn main() {
     let target = std::env::args()
@@ -29,6 +32,12 @@ fn main() {
     write(
         &directory.join("launcherActions.json"),
         &serde_json::to_string_pretty(&keywords).expect("keywords are serialisable"),
+    );
+
+    write(
+        &directory.join("configSchema.json"),
+        &serde_json::to_string_pretty(&bw_core::settings::fields())
+            .expect("the schema is serialisable"),
     );
 }
 
