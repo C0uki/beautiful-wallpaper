@@ -16,7 +16,7 @@ use crate::services;
 use crate::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
     DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
-    NotificationStore, PersistentStore, ShelfStore, TodoStore, VolumeHandle,
+    NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
@@ -1891,4 +1891,68 @@ pub async fn search_booru(
         allow_adult: settings.allow_adult,
     })
     .await
+}
+
+// --- Presets ----------------------------------------------------------------
+
+#[tauri::command]
+pub fn get_presets() -> Vec<bw_core::preset::PresetSummary> {
+    services::preset::list()
+}
+
+/// Saves the live config under a name.
+///
+/// `overwrite` is asked for rather than assumed: a preset is something
+/// somebody built deliberately, and replacing a file has no undo. The screen
+/// offers it again as "Replace" once it knows the name is taken.
+#[tauri::command]
+pub fn save_preset(
+    state: State<'_, AppState>,
+    name: String,
+    description: String,
+    overwrite: bool,
+) -> Result<Vec<bw_core::preset::PresetSummary>, String> {
+    services::preset::save(&state, &name, &description, overwrite)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn remove_preset(name: String) -> Result<Vec<bw_core::preset::PresetSummary>, String> {
+    services::preset::remove(&name).map_err(|error| error.to_string())
+}
+
+/// What applying this preset would change — the list shown before Apply.
+#[tauri::command]
+pub fn compare_preset(
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<bw_core::preset::Comparison, String> {
+    services::preset::compare(&state, &name).map_err(|error| error.to_string())
+}
+
+/// Applies the changes named in `paths`, which is what `compare_preset`
+/// offered minus anything the user unticked.
+#[tauri::command]
+pub fn apply_preset(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    paths: Vec<String>,
+) -> Result<Config, String> {
+    services::preset::apply(&app, &state, &name, &paths).map_err(|error| error.to_string())
+}
+
+/// Whether there is a config to put back.
+///
+/// Asked rather than remembered by the screen: the two would disagree the
+/// moment the surface reloaded, and a disabled undo button that should work is
+/// as bad as an enabled one that does not.
+#[tauri::command]
+pub fn has_preset_undo(undo: State<'_, PresetUndo>) -> bool {
+    undo.is_held()
+}
+
+#[tauri::command]
+pub fn undo_preset(app: AppHandle, state: State<'_, AppState>) -> Result<Config, String> {
+    services::preset::undo(&app, &state)
 }

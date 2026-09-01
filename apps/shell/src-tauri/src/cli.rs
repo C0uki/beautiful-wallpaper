@@ -27,6 +27,10 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw settings toggle|open|close          the settings screen
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
+  bw preset list                         the saved configurations
+  bw preset save <name> [description]    save the config under a name
+  bw preset apply <name>                 put a saved configuration back
+  bw preset remove <name>                delete one
   bw --help                              this message
 ";
 
@@ -45,6 +49,17 @@ pub fn run(arguments: &[String]) -> i32 {
             println!("beautiful-wallpaper {}", crate::version());
             0
         }
+        Some("preset") => match handle_preset_offline(&arguments[1..]) {
+            Ok(Some(output)) => {
+                println!("{output}");
+                0
+            }
+            Ok(None) => 0,
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
+        },
         Some("config") => match handle_config_offline(&arguments[1..]) {
             Ok(Some(output)) => {
                 println!("{output}");
@@ -136,6 +151,48 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
             let _ = app.emit(event::CONFIG_CHANGED, &updated);
             Ok(())
         }
+        ("preset", "list") => {
+            for summary in services::preset::list() {
+                println!("{}", summary.name);
+            }
+            Ok(())
+        }
+        ("preset", "save") => {
+            let name = rest
+                .first()
+                .ok_or_else(|| "`preset save` needs a name".to_owned())?;
+            let description = rest.get(1..).unwrap_or_default().join(" ");
+            // Overwriting: the confirmation the settings screen asks for has
+            // nowhere to happen on a command line, and a caller that typed the
+            // name twice meant it.
+            services::preset::save(&state, name, &description, true)
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        }
+        ("preset", "apply") => {
+            let name = rest
+                .first()
+                .ok_or_else(|| "`preset apply` needs a name".to_owned())?;
+            // Everything the preset changes, since there is no list here to
+            // untick anything from.
+            let paths: Vec<String> = services::preset::compare(&state, name)
+                .map_err(|error| error.to_string())?
+                .changes
+                .into_iter()
+                .map(|change| change.path)
+                .collect();
+            services::preset::apply(app, &state, name, &paths)
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        }
+        ("preset", "remove") => {
+            let name = rest
+                .first()
+                .ok_or_else(|| "`preset remove` needs a name".to_owned())?;
+            services::preset::remove(name)
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        }
         _ => Err(format!("no IPC target `{target} {function}`")),
     }
 }
@@ -188,6 +245,77 @@ fn handle_config_offline(arguments: &[String]) -> Result<Option<String>, String>
             let updated: bw_core::Config =
                 serde_json::from_value(json).map_err(|error| error.to_string())?;
             bw_core::config::save(&path, &updated).map_err(|error| error.to_string())?;
+            Ok(None)
+        }
+        _ => Err(USAGE.to_owned()),
+    }
+}
+
+/// `preset` works without a running shell: a preset is a file, and applying one
+/// is a config edit, both of which the offline path already does.
+///
+/// What it cannot do is the part that needs a live shell — telling Windows
+/// about a new wallpaper, regenerating the palette, re-registering hotkeys.
+/// Those happen when the shell next starts and reads the config it wrote.
+fn handle_preset_offline(arguments: &[String]) -> Result<Option<String>, String> {
+    let folder = bw_core::paths::presets_dir();
+    let name = || -> Result<&String, String> {
+        arguments
+            .get(1)
+            .ok_or_else(|| "that needs a preset name".to_owned())
+    };
+
+    match arguments.first().map(String::as_str) {
+        Some("list") => {
+            let listed: Vec<String> = bw_core::preset::list(&folder)
+                .into_iter()
+                // A preset that will not parse is named with its reason rather
+                // than left out: the file is still there, and only saying so
+                // tells anybody that.
+                .map(|summary| match summary.problem {
+                    Some(problem) => format!("{} — {problem}", summary.name),
+                    None => summary.name,
+                })
+                .collect();
+            // Nothing at all rather than a blank line.
+            Ok((!listed.is_empty()).then(|| listed.join("\n")))
+        }
+        Some("save") => {
+            let path = bw_core::paths::config_file();
+            let config = bw_core::config::load(&path).map_err(|error| error.to_string())?;
+            let description = arguments.get(2..).unwrap_or_default().join(" ");
+            bw_core::preset::save(
+                &folder,
+                name()?,
+                &description,
+                &serde_json::to_value(&config).expect("config is serialisable"),
+                true,
+            )
+            .map_err(|error| error.to_string())?;
+            Ok(None)
+        }
+        Some("apply") => {
+            let path = bw_core::paths::config_file();
+            let config = bw_core::config::load(&path).map_err(|error| error.to_string())?;
+            let stored =
+                bw_core::preset::load(&folder, name()?).map_err(|error| error.to_string())?;
+
+            let mut json = serde_json::to_value(&config).expect("config is serialisable");
+            let paths: Vec<String> = bw_core::preset::compare(&json, &stored.config)
+                .changes
+                .into_iter()
+                .map(|change| change.path)
+                .collect();
+            bw_core::preset::apply(&mut json, &stored.config, &paths)
+                .map_err(|error| error.to_string())?;
+
+            let updated: bw_core::Config =
+                serde_json::from_value(json).map_err(|error| error.to_string())?;
+            bw_core::config::save(&path, &updated).map_err(|error| error.to_string())?;
+            Ok(None)
+        }
+        Some("remove") => {
+            bw_core::preset::remove(&folder, name()?).map_err(|error| error.to_string())?;
             Ok(None)
         }
         _ => Err(USAGE.to_owned()),
