@@ -1,4 +1,11 @@
-import { Command, Event, type Config, type Persistent } from "@bw/core";
+import {
+  Command,
+  Event,
+  type Comparison,
+  type Config,
+  type Persistent,
+  type PresetSummary,
+} from "@bw/core";
 import { describe, expect, it } from "vitest";
 import { mockBackend } from "./mock";
 
@@ -406,6 +413,79 @@ describe("the mock backend", () => {
       second.items.some((other) => other.id === item.id),
     );
     expect(overlap).toHaveLength(0);
+  });
+
+  it("saving a preset takes the config as it is now", async () => {
+    const backend = mockBackend();
+    await backend.invoke(Command.SetConfigValue, {
+      path: "bar.style",
+      value: "islands",
+    });
+    const saved = await backend.invoke<PresetSummary[]>(Command.SavePreset, {
+      name: "Mine",
+      description: "as it stands",
+      overwrite: false,
+    });
+
+    expect(saved.map((preset) => preset.name)).toContain("Mine");
+    const comparison = await backend.invoke<Comparison>(Command.ComparePreset, {
+      name: "Mine",
+    });
+    expect(comparison.changes, "it is the config it was saved from").toEqual(
+      [],
+    );
+  });
+
+  it("refuses a name already taken unless told to replace it", async () => {
+    const backend = mockBackend();
+    await expect(
+      backend.invoke(Command.SavePreset, {
+        name: "midnight",
+        description: "",
+        overwrite: false,
+      }),
+      // `Midnight` exists, and Windows would treat these as one file.
+    ).rejects.toThrow(/already/);
+
+    const after = await backend.invoke<PresetSummary[]>(Command.SavePreset, {
+      name: "midnight",
+      description: "replaced",
+      overwrite: true,
+    });
+    expect(
+      after.filter((preset) => /midnight/i.test(preset.name)),
+    ).toHaveLength(1);
+  });
+
+  it("applies only the settings it was given, and can put them back", async () => {
+    const backend = mockBackend();
+    const before = await backend.invoke<Config>(Command.GetConfig);
+    const comparison = await backend.invoke<Comparison>(Command.ComparePreset, {
+      name: "Midnight",
+    });
+    expect(comparison.changes.length).toBeGreaterThan(1);
+
+    const after = await backend.invoke<Config>(Command.ApplyPreset, {
+      name: "Midnight",
+      paths: ["bar.style"],
+    });
+    expect(after.bar.style).toBe("float");
+    expect(after.bar.height, "an unticked change is not written").toBe(
+      before.bar.height,
+    );
+
+    expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(true);
+    const back = await backend.invoke<Config>(Command.UndoPreset);
+    expect(back.bar.style).toBe(before.bar.style);
+    // Taken rather than kept: pressing undo twice must not redo.
+    expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(false);
+  });
+
+  it("will not compare a preset it cannot read", async () => {
+    const backend = mockBackend();
+    await expect(
+      backend.invoke(Command.ComparePreset, { name: "Bent" }),
+    ).rejects.toThrow(/not a preset/);
   });
 
   it("rejects a command it does not implement, rather than resolving undefined", async () => {

@@ -6,5 +6,6 @@ pub mod config;
 pub mod deskmenu;
 pub mod hotkeys;
 pub mod overlay;
+pub mod preset;
 pub mod theme;
 pub mod wallpaper;

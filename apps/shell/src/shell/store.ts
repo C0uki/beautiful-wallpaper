@@ -55,6 +55,8 @@ import {
   type OverlayLayout,
   type OverlayWidget,
   type Crosshair,
+  type PresetSummary,
+  type Comparison,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -636,5 +638,35 @@ export const actions = {
       path,
       value,
     });
+  },
+  presets() {
+    return backend().invoke<PresetSummary[]>(Command.GetPresets);
+  },
+  /** Saves the live config under a name. Refuses a name already taken unless
+   * `overwrite`, so the screen can offer to replace it rather than doing it. */
+  savePreset(name: string, description: string, overwrite = false) {
+    return backend().invoke<PresetSummary[]>(Command.SavePreset, {
+      name,
+      description,
+      overwrite,
+    });
+  },
+  removePreset(name: string) {
+    return backend().invoke<PresetSummary[]>(Command.RemovePreset, { name });
+  },
+  /** What applying this preset would change, before anything is written. */
+  comparePreset(name: string) {
+    return backend().invoke<Comparison>(Command.ComparePreset, { name });
+  },
+  /** Applies the named changes — what `comparePreset` offered, minus whatever
+   * the user unticked. */
+  applyPreset(name: string, paths: string[]) {
+    return backend().invoke<Config>(Command.ApplyPreset, { name, paths });
+  },
+  hasPresetUndo() {
+    return backend().invoke<boolean>(Command.HasPresetUndo);
+  },
+  undoPreset() {
+    return backend().invoke<Config>(Command.UndoPreset);
   },
 };

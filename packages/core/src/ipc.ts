@@ -193,6 +193,13 @@ export const Command = {
   GetOverlayLayout: "get_overlay_layout",
   GetCrosshair: "get_crosshair",
   ToggleOverlayWidget: "toggle_overlay_widget",
+  GetPresets: "get_presets",
+  SavePreset: "save_preset",
+  RemovePreset: "remove_preset",
+  ComparePreset: "compare_preset",
+  ApplyPreset: "apply_preset",
+  HasPresetUndo: "has_preset_undo",
+  UndoPreset: "undo_preset",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */

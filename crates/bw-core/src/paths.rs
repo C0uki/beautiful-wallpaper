@@ -32,6 +32,14 @@ pub fn config_file() -> PathBuf {
     config_dir().join("config.json")
 }
 
+/// Saved configurations, beside the config they are copies of.
+///
+/// Roaming rather than local: a preset is worth carrying to another machine,
+/// which is most of the point of being able to save one.
+pub fn presets_dir() -> PathBuf {
+    config_dir().join("presets")
+}
+
 /// Runtime state kept separate from settings, as `Persistent.qml` does.
 pub fn state_file() -> PathBuf {
     state_dir().join("state.json")
@@ -76,6 +84,7 @@ mod tests {
     #[test]
     fn every_path_sits_under_its_app_folder() {
         assert!(config_file().starts_with(config_dir()));
+        assert!(presets_dir().starts_with(config_dir()));
         assert!(state_file().starts_with(state_dir()));
         assert!(generated_theme_file().starts_with(state_dir()));
         assert!(thumbnail_dir().starts_with(cache_dir()));

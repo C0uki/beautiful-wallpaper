@@ -32,6 +32,14 @@ describe("the settings pages", () => {
     expect(twice, "sections claimed by more than one page").toEqual([]);
   });
 
+  /// A page that draws itself has nothing generated on it, so a section
+  /// listed there would be a set of settings nobody could reach.
+  it("gives a page that draws itself no sections of its own", () => {
+    for (const page of PAGES.filter((page) => page.custom)) {
+      expect(page.sections, `${page.id} claims sections`).toEqual([]);
+    }
+  });
+
   it("gives every page a distinct id and a title", () => {
     const ids = PAGES.map((page) => page.id);
     expect(new Set(ids).size).toBe(ids.length);

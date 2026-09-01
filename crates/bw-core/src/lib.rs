@@ -25,6 +25,7 @@ pub mod ocr;
 pub mod overlay;
 pub mod paths;
 pub mod persistent;
+pub mod preset;
 pub mod search;
 pub mod session;
 pub mod settings;

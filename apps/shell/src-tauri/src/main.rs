@@ -15,7 +15,7 @@ use bw_shell::services;
 use bw_shell::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
     DesktopMenuHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
-    PersistentStore, ShelfStore, TodoStore, VolumeHandle,
+    PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -151,6 +151,13 @@ fn main() {
             commands::get_overlay_layout,
             commands::get_crosshair,
             commands::toggle_overlay_widget,
+            commands::get_presets,
+            commands::save_preset,
+            commands::remove_preset,
+            commands::compare_preset,
+            commands::apply_preset,
+            commands::has_preset_undo,
+            commands::undo_preset,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -189,6 +196,7 @@ fn main() {
             app.manage(DesktopMenuHandle::default());
             app.manage(ShelfStore::default());
             app.manage(ChromeState::default());
+            app.manage(PresetUndo::default());
             // After the surfaces exist and the state is managed: the hot
             // corners need their window before they can be cut down to size.
             services::chrome::apply(&handle);

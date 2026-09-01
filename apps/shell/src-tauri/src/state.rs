@@ -550,6 +550,34 @@ impl CaptureHandle {
     }
 }
 
+/// The config the last applied preset replaced.
+///
+/// Applying a preset rewrites a couple of hundred settings in one press, which
+/// makes it the most destructive button in the shell; nobody can put that back
+/// by hand. So the config it replaced is kept, and one press restores it.
+///
+/// In memory, and only the most recent one. Persisting it would mean offering
+/// to revert a decision made days ago, which is not an undo — it is a second
+/// preset nobody saved.
+#[derive(Default)]
+pub struct PresetUndo(parking_lot::Mutex<Option<Config>>);
+
+impl PresetUndo {
+    pub fn hold(&self, config: Config) {
+        *self.0.lock() = Some(config);
+    }
+
+    /// Takes the held config, leaving nothing behind — pressing undo twice
+    /// would otherwise redo, from the same button with the same label.
+    pub fn take(&self) -> Option<Config> {
+        self.0.lock().take()
+    }
+
+    pub fn is_held(&self) -> bool {
+        self.0.lock().is_some()
+    }
+}
+
 /// The desktop menu's hook, and where it should open.
 ///
 /// Two things that have to outlive a single command. The hook is only
