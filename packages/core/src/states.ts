@@ -20,6 +20,9 @@ export const StateFlag = {
   OverlayOpen: "overlayOpen",
   /** True while the desktop widgets are being rearranged. */
   WidgetEditMode: "widgetEditMode",
+  /** The first-run screen. Opened by the shell itself on a machine that has
+   * not been through it, and by `bw wizard open` after that. */
+  WizardOpen: "wizardOpen",
 } as const;
 
 export type StateFlagName = (typeof StateFlag)[keyof typeof StateFlag];
@@ -39,6 +42,7 @@ export const defaultStates: GlobalStates = {
   mediaControlsOpen: false,
   overlayOpen: false,
   widgetEditMode: false,
+  wizardOpen: false,
 };
 
 export const stateFlagNames = Object.values(StateFlag);

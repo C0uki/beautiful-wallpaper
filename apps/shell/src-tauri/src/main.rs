@@ -14,8 +14,8 @@ use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
-    DesktopMenuHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
-    PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
+    DesktopMenuHandle, DockHandle, IdleHandle, KeyReport, MicHandle, MixerHandle,
+    NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
@@ -158,6 +158,9 @@ fn main() {
             commands::apply_preset,
             commands::has_preset_undo,
             commands::undo_preset,
+            commands::get_key_report,
+            commands::retry_keys,
+            commands::detect_window_manager,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -197,6 +200,7 @@ fn main() {
             app.manage(ShelfStore::default());
             app.manage(ChromeState::default());
             app.manage(PresetUndo::default());
+            app.manage(KeyReport::default());
             // After the surfaces exist and the state is managed: the hot
             // corners need their window before they can be cut down to size.
             services::chrome::apply(&handle);
@@ -209,8 +213,20 @@ fn main() {
             services::deskmenu::apply(&handle);
 
             // After the surfaces exist, so a key pressed the instant the
-            // shell is up has something to open.
+            // shell is up has something to open. And before the first-run
+            // screen, which shows what Windows refused.
             services::hotkeys::apply(&handle);
+
+            // A machine that has not been through the first run opens it
+            // itself. There is nothing to see past it on a fresh install: no
+            // wallpaper has been chosen, so the palette has no source, and no
+            // key has been proven to work.
+            if !app.state::<PersistentStore>().0.get().first_run.done {
+                if let Some(states) = state.set_state("wizardOpen", true) {
+                    surfaces::apply_states(&handle, &states);
+                    let _ = handle.emit(event::STATE_CHANGED, &states);
+                }
+            }
 
             spawn_providers(handle, state.clone());
             Ok(())

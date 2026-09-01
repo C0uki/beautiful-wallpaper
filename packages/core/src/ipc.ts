@@ -200,6 +200,9 @@ export const Command = {
   ApplyPreset: "apply_preset",
   HasPresetUndo: "has_preset_undo",
   UndoPreset: "undo_preset",
+  GetKeyReport: "get_key_report",
+  RetryKeys: "retry_keys",
+  DetectWindowManager: "detect_window_manager",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
