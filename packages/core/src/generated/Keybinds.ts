@@ -37,8 +37,19 @@ export type Keybinds = {
   captureOcr: string;
   captureTranslate: string;
   session: string;
+  /**
+   * `X` after `Win+X`, which is the closest thing Windows has to this.
+   * Not `Win+Shift+M`, which restores every minimised window.
+   */
   desktopMenu: string;
+  /**
+   * `F` for files, since `Win+Shift+D` is the widget editor's.
+   */
   shelf: string;
   overlay: string;
+  /**
+   * `I` after `Win+I`, which is where Windows keeps its own settings.
+   * Not `Win+Shift+S`, which opens the Snipping Tool.
+   */
   settings: string;
 };

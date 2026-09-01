@@ -18,6 +18,7 @@ pub mod chrome;
 pub mod config;
 pub mod crosshair;
 pub mod dock;
+pub mod keys;
 pub mod launcher;
 pub mod menu;
 pub mod notifications;
