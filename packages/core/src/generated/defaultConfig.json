@@ -28,7 +28,9 @@
       "syncSystemAccent": true,
       "syncWindowsTerminal": false
     },
-    "roundingScale": 1.0
+    "roundingScale": 1.0,
+    "fakeScreenRounding": 2,
+    "screenRounding": 24
   },
   "audio": {
     "step": 5,
@@ -121,7 +123,17 @@
     "style": "m3",
     "left": ["media"],
     "center": ["workspaces", "activeWindow"],
-    "right": ["tray", "resources", "network", "battery", "utilButtons", "clock"]
+    "right": [
+      "tray",
+      "resources",
+      "network",
+      "battery",
+      "utilButtons",
+      "clock"
+    ],
+    "showFrame": false,
+    "frameThickness": 4,
+    "frameColor": "black"
   },
   "capture": {
     "enable": true,
@@ -267,6 +279,19 @@
         "allowAdult": false,
         "perPage": 30
       }
+    },
+    "cornerOpen": {
+      "enable": true,
+      "bottom": false,
+      "valueScroll": true,
+      "clickless": false,
+      "cornerRegionWidth": 250,
+      "cornerRegionHeight": 5,
+      "visualize": false,
+      "topLeftAction": "sidebarLeftOpen",
+      "topRightAction": "sidebarRightOpen",
+      "bottomLeftAction": "sidebarLeftOpen",
+      "bottomRightAction": "sidebarRightOpen"
     }
   },
   "time": {

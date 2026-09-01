@@ -20,4 +20,16 @@ export type Appearance = {
    * Corner rounding multiplier applied to every surface.
    */
   roundingScale: number;
+  /**
+   * Draw rounded corners over the screen's own square ones.
+   *
+   * `0` never, `1` always, `2` only when nothing is full-screen — which
+   * is the default, because four rounded corners over a full-screen
+   * video are four notches cut out of the picture.
+   */
+  fakeScreenRounding: number;
+  /**
+   * The radius of those corners, in pixels.
+   */
+  screenRounding: number;
 };

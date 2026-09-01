@@ -89,6 +89,14 @@ config_struct! {
         pub wallpaper_theming: WallpaperTheming = WallpaperTheming::default(),
         /// Corner rounding multiplier applied to every surface.
         pub rounding_scale: f64 = 1.0,
+        /// Draw rounded corners over the screen's own square ones.
+        ///
+        /// `0` never, `1` always, `2` only when nothing is full-screen — which
+        /// is the default, because four rounded corners over a full-screen
+        /// video are four notches cut out of the picture.
+        pub fake_screen_rounding: u32 = 2,
+        /// The radius of those corners, in pixels.
+        pub screen_rounding: u32 = 24,
     }
 }
 
@@ -230,6 +238,12 @@ config_struct! {
             s("utilButtons"),
             s("clock"),
         ],
+        /// Draw a thin border around the whole screen.
+        pub show_frame: bool = false,
+        pub frame_thickness: u32 = 4,
+        /// A palette role name — `primary`, `surface`, `outline` and so on —
+        /// or any CSS colour. The default is the original's.
+        pub frame_color: String = s("black"),
     }
 }
 
@@ -366,6 +380,39 @@ config_struct! {
 }
 
 config_struct! {
+    /// Throwing the pointer into a corner of the screen to open something.
+    ///
+    /// These are input regions nobody can see, so they are deliberately small
+    /// and deliberately anchored hard into their corners: a strip a few pixels
+    /// out of place is a sidebar that opens when somebody reaches for a
+    /// window's close button.
+    pub struct CornerOpen {
+        pub enable: bool = true,
+        /// Whether the bottom two corners do anything. Off, because the bottom
+        /// of the screen is where the taskbar and the dock already are.
+        pub bottom: bool = false,
+        /// Scrolling on a left corner changes the brightness and on a right
+        /// corner the volume.
+        pub value_scroll: bool = true,
+        /// Open on hover rather than on a click. Faster, and much easier to
+        /// trigger by accident, which is why it is off.
+        pub clickless: bool = false,
+        /// A wide, thin strip rather than a square: what makes a corner
+        /// reachable is being able to throw the pointer at the edge.
+        pub corner_region_width: u32 = 250,
+        pub corner_region_height: u32 = 5,
+        /// Paint the regions, for working out where they actually are.
+        pub visualize: bool = false,
+        /// Which `GlobalStates` flag each corner flips. Empty means the
+        /// corner does nothing and gets no region at all.
+        pub top_left_action: String = s("sidebarLeftOpen"),
+        pub top_right_action: String = s("sidebarRightOpen"),
+        pub bottom_left_action: String = s("sidebarLeftOpen"),
+        pub bottom_right_action: String = s("sidebarRightOpen"),
+    }
+}
+
+config_struct! {
     /// The way out of the session.
     ///
     /// Each button can be switched off, but the order they appear in cannot:
@@ -474,6 +521,7 @@ config_struct! {
         pub quick_sliders: QuickSliders = QuickSliders::default(),
         pub night_light: NightLight = NightLight::default(),
         pub left: LeftSidebar = LeftSidebar::default(),
+        pub corner_open: CornerOpen = CornerOpen::default(),
     }
 }
 
