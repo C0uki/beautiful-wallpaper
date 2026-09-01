@@ -44,6 +44,9 @@ pub mod event {
     /// The screen's decorations should change: something went full-screen, or
     /// the config did. Carries the whole resolved state.
     pub const CHROME: &str = "bw://chrome";
+    /// The overlay's two windows should redraw: it opened, closed, or a widget
+    /// was pinned, moved or taken off. Carries the whole resolved layout.
+    pub const OVERLAY: &str = "bw://overlay";
     /// The session screen has been opened or the machine's power
     /// capabilities changed. Carries nothing; the surface re-asks.
     pub const SESSION: &str = "bw://session";
@@ -695,6 +698,12 @@ pub fn set_persistent_value(
         .set_path(&path, value)
         .map_err(|error| error.to_string())?;
     let _ = app.emit(event::PERSISTENT, &updated);
+
+    // A widget that moved changes the interactive window's region, which is a
+    // property of the window rather than something the page can redraw.
+    if path.starts_with("overlay.") {
+        crate::services::overlay::apply(&app);
+    }
     Ok(updated)
 }
 
@@ -1019,6 +1028,74 @@ fn read_capture(
             ..Default::default()
         },
     }
+}
+
+// --- The floating overlay --------------------------------------------------
+
+/// What each of the overlay's two windows should be drawing.
+#[tauri::command]
+pub fn get_overlay_layout(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    persistent: State<'_, PersistentStore>,
+) -> bw_core::overlay::OverlayLayout {
+    bw_core::overlay::layout(
+        &persistent.0.get().overlay,
+        &state.config().overlay,
+        overlay_screen(&app),
+        state.states().overlay_open,
+    )
+}
+
+/// The crosshair the config's share code describes.
+///
+/// Parsed in Rust rather than the surface: the format is a patch on the game's
+/// defaults with three separate traps in it, and one tested reader is worth
+/// more than two untested ones.
+#[tauri::command]
+pub fn get_crosshair(state: State<'_, AppState>) -> bw_core::crosshair::Crosshair {
+    bw_core::crosshair::parse(&state.config().overlay.crosshair.code)
+}
+
+/// Puts a widget on the canvas, or takes it off.
+#[tauri::command]
+pub fn toggle_overlay_widget(
+    app: AppHandle,
+    persistent: State<'_, PersistentStore>,
+    widget: bw_core::overlay::OverlayWidget,
+) -> Result<bw_core::Persistent, String> {
+    let keyword = widget.keyword().to_owned();
+    let mut open = persistent.0.get().overlay.open;
+
+    if let Some(at) = open.iter().position(|found| found == &keyword) {
+        open.remove(at);
+    } else {
+        open.push(keyword);
+    }
+
+    let updated = persistent
+        .0
+        .set_path(
+            "overlay.open",
+            serde_json::Value::Array(open.into_iter().map(serde_json::Value::String).collect()),
+        )
+        .map_err(|error| error.to_string())?;
+
+    let _ = app.emit(event::PERSISTENT, &updated);
+    crate::services::overlay::apply(&app);
+    Ok(updated)
+}
+
+/// The primary monitor in physical pixels, as a window region measures it.
+fn overlay_screen(app: &AppHandle) -> (i32, i32) {
+    app.primary_monitor()
+        .ok()
+        .flatten()
+        .map(|monitor| {
+            let size = monitor.size();
+            (size.width as i32, size.height as i32)
+        })
+        .unwrap_or((1920, 1080))
 }
 
 // --- The screen's chrome ---------------------------------------------------

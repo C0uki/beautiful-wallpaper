@@ -124,6 +124,7 @@ fn action_for(binding: &str) -> Option<Bound> {
         "captureTranslate" => Some(Bound::Capture(CaptureMode::Translate)),
         "desktopMenu" => Some(Bound::Menu),
         "shelf" => Some(Bound::Flag("shelfOpen")),
+        "overlay" => Some(Bound::Flag("overlayOpen")),
         _ => None,
     }
 }

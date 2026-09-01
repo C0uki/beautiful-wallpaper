@@ -153,8 +153,8 @@ fn apply(raw: &mut Raw, code: &str) {
 
     // Stepping in twos, and stopping before a key with no value: a truncated
     // code should give up its last field, not the whole crosshair.
-    for pair in fields.chunks_exact(2) {
-        let (key, value) = (pair[0], pair[1]);
+    for [key, value] in fields.as_chunks::<2>().0 {
+        let (key, value) = (*key, *value);
         match key {
             "c" => raw.color = number(value).unwrap_or(raw.color as f64) as u32,
             "u" => raw.color_code = hex(value),
@@ -253,7 +253,7 @@ fn opacity(value: &str, current: f64) -> f64 {
 
 /// A pixel measurement. Negative is meaningless and would invert a rectangle.
 fn pixels(value: &str, current: u32) -> u32 {
-    number(value).map_or(current, |found| found.max(0.0).min(4096.0) as u32)
+    number(value).map_or(current, |found| found.clamp(0.0, 4096.0) as u32)
 }
 
 /// The colour field, which carries six hex digits and sometimes more.
@@ -400,7 +400,7 @@ mod tests {
 
         // Outer lines further out than the inner ones decide the size.
         let outer = parse("0l;2;0o;1;1b;1;1l;3;1o;30;h;0;z;0");
-        assert!(outer.size >= (0 + 1 + 30 + 3) * 2);
+        assert!(outer.size >= (1 + 30 + 3) * 2);
     }
 
     #[test]
