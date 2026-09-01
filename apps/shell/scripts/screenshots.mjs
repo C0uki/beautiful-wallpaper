@@ -506,6 +506,29 @@ const SHOTS = [
       await page.locator(".bw-presets-changes li").first().waitFor();
     },
   },
+  // The first run: what a fresh install sees before anything else.
+  {
+    name: "45-first-run",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "first run" }).click();
+      await page.getByRole("dialog", { name: "First run" }).waitFor();
+    },
+  },
+  // The step that only Windows makes necessary: which shortcuts it refused,
+  // which two bindings collide, and a free combination for each.
+  {
+    name: "46-first-run-keys",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "first run" }).click();
+      await page.getByRole("dialog", { name: "First run" }).waitFor();
+      await page.getByRole("button", { name: "Keys", exact: true }).click();
+      await page.locator(".bw-wizard-keys li").first().waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

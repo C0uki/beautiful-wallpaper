@@ -21,6 +21,7 @@ import { Shelf } from "./surfaces/shelf/Shelf";
 import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
 import { HotCorners } from "./surfaces/hotCorners/HotCorners";
 import { Settings } from "./surfaces/settings/Settings";
+import { Wizard } from "./surfaces/wizard/Wizard";
 import { Overlay } from "./surfaces/overlay/Overlay";
 import { OverlayPinned } from "./surfaces/overlay/OverlayPinned";
 import { actions, connect, useShell } from "./shell/store";
@@ -324,6 +325,12 @@ function Harness() {
           settings
         </Button>
         <Button
+          icon="waving_hand"
+          onClick={() => void actions.toggleState("wizardOpen")}
+        >
+          first run
+        </Button>
+        <Button
           icon="highlight_alt"
           onClick={() =>
             void actions.setConfigValue(
@@ -436,6 +443,7 @@ function Harness() {
       <Overlay />
       <OverlayPinned />
       <Settings />
+      <Wizard />
     </div>
   );
 }

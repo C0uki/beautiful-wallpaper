@@ -493,10 +493,51 @@ The whole config under a name, and back again.
 - Nothing secret is in one: API keys live in the credential manager, not in
   `config.json`, which is what makes a preset safe to send to somebody.
 
+### Done: the first run
+
+The original's welcome app is one scrolling page of preferences, and on Linux
+that is the right shape — the shell works the moment it starts, and the page is
+an invitation. Here three of the things it would offer may not work at all
+until somebody looks, and none of them announce themselves: no wallpaper has
+been chosen, so the palette has nothing to generate from; the workspaces widget
+needs a tiling window manager Windows does not ship, and without one it is
+permanently empty, which reads as a bug; and Windows may have refused any of
+the keyboard shortcuts. So this is a wizard, and each step establishes one
+thing and reports what it found.
+
+- **The keys step is the one only Windows makes necessary**, and it turned out
+  to be worth more than the screen it was built for. Three different things can
+  be wrong with a shortcut and only one of them is discoverable by pressing it:
+  Windows documents a set of combinations as its own, which is knowable in
+  advance; two bindings can name the same chord, which _nothing_ refuses — the
+  first registers, the second is turned away, and whichever lost is a feature
+  that cannot be reached and cannot be explained; and Windows can refuse a
+  registration at runtime for reasons that are neither documented nor stable.
+  All three are reported together, each with a free combination to use instead.
+- **Writing that table down found two of the shipped defaults already broken.**
+  `settings` was on `Win+Shift+S`, which opens the Snipping Tool on every
+  Windows 11 machine — three lines above it, a doc comment said so — and `shelf`
+  and `widgetEditMode` were both on `Win+Shift+D`. A test now holds every
+  default against the table and against itself, so neither can come back.
+- **What the table cannot say is whether `RegisterHotKey` will actually
+  refuse.** That is undocumented and moves with the Windows version and the
+  installed software, so the refusals the shell reports at runtime stay the
+  authority; the table is what keeps the defaults out of a fight nobody needs.
+- **Every step can be skipped**, from every step. A first-run screen that
+  cannot be dismissed is a hostage, and none of this is a form. The step is
+  remembered as it is left, so closing the window half-way and coming back
+  resumes — and a state file from a build with more steps is clamped rather
+  than resuming on a step that does not exist and showing nothing.
+- The workspaces step says plainly that it found no GlazeWM and offers to take
+  the widget off the bar, because a permanently empty widget looks like a bar
+  that failed to draw. Only GlazeWM can be detected: its IPC is what this build
+  reads, and komorebi would need the named-pipe client that does not exist yet.
+- Hiding the taskbar switches the dock on with it. Hiding one without the other
+  leaves no way to reach a minimised window at all.
+
 ### Still to do
 
-The first-run wizard, the MSIX sparse package, the installer, and
-documentation.
+The MSIX sparse package, the installer, and documentation.
 
 ## Deliberately not built
 
