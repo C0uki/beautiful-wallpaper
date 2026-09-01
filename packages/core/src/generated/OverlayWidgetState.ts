@@ -13,7 +13,7 @@ export type OverlayWidgetState = {
    */
   clickthrough: boolean;
   /**
-   * Physical screen pixels, as the window region measures them.
+   * CSS pixels, the way the page that draws the overlay measures them.
    */
   x: number;
   y: number;

@@ -20,6 +20,8 @@ import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
 import { Shelf } from "./surfaces/shelf/Shelf";
 import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
 import { HotCorners } from "./surfaces/hotCorners/HotCorners";
+import { Overlay } from "./surfaces/overlay/Overlay";
+import { OverlayPinned } from "./surfaces/overlay/OverlayPinned";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -309,6 +311,12 @@ function Harness() {
           {config.bar.showFrame ? "frame on" : "frame off"}
         </Button>
         <Button
+          icon="layers"
+          onClick={() => void actions.toggleState("overlayOpen")}
+        >
+          overlay
+        </Button>
+        <Button
           icon="highlight_alt"
           onClick={() =>
             void actions.setConfigValue(
@@ -416,6 +424,10 @@ function Harness() {
       <DesktopMenu />
       <ScreenChrome />
       <HotCorners />
+      {/* On Windows these are two windows over everything; here they are drawn
+          over the harness the same way. */}
+      <Overlay />
+      <OverlayPinned />
     </div>
   );
 }

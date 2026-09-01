@@ -9,6 +9,11 @@ export type OverlayState = {
    * The widgets currently placed on the canvas, by keyword.
    */
   open: Array<string>;
+  /**
+   * What is written on the note. Kept here rather than in a file of its
+   * own: it is a scratchpad, not a document.
+   */
+  notesText: string;
   crosshair: OverlayWidgetState;
   notes: OverlayWidgetState;
   resources: OverlayWidgetState;

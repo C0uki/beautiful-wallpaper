@@ -69,6 +69,11 @@ export const Event = {
    * the config did. Carries the whole resolved `ScreenChrome`.
    */
   Chrome: "bw://chrome",
+  /**
+   * The overlay's two windows should redraw: it opened, closed, or a widget
+   * was pinned, moved or taken off. Carries the whole resolved layout.
+   */
+  Overlay: "bw://overlay",
 } as const;
 
 /** Files being dragged over a surface.
@@ -185,6 +190,9 @@ export const Command = {
   GetHotCorners: "get_hot_corners",
   RunHotCorner: "run_hot_corner",
   ScrollHotCorner: "scroll_hot_corner",
+  GetOverlayLayout: "get_overlay_layout",
+  GetCrosshair: "get_crosshair",
+  ToggleOverlayWidget: "toggle_overlay_widget",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -204,6 +212,7 @@ export const IpcTarget = {
   DesktopMenu: "desktopMenu",
   Shelf: "shelf",
   Chrome: "chrome",
+  Overlay: "overlay",
 } as const;
 
 export interface WallpaperChanged {

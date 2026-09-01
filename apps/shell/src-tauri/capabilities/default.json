@@ -18,7 +18,9 @@
     "desktopMenu",
     "shelf",
     "screenChrome",
-    "hotCorners"
+    "hotCorners",
+    "overlay",
+    "overlayPinned"
   ],
   "permissions": [
     "core:default",

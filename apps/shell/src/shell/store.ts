@@ -52,6 +52,9 @@ import {
   type ScreenChrome,
   type HotCorner,
   type Corner,
+  type OverlayLayout,
+  type OverlayWidget,
+  type Crosshair,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -123,6 +126,7 @@ const initial: ShellState = {
     idle: { inhibit: false },
     overlay: {
       open: ["crosshair", "resources"],
+      notesText: "",
       crosshair: {
         pinned: false,
         clickthrough: true,
@@ -586,6 +590,21 @@ export const actions = {
   },
   scrollHotCorner(corner: Corner, up: boolean) {
     return backend().invoke<void>(Command.ScrollHotCorner, { corner, up });
+  },
+  overlayLayout() {
+    return backend().invoke<OverlayLayout>(Command.GetOverlayLayout);
+  },
+  /** The crosshair the config's share code describes, already read. */
+  crosshair() {
+    return backend().invoke<Crosshair>(Command.GetCrosshair);
+  },
+  async toggleOverlayWidget(widget: OverlayWidget) {
+    set({
+      persistent: await backend().invoke<Persistent>(
+        Command.ToggleOverlayWidget,
+        { widget },
+      ),
+    });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

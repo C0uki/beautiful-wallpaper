@@ -181,7 +181,8 @@
     "captureTranslate": "Shift+Print",
     "session": "Super+Shift+E",
     "desktopMenu": "Super+Shift+M",
-    "shelf": "Super+Shift+D"
+    "shelf": "Super+Shift+D",
+    "overlay": "Super+Shift+O"
   },
   "language": {
     "ui": "auto"

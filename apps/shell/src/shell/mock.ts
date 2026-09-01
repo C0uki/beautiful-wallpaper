@@ -49,6 +49,10 @@ import {
   type ScreenChrome,
   type HotCorner,
   type Edge,
+  type OverlayLayout,
+  type OverlayWidget,
+  type Placed,
+  type Crosshair,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -646,6 +650,7 @@ export function mockBackend(): Backend {
     idle: { inhibit: false },
     overlay: {
       open: ["crosshair", "resources"],
+      notesText: "",
       crosshair: {
         pinned: false,
         clickthrough: true,
@@ -785,6 +790,12 @@ export function mockBackend(): Backend {
                 ? !states[name]
                 : Boolean(args["value"]);
             emit(Event.StateChanged, states);
+            if (name === "overlayOpen") {
+              // The overlay's windows are not driven by the flag alone — the
+              // real backend re-resolves the layout on every change, because
+              // what is pinned survives the flag clearing.
+              emit(Event.Overlay, await this.invoke(Command.GetOverlayLayout));
+            }
           }
           return states as T;
         }
@@ -1028,6 +1039,9 @@ export function mockBackend(): Backend {
           );
           persistent = next;
           emit(Event.Persistent, persistent);
+          if (String(args["path"] ?? "").startsWith("overlay.")) {
+            emit(Event.Overlay, await this.invoke(Command.GetOverlayLayout));
+          }
           return persistent as T;
         }
 
@@ -1129,6 +1143,110 @@ export function mockBackend(): Backend {
           // Brightness and volume are both faked here already; a corner
           // scroll is the same call by another route.
           return undefined as T;
+
+        // The rules that matter are in `bw-core::overlay` under tests; this
+        // mirrors their shape so the harness can draw the canvas.
+        case Command.GetOverlayLayout: {
+          const sizes: Record<OverlayWidget, [number, number]> = {
+            crosshair: [64, 64],
+            notes: [280, 220],
+            resources: [320, 210],
+          };
+          const overlay = persistent.overlay;
+          const placed: Placed[] = overlay.open
+            .filter((keyword, index) => overlay.open.indexOf(keyword) === index)
+            .filter((keyword): keyword is OverlayWidget => keyword in sizes)
+            .map((widget) => {
+              const state = overlay[widget];
+              const [width, height] = sizes[widget];
+              return {
+                widget,
+                rect: {
+                  x: state.x,
+                  y: state.y,
+                  width: state.width > 0 ? state.width : width,
+                  height: state.height > 0 ? state.height : height,
+                },
+                pinned: state.pinned,
+                clickthrough: state.clickthrough,
+              };
+            });
+
+          if (!config.overlay.enable) {
+            return {
+              interactive: [],
+              passive: [],
+              region: [],
+              interactiveVisible: false,
+              passiveVisible: false,
+              scrim: false,
+            } satisfies OverlayLayout as T;
+          }
+          if (states.overlayOpen) {
+            return {
+              interactive: placed,
+              passive: [],
+              region: null,
+              interactiveVisible: true,
+              passiveVisible: false,
+              scrim: config.overlay.darkenScreen,
+            } satisfies OverlayLayout as T;
+          }
+
+          const pinned = placed.filter((found) => found.pinned);
+          const passive = pinned.filter((found) => found.clickthrough);
+          const interactive = pinned.filter((found) => !found.clickthrough);
+          return {
+            interactive,
+            passive,
+            region: interactive.map((found) => found.rect),
+            interactiveVisible: interactive.length > 0,
+            passiveVisible: passive.length > 0,
+            scrim: false,
+          } satisfies OverlayLayout as T;
+        }
+
+        // A plausible crosshair rather than a parse: the reader that matters
+        // is `bw-core::crosshair`, and it has fifteen tests of its own.
+        case Command.GetCrosshair:
+          return {
+            color: "#00FF00",
+            outline: true,
+            outlineOpacity: 0.5,
+            outlineThickness: 1,
+            centerDot: true,
+            centerDotOpacity: 1,
+            centerDotSize: 2,
+            innerLines: true,
+            innerLineOpacity: 0.8,
+            innerLineLength: 10,
+            innerLineVerticalLength: 10,
+            innerLineThickness: 2,
+            innerLineOffset: 4,
+            outerLines: false,
+            outerLineOpacity: 0.35,
+            outerLineLength: 2,
+            outerLineVerticalLength: 2,
+            outerLineThickness: 2,
+            outerLineOffset: 12,
+            size: 32,
+          } satisfies Crosshair as T;
+
+        case Command.ToggleOverlayWidget: {
+          const widget = String(args["widget"] ?? "");
+          const open = persistent.overlay.open.includes(widget)
+            ? persistent.overlay.open.filter((found) => found !== widget)
+            : [...persistent.overlay.open, widget];
+          persistent = {
+            ...persistent,
+            overlay: { ...persistent.overlay, open },
+          };
+          emit(Event.Persistent, persistent);
+          // The layout follows the persisted state, so the canvas has to be
+          // told — the real backend re-resolves and re-emits the same way.
+          emit(Event.Overlay, await this.invoke(Command.GetOverlayLayout));
+          return persistent as T;
+        }
 
         case Command.GetShelfItems:
           return shelfItems as T;

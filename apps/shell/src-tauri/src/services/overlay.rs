@@ -99,7 +99,21 @@ fn apply_region(app: &AppHandle, layout: &bw_core::overlay::OverlayLayout) {
             // showed it again it would cover the desktop.
         }
         Some(rects) => {
-            if let Err(error) = crate::platform::region::set_window_region(hwnd, rects) {
+            // The only place the distinction matters: a region is measured in
+            // real device pixels, and everything else here is measured the way
+            // the page is.
+            let scale = scale_of(&window);
+            let physical: Vec<bw_core::capture::Rect> = rects
+                .iter()
+                .map(|rect| bw_core::capture::Rect {
+                    x: (f64::from(rect.x) * scale).round() as i32,
+                    y: (f64::from(rect.y) * scale).round() as i32,
+                    width: (f64::from(rect.width) * scale).ceil() as i32,
+                    height: (f64::from(rect.height) * scale).ceil() as i32,
+                })
+                .collect();
+
+            if let Err(error) = crate::platform::region::set_window_region(hwnd, &physical) {
                 tracing::warn!(%error, "could not shape the overlay to its pinned widgets");
                 // Better no pinned widgets than a full-screen window that is
                 // neither hidden nor masked.
@@ -131,13 +145,33 @@ pub fn make_passive_clickthrough(_app: &AppHandle) {
     }
 }
 
+/// The primary monitor in CSS pixels.
+///
+/// The layout is measured the way the page is, because the page is what draws
+/// it; the one place physical pixels are needed is the window region, and
+/// [`apply_region`] converts there rather than making every widget position
+/// carry the distinction.
 fn screen_size(app: &AppHandle) -> (i32, i32) {
     app.primary_monitor()
         .ok()
         .flatten()
         .map(|monitor| {
             let size = monitor.size();
-            (size.width as i32, size.height as i32)
+            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
+            (
+                (f64::from(size.width) / scale).round() as i32,
+                (f64::from(size.height) / scale).round() as i32,
+            )
         })
         .unwrap_or((1920, 1080))
+}
+
+/// The window's CSS-pixel-to-physical-pixel ratio.
+#[cfg(windows)]
+fn scale_of(window: &tauri::WebviewWindow) -> f64 {
+    window
+        .scale_factor()
+        .ok()
+        .filter(|found| *found > 0.0)
+        .unwrap_or(1.0)
 }

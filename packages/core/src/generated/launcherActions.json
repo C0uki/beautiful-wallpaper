@@ -10,5 +10,6 @@
   "translate",
   "session",
   "desktop",
-  "shelf"
+  "shelf",
+  "overlay"
 ]

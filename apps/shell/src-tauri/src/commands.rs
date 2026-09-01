@@ -1086,14 +1086,18 @@ pub fn toggle_overlay_widget(
     Ok(updated)
 }
 
-/// The primary monitor in physical pixels, as a window region measures it.
+/// The primary monitor in CSS pixels, which is how the overlay is measured.
 fn overlay_screen(app: &AppHandle) -> (i32, i32) {
     app.primary_monitor()
         .ok()
         .flatten()
         .map(|monitor| {
             let size = monitor.size();
-            (size.width as i32, size.height as i32)
+            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
+            (
+                (f64::from(size.width) / scale).round() as i32,
+                (f64::from(size.height) / scale).round() as i32,
+            )
         })
         .unwrap_or((1920, 1080))
 }

@@ -87,6 +87,9 @@ state_struct! {
     pub struct OverlayState {
         /// The widgets currently placed on the canvas, by keyword.
         pub open: Vec<String> = vec![s("crosshair"), s("resources")],
+        /// What is written on the note. Kept here rather than in a file of its
+        /// own: it is a scratchpad, not a document.
+        pub notes_text: String = String::new(),
         pub crosshair: OverlayWidgetState = OverlayWidgetState::centred_clickthrough(),
         pub notes: OverlayWidgetState = OverlayWidgetState::at(80, 120),
         pub resources: OverlayWidgetState = OverlayWidgetState::at(80, 380),
@@ -100,7 +103,7 @@ state_struct! {
         pub pinned: bool = false,
         /// Let the pointer through, so what is underneath still works.
         pub clickthrough: bool = false,
-        /// Physical screen pixels, as the window region measures them.
+        /// CSS pixels, the way the page that draws the overlay measures them.
         pub x: i32 = 80,
         pub y: i32 = 80,
         /// Zero means "whatever this widget's own default is".

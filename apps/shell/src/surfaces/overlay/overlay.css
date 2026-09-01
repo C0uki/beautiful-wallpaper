@@ -1,0 +1,255 @@
+/* The floating overlay.
+ *
+ * Two windows share this file because they draw the same widgets. What differs
+ * is the chrome: the interactive window adds a scrim, a taskbar and title
+ * bars, and the passive one draws bare widgets on nothing. */
+
+.bw-overlay {
+  position: fixed;
+  inset: 0;
+  color: var(--on-surface);
+  outline: none;
+}
+
+/* Shut, or passive: the window exists only where its region says it does, so
+   the sheet itself must never catch anything. */
+.bw-overlay.pinned,
+.bw-overlay.passive {
+  pointer-events: none;
+  background: transparent;
+}
+
+.bw-overlay.pinned .bw-overlay-widget,
+.bw-overlay.passive .bw-overlay-widget {
+  /* The widgets themselves still do — that is what the region kept. */
+  pointer-events: auto;
+}
+
+.bw-overlay.passive .bw-overlay-widget {
+  /* Except here, where the whole window is click-through anyway; saying so
+     twice costs nothing and means a stray CSS change cannot make a crosshair
+     start eating clicks. */
+  pointer-events: none;
+}
+
+.bw-overlay-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+
+.bw-overlay-taskbar {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--rounding-full);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.bw-overlay-taskbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--rounding-full);
+  background: transparent;
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-small) var(--ease-effects-default);
+}
+
+.bw-overlay-taskbar button:hover {
+  background: var(--layer1-hover);
+}
+
+/* On the canvas. Said with the accent rather than a checkmark, so the row
+   reads as a set of toggles at a glance. */
+.bw-overlay-taskbar button.on {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-overlay-widget {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--rounding-normal);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 8px 32px var(--shadow);
+  overflow: hidden;
+}
+
+/* The crosshair is not a panel — it is a shape on the screen, and a card
+   drawn behind it would be exactly what nobody wants over a game. */
+.bw-overlay-widget.bare {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.bw-overlay-widget-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 12px;
+  background: var(--layer1);
+  /* The whole bar is the drag handle, so nothing in it should look like text
+     that could be selected instead. */
+  cursor: grab;
+  user-select: none;
+}
+
+.bw-overlay-widget-head > span:first-child {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* A bare widget is as small as its content — a crosshair is sixty-odd pixels
+   square — and a title bar with three buttons in it does not fit inside that.
+   So it floats above instead, sized to itself, which also keeps it clear of
+   the thing the user is trying to aim with. */
+.bw-overlay-widget.bare {
+  overflow: visible;
+}
+
+.bw-overlay-widget.bare .bw-overlay-widget-head {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  padding: 4px 4px 4px 12px;
+  border-radius: var(--rounding-full);
+  background: var(--layer0);
+  border: 1px solid var(--layer0-border);
+  box-shadow: 0 6px 24px var(--shadow);
+}
+
+.bw-overlay-widget-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* --- the notes ---------------------------------------------------------- */
+
+.bw-overlay-notes {
+  flex: 1;
+  padding: 10px 12px;
+  border: 0;
+  resize: none;
+  background: transparent;
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+/* --- the resources ------------------------------------------------------ */
+
+.bw-overlay-resources {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px;
+  gap: 8px;
+}
+
+.bw-overlay-resources-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.bw-overlay-resources-tabs button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: var(--rounding-small);
+  background: var(--layer1);
+  color: var(--on-surface);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bw-overlay-resources-tabs button.selected {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-overlay-resources-tabs button:disabled {
+  cursor: default;
+}
+
+.bw-overlay-resources-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.bw-overlay-resources-readout {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bw-overlay-resources-readout strong {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.bw-overlay-resources-readout span {
+  font-size: 11px;
+  color: var(--outline);
+}
+
+.bw-overlay-graph {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--rounding-small);
+  background: var(--layer1);
+}
+
+.bw-overlay-graph.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--outline);
+}
+
+/* --- the crosshair ------------------------------------------------------ */
+
+.bw-crosshair {
+  position: relative;
+}
+
+.bw-crosshair-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: block;
+}
