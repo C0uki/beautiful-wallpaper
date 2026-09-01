@@ -13,7 +13,7 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
     DesktopMenuHandle, DockHandle, IdleHandle, MicHandle, MixerHandle, NotificationStore,
     PersistentStore, ShelfStore, TodoStore, VolumeHandle,
 };
@@ -144,6 +144,10 @@ fn main() {
             commands::open_shelf_item,
             commands::reveal_shelf_item,
             commands::drag_from_shelf,
+            commands::get_screen_chrome,
+            commands::get_hot_corners,
+            commands::run_hot_corner,
+            commands::scroll_hot_corner,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -181,6 +185,10 @@ fn main() {
             app.manage(CaptureHandle::default());
             app.manage(DesktopMenuHandle::default());
             app.manage(ShelfStore::default());
+            app.manage(ChromeState::default());
+            // After the surfaces exist and the state is managed: the hot
+            // corners need their window before they can be cut down to size.
+            services::chrome::apply(&handle);
             // After the handle is managed, and after the surfaces exist: the
             // first click has somewhere to go.
             services::deskmenu::apply(&handle);
@@ -225,7 +233,19 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             let _ = app.emit(event::MEDIA, bw_shell::providers::media());
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
-            let _ = app.emit(event::ACTIVE_WINDOW, bw_shell::providers::active_window());
+            let active = bw_shell::providers::active_window();
+            let fullscreen = active.fullscreen;
+            let _ = app.emit(event::ACTIVE_WINDOW, active);
+
+            // Whether anything is full-screen comes free with the foreground
+            // window, and only matters when it changes: the decorations would
+            // otherwise be told the same thing every second for hours.
+            if let Some(chrome) = app.try_state::<ChromeState>() {
+                if chrome.set_fullscreen(fullscreen) {
+                    services::chrome::emit(&app);
+                    services::chrome::apply(&app);
+                }
+            }
             std::thread::sleep(Duration::from_secs(1));
         });
     }

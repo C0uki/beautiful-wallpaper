@@ -321,10 +321,53 @@ Somewhere to put a file down while the place it is going to is not on screen.
   `bw-core`'s tests run on Linux, where `\` is not a separator and every name
   would come out as the whole path.
 
+### Done: the screen's chrome and the hot corners
+
+Fake rounded corners, a frame around the display, and the corners you throw
+the pointer at.
+
+- **One window, not eight.** The original gives each corner and each frame
+  edge its own `PanelWindow`, which is cheap under Quickshell. Here every
+  surface is a webview, and eight of them to paint eight coloured shapes is
+  not a translation worth making — so the corners and the frame are one
+  full-screen, click-through window drawn in CSS.
+- **The hot corners are the exception, and they need the opposite.** They have
+  to receive the pointer, and a full-screen window that is not click-through
+  swallows every click on the desktop. Quickshell's `mask: Region` has no
+  direct equivalent, but `SetWindowRgn` serves: everything outside the region
+  is neither drawn nor hit-tested, so one window covers the display, its
+  region is the union of the corner strips, and the rest of the desktop
+  carries on as if it were not there. The ownership rule is the trap — on
+  success the system takes the region handle and freeing it would hand the
+  window manager a dangling pointer; on failure the caller still owns it.
+- **A strip a few pixels out is not a cosmetic bug.** These are input regions
+  nobody can see, so a right-hand strip anchored at zero, or two strips
+  meeting in the middle of a narrow screen, is a sidebar that opens when
+  somebody reaches for a window's close button. Both rules live in `bw-core`
+  under tests, and `sidebar.cornerOpen.visualize` paints the strips for when
+  that is not enough.
+- **Full-screen detection compares rectangles**, because Windows has no
+  concept of a full-screen window — only of one that happens to be the size of
+  the screen. Exactly, not approximately: a maximised window stops at the work
+  area and a full-screen one does not, and "close enough" would hide the
+  corners for every maximised window on the machine.
+
+Not built: the frame does **not** reserve screen space. The original gives each
+of its four edges an exclusive zone so a maximised window stops short of them.
+Windows binds one edge per app bar, so the same thing needs four more
+`SHAppBarMessage` registrations on top of the bar's — five app bars from one
+process, fighting Explorer's bookkeeping and any the user runs themselves. The
+frame is off by default and four pixels thick; until that is worth the fight,
+it sits over the edge of a maximised window rather than beside it.
+
+Also not carried over: `clicklessCornerEnd` and its vertical offset, which
+tune how close to the very corner the pointer has to get before a hover opens
+something. They exist to make the Hyprland version usable; the region here is
+already the exact strip.
+
 ### Still to do
 
-Screen corners, the screen frame, and the floating overlays (crosshair, notes,
-resources, FPS limiter, recorder).
+The floating overlays: crosshair, notes, resources, FPS limiter and recorder.
 
 ## Phase 5 — Finishing
 

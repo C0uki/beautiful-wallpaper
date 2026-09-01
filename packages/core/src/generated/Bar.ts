@@ -21,4 +21,14 @@ export type Bar = {
   left: Array<string>;
   center: Array<string>;
   right: Array<string>;
+  /**
+   * Draw a thin border around the whole screen.
+   */
+  showFrame: boolean;
+  frameThickness: number;
+  /**
+   * A palette role name — `primary`, `surface`, `outline` and so on —
+   * or any CSS colour. The default is the original's.
+   */
+  frameColor: string;
 };

@@ -16,7 +16,9 @@
     "regionSelect",
     "session",
     "desktopMenu",
-    "shelf"
+    "shelf",
+    "screenChrome",
+    "hotCorners"
   ],
   "permissions": [
     "core:default",

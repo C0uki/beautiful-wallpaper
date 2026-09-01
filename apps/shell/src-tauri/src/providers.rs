@@ -484,6 +484,9 @@ impl Network {
 pub struct ActiveWindow {
     pub title: String,
     pub class: String,
+    /// Whether it covers its whole monitor. The screen's decorations read
+    /// this to get out of the way of a film.
+    pub fullscreen: bool,
 }
 
 #[cfg(windows)]
@@ -492,6 +495,7 @@ pub fn active_window() -> ActiveWindow {
     ActiveWindow {
         title: reading.title,
         class: reading.class,
+        fullscreen: reading.fullscreen,
     }
 }
 

@@ -18,6 +18,8 @@ import { RegionSelect } from "./surfaces/regionSelect/RegionSelect";
 import { Session } from "./surfaces/session/Session";
 import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
 import { Shelf } from "./surfaces/shelf/Shelf";
+import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
+import { HotCorners } from "./surfaces/hotCorners/HotCorners";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
 import { Button, Segmented, Symbol } from "./widgets";
@@ -296,6 +298,27 @@ function Harness() {
         >
           shelf
         </Button>
+        {/* The screen's decorations are always on screen on Windows; here
+            they are drawn over the harness the same way. */}
+        <Button
+          icon="crop_free"
+          onClick={() =>
+            void actions.setConfigValue("bar.showFrame", !config.bar.showFrame)
+          }
+        >
+          {config.bar.showFrame ? "frame on" : "frame off"}
+        </Button>
+        <Button
+          icon="highlight_alt"
+          onClick={() =>
+            void actions.setConfigValue(
+              "sidebar.cornerOpen.visualize",
+              !config.sidebar.cornerOpen.visualize,
+            )
+          }
+        >
+          {config.sidebar.cornerOpen.visualize ? "corners shown" : "corners"}
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -391,6 +414,8 @@ function Harness() {
       <RegionSelect />
       <Session />
       <DesktopMenu />
+      <ScreenChrome />
+      <HotCorners />
     </div>
   );
 }

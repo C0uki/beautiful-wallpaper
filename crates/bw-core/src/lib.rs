@@ -14,6 +14,7 @@ pub mod brightness;
 pub mod calc;
 pub mod capture;
 pub mod chat;
+pub mod chrome;
 pub mod config;
 pub mod dock;
 pub mod launcher;

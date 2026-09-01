@@ -39,6 +39,8 @@ export default defineConfig({
         regionSelect: surface("regionSelect"),
         session: surface("session"),
         shelf: surface("shelf"),
+        screenChrome: surface("screenChrome"),
+        hotCorners: surface("hotCorners"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

@@ -1,0 +1,52 @@
+/* The screen's decorations.
+ *
+ * Every part of this window is click-through — the backend applies
+ * WS_EX_TRANSPARENT to the whole surface — so nothing here needs pointer
+ * rules of its own. */
+
+.bw-chrome {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* Belt and braces: the window is already click-through, and a page that
+     also refuses the pointer cannot be the thing that swallows a click. */
+  pointer-events: none;
+}
+
+.bw-chrome-frame {
+  position: absolute;
+}
+
+.bw-chrome-corners {
+  position: absolute;
+}
+
+/* Each corner is a solid block the colour of the space behind the screen,
+   with the edge facing the middle rounded away. What is left looks exactly
+   like a display whose glass is rounded.
+   
+   Black, and not a palette colour: this is standing in for a bezel, and a
+   bezel does not change colour with the wallpaper. The original picks the
+   same. */
+.bw-chrome-corner {
+  position: absolute;
+  display: block;
+  background: #000;
+}
+
+.bw-chrome-corner.tl {
+  top: 0;
+  left: 0;
+}
+.bw-chrome-corner.tr {
+  top: 0;
+  right: 0;
+}
+.bw-chrome-corner.bl {
+  bottom: 0;
+  left: 0;
+}
+.bw-chrome-corner.br {
+  bottom: 0;
+  right: 0;
+}

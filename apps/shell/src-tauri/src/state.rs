@@ -593,6 +593,32 @@ impl DesktopMenuHandle {
     }
 }
 
+/// Whether anything is currently full-screen.
+///
+/// Sampled beside the active window, and kept here so a surface that opens
+/// later can ask rather than waiting for the next change.
+#[derive(Default)]
+pub struct ChromeState {
+    fullscreen: std::sync::atomic::AtomicBool,
+}
+
+impl ChromeState {
+    pub fn is_fullscreen(&self) -> bool {
+        self.fullscreen.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Records the new state, returning whether it is different.
+    ///
+    /// The caller only emits on a change: this is sampled every second and
+    /// almost never moves, and an event a second would be noise on every
+    /// surface that listens.
+    pub fn set_fullscreen(&self, fullscreen: bool) -> bool {
+        self.fullscreen
+            .swap(fullscreen, std::sync::atomic::Ordering::Relaxed)
+            != fullscreen
+    }
+}
+
 /// What is on the drop shelf.
 pub struct ShelfStore(pub bw_core::shelf::Store);
 
