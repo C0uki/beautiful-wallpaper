@@ -69,6 +69,7 @@ export type { Resources } from "./generated/Resources";
 export type { ResultKind } from "./generated/ResultKind";
 export type { Role } from "./generated/Role";
 export type { ScrollTarget } from "./generated/ScrollTarget";
+export type { ScreenChrome } from "./generated/ScreenChrome";
 export type { SearchSource } from "./generated/SearchSource";
 export type { Session } from "./generated/Session";
 export type { SessionAction } from "./generated/SessionAction";

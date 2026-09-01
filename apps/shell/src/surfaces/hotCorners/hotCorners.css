@@ -1,0 +1,30 @@
+/* The hot corners.
+ *
+ * Nothing is drawn unless the user asks to see the strips. What keeps this
+ * window out of the way of the rest of the desktop is its window region, which
+ * the backend cuts down to the strips before the window is ever shown. */
+
+.bw-hot-corners {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  /* On Windows this changes nothing: the region already excludes everything
+     but the strips. In the development harness there is no region, and
+     without this the sheet would cover the whole page and swallow every
+     click on it. */
+  pointer-events: none;
+}
+
+.bw-hot-corner {
+  position: absolute;
+  background: transparent;
+  /* The one part of this window that is meant to be pointed at. */
+  pointer-events: auto;
+}
+
+/* `sidebar.cornerOpen.visualize`: for finding out where the strips actually
+   are, which is otherwise unknowable by construction. */
+.bw-hot-corner.visible {
+  background: var(--primary);
+  opacity: 0.6;
+}

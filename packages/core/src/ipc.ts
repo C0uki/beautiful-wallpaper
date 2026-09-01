@@ -64,6 +64,11 @@ export const Event = {
   Capture: "bw://capture",
   /** What is on the drop shelf changed. Carries the whole list. */
   Shelf: "bw://shelf",
+  /**
+   * The screen's decorations should change: something went full-screen, or
+   * the config did. Carries the whole resolved `ScreenChrome`.
+   */
+  Chrome: "bw://chrome",
 } as const;
 
 /** Files being dragged over a surface.
@@ -176,6 +181,10 @@ export const Command = {
   OpenShelfItem: "open_shelf_item",
   RevealShelfItem: "reveal_shelf_item",
   DragFromShelf: "drag_from_shelf",
+  GetScreenChrome: "get_screen_chrome",
+  GetHotCorners: "get_hot_corners",
+  RunHotCorner: "run_hot_corner",
+  ScrollHotCorner: "scroll_hot_corner",
 } as const;
 
 /** IPC targets, mirroring end4-pC's `IpcHandler` names. */
@@ -194,6 +203,7 @@ export const IpcTarget = {
   Session: "session",
   DesktopMenu: "desktopMenu",
   Shelf: "shelf",
+  Chrome: "chrome",
 } as const;
 
 export interface WallpaperChanged {
@@ -269,6 +279,9 @@ export interface ActiveWindow {
   title: string;
   /** The window class, the closest Windows has to an application id. */
   class: string;
+  /** Whether it covers its whole monitor, so the decorations can get out of
+   * the way of a film. */
+  fullscreen: boolean;
 }
 
 export interface NetworkReading {

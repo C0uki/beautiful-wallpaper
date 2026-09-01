@@ -398,6 +398,28 @@ const SHOTS = [
       await page.mouse.move(640, 700);
     },
   },
+  // The screen's decorations sit over everything, which is exactly where they
+  // are on Windows — so the harness shot is the real thing.
+  {
+    name: "37-screen-chrome",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "frame off" }).click();
+      await page.locator(".bw-chrome-frame").first().waitFor();
+    },
+  },
+  // The hot corners are invisible by construction, which is why there is a
+  // setting to paint them — and why this shot is worth having.
+  {
+    name: "38-hot-corners",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "corners", exact: false }).click();
+      await page.locator(".bw-hot-corner.visible").first().waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

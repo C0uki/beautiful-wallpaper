@@ -49,6 +49,9 @@ import {
   type Placement,
   type ShelfItem,
   type DropOutcome,
+  type ScreenChrome,
+  type HotCorner,
+  type Corner,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -543,6 +546,19 @@ export const actions = {
   /** Hands the files to Windows. Resolves to whether anything was dropped. */
   dragFromShelf(ids: number[]) {
     return backend().invoke<boolean>(Command.DragFromShelf, { ids });
+  },
+  screenChrome() {
+    return backend().invoke<ScreenChrome>(Command.GetScreenChrome);
+  },
+  hotCorners() {
+    return backend().invoke<HotCorner[]>(Command.GetHotCorners);
+  },
+  /** Flips whatever the corner is bound to. The flag name never leaves Rust. */
+  runHotCorner(corner: Corner) {
+    return backend().invoke<void>(Command.RunHotCorner, { corner });
+  },
+  scrollHotCorner(corner: Corner, up: boolean) {
+    return backend().invoke<void>(Command.ScrollHotCorner, { corner, up });
   },
   openUrl(url: string) {
     return backend().invoke<void>("plugin:opener|open_url", { url });

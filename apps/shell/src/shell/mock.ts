@@ -8,6 +8,7 @@ import {
   Command,
   Event,
   defaultStates,
+  isStateFlag,
   type BatteryState,
   type Config,
   type Entry,
@@ -45,6 +46,9 @@ import {
   type Placement,
   type ShelfItem,
   type DropOutcome,
+  type ScreenChrome,
+  type HotCorner,
+  type Edge,
   defaultConfig,
 } from "@bw/core";
 import type { Backend } from "./backend";
@@ -227,6 +231,37 @@ export function mockBackend(): Backend {
     for (const handler of listeners.get(event) ?? []) handler(payload);
   };
 
+  /** The shape of `bw-core::chrome::ScreenChrome::resolve`.
+   *
+   * The rules that matter are in Rust under tests; this mirrors them closely
+   * enough for the harness to draw something, and the harness is never
+   * full-screen. */
+  const screenChrome = (): ScreenChrome => {
+    const bar = config.bar;
+    const hugging = bar.enable && bar.style === "hug";
+    const centreOnly = !bar.left.length && !bar.right.length;
+    const barEdge: Edge = bar.vertical
+      ? bar.bottom
+        ? "right"
+        : "left"
+      : bar.bottom
+        ? "bottom"
+        : "top";
+
+    return {
+      cornersVisible: config.appearance.fakeScreenRounding !== 0,
+      radius: config.appearance.screenRounding,
+      frameEdges: bar.showFrame
+        ? (["top", "bottom", "left", "right"] as Edge[]).filter(
+            (edge) => !hugging || edge !== barEdge || centreOnly,
+          )
+        : [],
+      frameThickness: bar.frameThickness,
+      frameColor: bar.frameColor,
+      hotCornersActive: config.sidebar.cornerOpen.enable,
+    };
+  };
+
   // A shelf with something on it, so the surface can be seen without a
   // Windows drag: one of each kind, and one whose file has gone — which is
   // the state that has to be visible rather than quietly tidied away.
@@ -354,6 +389,9 @@ export function mockBackend(): Backend {
   const activeWindow: ActiveWindow = {
     title: "beautiful-wallpaper — README.md",
     class: "Chrome_WidgetWin_1",
+    // Nothing is ever full-screen in the harness, which is what makes the
+    // corners and the frame visible in a screenshot.
+    fullscreen: false,
   };
 
   const network = (): NetworkReading => ({
@@ -705,6 +743,9 @@ export function mockBackend(): Backend {
           );
           config = next;
           emit(Event.ConfigChanged, config);
+          // The decorations follow the config rather than watching it, the
+          // same way the real backend re-resolves and re-emits on a change.
+          emit(Event.Chrome, screenChrome());
           return config as T;
         }
 
@@ -983,6 +1024,84 @@ export function mockBackend(): Backend {
             return session.shutDown;
           }) as T;
         }
+
+        case Command.GetScreenChrome:
+          return screenChrome() as T;
+
+        case Command.GetHotCorners: {
+          const corner = config.sidebar.cornerOpen;
+          if (!corner.enable) return [] as HotCorner[] as T;
+          const screen = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          };
+          const width = Math.min(corner.cornerRegionWidth, screen.width >> 1);
+          const height = Math.min(
+            corner.cornerRegionHeight,
+            screen.height >> 1,
+          );
+
+          const made: HotCorner[] = [
+            {
+              corner: "topLeft" as const,
+              x: 0,
+              y: 0,
+              action: corner.topLeftAction,
+            },
+            {
+              corner: "topRight" as const,
+              x: screen.width - width,
+              y: 0,
+              action: corner.topRightAction,
+            },
+            ...(corner.bottom
+              ? [
+                  {
+                    corner: "bottomLeft" as const,
+                    x: 0,
+                    y: screen.height - height,
+                    action: corner.bottomLeftAction,
+                  },
+                  {
+                    corner: "bottomRight" as const,
+                    x: screen.width - width,
+                    y: screen.height - height,
+                    action: corner.bottomRightAction,
+                  },
+                ]
+              : []),
+          ]
+            .filter((made) => made.action.trim().length > 0)
+            .map((made) => ({
+              corner: made.corner,
+              rect: { x: made.x, y: made.y, width, height },
+              action: made.action,
+            }));
+          return made as T;
+        }
+
+        case Command.RunHotCorner: {
+          const corner = String(args["corner"] ?? "");
+          const open = config.sidebar.cornerOpen;
+          const flag =
+            corner === "topLeft"
+              ? open.topLeftAction
+              : corner === "topRight"
+                ? open.topRightAction
+                : corner === "bottomLeft"
+                  ? open.bottomLeftAction
+                  : open.bottomRightAction;
+          if (isStateFlag(flag)) {
+            states[flag] = !states[flag];
+            emit(Event.StateChanged, states);
+          }
+          return undefined as T;
+        }
+
+        case Command.ScrollHotCorner:
+          // Brightness and volume are both faked here already; a corner
+          // scroll is the same call by another route.
+          return undefined as T;
 
         case Command.GetShelfItems:
           return shelfItems as T;
