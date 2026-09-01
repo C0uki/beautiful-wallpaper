@@ -910,6 +910,13 @@
     "kind": "text"
   },
   {
+    "path": "keybinds.settings",
+    "section": "keybinds",
+    "label": "Settings",
+    "group": "",
+    "kind": "text"
+  },
+  {
     "path": "language.ui",
     "section": "language",
     "label": "UI",
@@ -1584,7 +1591,7 @@
   {
     "path": "weather.useUscUnits",
     "section": "weather",
-    "label": "Use usc units",
+    "label": "Use USC units",
     "group": "",
     "kind": "toggle"
   },

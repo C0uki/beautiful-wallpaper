@@ -43,6 +43,7 @@ export default defineConfig({
         hotCorners: surface("hotCorners"),
         overlay: surface("overlay"),
         overlayPinned: surface("overlayPinned"),
+        settings: surface("settings"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

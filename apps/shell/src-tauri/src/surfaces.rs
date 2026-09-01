@@ -130,6 +130,15 @@ pub const SHELF: Surface = Surface {
     size: Some((0.2, 1.0)),
 };
 
+/// The settings screen. Nearly the whole display, and it takes focus: it is
+/// a form with a search box at the top of it.
+pub const SETTINGS: Surface = Surface {
+    label: "settings",
+    page: "settings.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The floating overlay's canvas. Covers the screen; its input region is cut
 /// down to the pinned widgets whenever the overlay itself is shut, so it is
 /// deliberately not click-through — the region is the mask.
@@ -207,6 +216,7 @@ pub const ALL: &[Surface] = &[
     HOT_CORNERS,
     OVERLAY,
     OVERLAY_PINNED,
+    SETTINGS,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -223,6 +233,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "sessionOpen" => Some(SESSION.label),
         "desktopMenuOpen" => Some(DESKTOP_MENU.label),
         "shelfOpen" => Some(SHELF.label),
+        "settingsOpen" => Some(SETTINGS.label),
         // `overlayOpen` is deliberately absent: the overlay stays on screen
         // after the flag clears if anything on it was pinned, so only
         // `services::overlay::apply` can decide whether its windows are up.

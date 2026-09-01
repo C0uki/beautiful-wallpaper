@@ -83,6 +83,7 @@ const ACRONYMS: &[(&str, &str)] = &[
     ("fps", "FPS"),
     ("glazewm", "GlazeWM"),
     ("komorebi", "komorebi"),
+    ("usc", "USC"),
 ];
 
 /// A label for one path segment.
@@ -241,6 +242,9 @@ mod tests {
         assert_eq!(label_for("ui"), "UI");
         assert_eq!(label_for("osd"), "OSD");
         assert_eq!(label_for("glazewm"), "GlazeWM");
+        // "Use usc units" reads as a typo; the units are United States
+        // Customary, and the screen says so.
+        assert_eq!(label_for("useUscUnits"), "Use USC units");
         // A proper name that is deliberately lower case stays that way.
         assert_eq!(label_for("komorebi"), "komorebi");
     }

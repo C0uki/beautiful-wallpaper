@@ -70,4 +70,8 @@ export const ACTIONS: Record<string, LauncherAction> = {
     run: () => actions.setState("overlayOpen", true),
     describe: () => tr("Open the floating overlay"),
   },
+  settings: {
+    run: () => actions.setState("settingsOpen", true),
+    describe: () => tr("Open the settings screen"),
+  },
 };

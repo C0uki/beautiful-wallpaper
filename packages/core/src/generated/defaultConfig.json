@@ -182,7 +182,8 @@
     "session": "Super+Shift+E",
     "desktopMenu": "Super+Shift+M",
     "shelf": "Super+Shift+D",
-    "overlay": "Super+Shift+O"
+    "overlay": "Super+Shift+O",
+    "settings": "Super+Shift+S"
   },
   "language": {
     "ui": "auto"

@@ -419,8 +419,38 @@ Nothing: Phase 4 is complete.
 
 ## Phase 5 — Finishing
 
-The full settings UI, presets, the first-run wizard, the MSIX sparse package,
-the installer, and documentation.
+### Done: the settings screen
+
+Every config key, reachable without opening a text editor.
+
+- **The form is generated from the schema, not hand-written.** The original
+  writes a control per key — six thousand lines of QML across ten pages — and
+  that is reasonable to do once and bad to maintain: every key added later is
+  one somebody has to remember a control for, and forgetting is silent. Here
+  the rows come from walking `Config::default`, so a key added in any future
+  change has a control the moment it exists, with the right type and the right
+  default.
+- **What the schema cannot say is curated on top**: which page a section
+  belongs on, that a string is really a choice between four bar styles, that a
+  decimal is a fraction of the screen and wants a slider. Anything not curated
+  still gets a control, so the table is an improvement on the default rather
+  than a list that has to be kept complete — and a test holds every section in
+  the schema against the page table, so a new section cannot end up with
+  nowhere to live.
+- **Wording is not derived.** Doc comments are developer prose in English and
+  UI copy is neither, so labels are mechanical and the exceptions live where
+  the translations do. Acronyms are the one exception that has to be in code:
+  "Ocr language" reads like a typo every time somebody sees it.
+- **A value the form cannot edit is listed anyway**, saying so. A setting
+  nobody can see is worse than one that admits it has to be edited in the
+  file, because only the second tells you it exists.
+- Every row shows its dotted path, so what the screen changes and what
+  `bw config set` takes are visibly the same thing.
+
+### Still to do
+
+Presets, the first-run wizard, the MSIX sparse package, the installer, and
+documentation.
 
 ## Deliberately not built
 

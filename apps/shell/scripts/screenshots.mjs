@@ -448,6 +448,35 @@ const SHOTS = [
       await page.locator(".bw-crosshair").waitFor();
     },
   },
+  // The settings screen: every row on it is generated from the Rust schema.
+  {
+    name: "41-settings",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      // Exact: another control's label has "settings" inside it, and
+      // `getByRole` matches accessible names by substring.
+      await page
+        .getByRole("button", { name: "settings", exact: true })
+        .click();
+      await page.getByRole("dialog", { name: "Settings" }).waitFor();
+      await page.locator(".bw-settings-row").first().waitFor();
+    },
+  },
+  // The search, which is what makes two hundred generated rows usable.
+  {
+    name: "42-settings-search",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page
+        .getByRole("button", { name: "settings", exact: true })
+        .click();
+      await page.getByRole("dialog", { name: "Settings" }).waitFor();
+      await page.getByPlaceholder("Search every setting").fill("wallpaper");
+      await page.locator(".bw-settings-row").first().waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

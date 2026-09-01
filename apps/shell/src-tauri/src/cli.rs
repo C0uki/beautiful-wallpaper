@@ -24,6 +24,7 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw desktopMenu toggle|open|close       the desktop menu, at the pointer
   bw shelf toggle|open|close             the drop shelf
   bw overlay toggle|open|close           the floating overlay
+  bw settings toggle|open|close          the settings screen
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
   bw --help                              this message
@@ -94,6 +95,7 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
         ("session", action) => toggle_surface(app, "sessionOpen", action),
         ("shelf", action) => toggle_surface(app, "shelfOpen", action),
         ("overlay", action) => toggle_surface(app, "overlayOpen", action),
+        ("settings", action) => toggle_surface(app, "settingsOpen", action),
         // Not `toggle_surface`: the menu opens where the pointer is, so the
         // anchor has to be taken before the surface is shown.
         ("desktopMenu", action) => crate::commands::toggle_desktop_menu(
