@@ -32,6 +32,8 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw preset save <name> [description]    save the config under a name
   bw preset apply <name>                 put a saved configuration back
   bw preset remove <name>                delete one
+  bw taskbar show|hide                   the stock Windows taskbar
+  bw autostart on|off|status             start the shell at login
   bw --help                              this message
 ";
 
@@ -50,6 +52,28 @@ pub fn run(arguments: &[String]) -> i32 {
             println!("beautiful-wallpaper {}", crate::version());
             0
         }
+        // Both work with nothing running, and `taskbar show` is the way back
+        // if the shell is killed while it is hiding the taskbar: there is no
+        // shell left to put it back, and no taskbar to start one from. Task
+        // Manager's "Run new task" reaches this.
+        Some("taskbar") => match handle_taskbar_offline(&arguments[1..]) {
+            Ok(()) => 0,
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
+        },
+        Some("autostart") => match handle_autostart_offline(&arguments[1..]) {
+            Ok(Some(output)) => {
+                println!("{output}");
+                0
+            }
+            Ok(None) => 0,
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
+        },
         Some("preset") => match handle_preset_offline(&arguments[1..]) {
             Ok(Some(output)) => {
                 println!("{output}");
@@ -321,5 +345,69 @@ fn handle_preset_offline(arguments: &[String]) -> Result<Option<String>, String>
             Ok(None)
         }
         _ => Err(USAGE.to_owned()),
+    }
+}
+
+/// `taskbar show|hide`, which does not need the shell.
+///
+/// Deliberately not routed through the config: this is the rescue for a shell
+/// that died while hiding it, and writing `hideSystemTaskbar` would only mean
+/// the next start hid it again. Somebody who wants it to stay is changing the
+/// setting, not running this.
+fn handle_taskbar_offline(arguments: &[String]) -> Result<(), String> {
+    let visible = match arguments.first().map(String::as_str) {
+        Some("show") => true,
+        Some("hide") => false,
+        other => {
+            return Err(format!(
+                "`{}` is not show or hide",
+                other.unwrap_or_default()
+            ))
+        }
+    };
+
+    #[cfg(windows)]
+    unsafe {
+        crate::platform::win::set_taskbar_visible(visible);
+    }
+    #[cfg(not(windows))]
+    let _ = visible;
+    Ok(())
+}
+
+/// `autostart on|off|status`, which is a registry value and needs no shell.
+fn handle_autostart_offline(arguments: &[String]) -> Result<Option<String>, String> {
+    match arguments.first().map(String::as_str) {
+        Some("status") => {
+            #[cfg(windows)]
+            let on = crate::platform::autostart::is_enabled();
+            #[cfg(not(windows))]
+            let on = false;
+            Ok(Some(if on { "on".into() } else { "off".into() }))
+        }
+        Some(action @ ("on" | "off")) => {
+            let wanted = action == "on";
+            #[cfg(windows)]
+            crate::platform::autostart::apply(wanted)?;
+            // The config follows, so the running shell and the next start
+            // agree with what was just asked for.
+            let path = bw_core::paths::config_file();
+            let config = bw_core::config::load(&path).map_err(|error| error.to_string())?;
+            let mut json = serde_json::to_value(&config).expect("config is serialisable");
+            bw_core::config::set_path(
+                &mut json,
+                "windows.startWithWindows",
+                serde_json::Value::Bool(wanted),
+            )
+            .map_err(|error| error.to_string())?;
+            let updated: bw_core::Config =
+                serde_json::from_value(json).map_err(|error| error.to_string())?;
+            bw_core::config::save(&path, &updated).map_err(|error| error.to_string())?;
+            Ok(None)
+        }
+        other => Err(format!(
+            "`{}` is not on, off or status",
+            other.unwrap_or_default()
+        )),
     }
 }

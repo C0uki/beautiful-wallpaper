@@ -119,5 +119,5 @@ jobs:
           path: |
             target/release/bundle/nsis/*.exe
             target/release/bundle/msi/*.msi
-            target/release/beautiful-wallpaper.exe
+            target/release/bw.exe
           if-no-files-found: error

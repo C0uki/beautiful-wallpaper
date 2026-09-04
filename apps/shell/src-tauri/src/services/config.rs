@@ -79,6 +79,7 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     let chrome_changed = config.sidebar.corner_open != previous.sidebar.corner_open
         || config.appearance != previous.appearance
         || config.bar != previous.bar;
+    let windows_changed = config.windows != previous.windows;
     let wallpaper = config.background.wallpaper_path.clone();
     let wallpaper_changed =
         wallpaper != previous.background.wallpaper_path && !wallpaper.is_empty();
@@ -107,6 +108,13 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
 
     if overlay_changed {
         crate::services::overlay::apply(app);
+    }
+
+    // Hiding the taskbar and starting with Windows both reach out and change
+    // the machine, so they follow the config like everything else here rather
+    // than only being read once at startup.
+    if windows_changed {
+        crate::services::integration::apply(app);
     }
 
     // The wallpaper is the one setting that is not simply a value the surfaces

@@ -201,6 +201,10 @@ fn main() {
             app.manage(ChromeState::default());
             app.manage(PresetUndo::default());
             app.manage(KeyReport::default());
+            app.manage(services::integration::Integration::default());
+            // After the handle is managed: hiding the taskbar is held by a
+            // guard that lives in it.
+            services::integration::apply(&handle);
             // After the surfaces exist and the state is managed: the hot
             // corners need their window before they can be cut down to size.
             services::chrome::apply(&handle);
@@ -231,8 +235,20 @@ fn main() {
             spawn_providers(handle, state.clone());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("the shell failed to start");
+        .build(tauri::generate_context!())
+        .expect("the shell failed to start")
+        .run(|app, event| {
+            // Tauri's default exit path calls `process::exit`, which unwinds
+            // nothing — so anything the shell changed about Windows itself
+            // would stay changed, with no shell left to change it back. Both
+            // of these are held by guards whose `Drop` would otherwise never
+            // run: a hidden taskbar, and the edge of the screen the bar
+            // reserved.
+            if matches!(event, tauri::RunEvent::Exit) {
+                services::integration::restore(app);
+                surfaces::release_reservations(app);
+            }
+        });
 }
 
 /// Holds the config watcher so it is not dropped at the end of `setup`.
