@@ -535,9 +535,55 @@ thing and reports what it found.
 - Hiding the taskbar switches the dock on with it. Hiding one without the other
   leaves no way to reach a minimised window at all.
 
+### Done: the installer, and putting Windows back
+
+The bundle already built; what was missing was everything either side of it.
+
+- **Two settings had a control each and nothing behind them.**
+  `windows.hideSystemTaskbar` and `windows.startWithWindows` were in the
+  schema, so the generated settings screen drew a switch for each and the
+  first-run screen drew one of them again — and _nothing in the shell read
+  either key_. Both are the reason somebody opens that screen at all. They are
+  applied at startup now, and re-applied whenever the config changes, through
+  the same path a preset and a hand edit already take.
+- **A shell that hides the taskbar has to be able to give it back.** It is held
+  by a guard, the way the bar's reserved edge is — and that turned out not to
+  be enough for either of them: Tauri's exit path calls `process::exit`, which
+  unwinds nothing, so neither guard was ever dropped. The work area stayed
+  shrunk and the taskbar stayed hidden after the shell was gone. Both are
+  released on `RunEvent::Exit` now.
+- That still leaves the process being killed outright, which no guard survives,
+  so **`bw taskbar show` works with nothing running** — Task Manager's "Run new
+  task" reaches it, which is the one thing still on screen when the taskbar is
+  not. It deliberately does not write the config: somebody who wants it back
+  for good is changing the setting, not running a rescue.
+- **The Run key value is quoted.** `C:\Program Files\...\bw.exe` unquoted is
+  read as `C:\Program.exe` with an argument, which is the classic way an
+  auto-start entry fails — at login, where nothing of this shell is up to
+  explain itself. And it carries no arguments at all: `bw` with none starts the
+  shell, with any at all it is a CLI client, so a well-meant `--startup` would
+  make every login print "not running". An entry left by an installation that
+  has since moved is detected and rewritten rather than left as an error dialog
+  every morning. All of it is in `bw-core` under tests.
+- **The uninstaller undoes what a shell did to the machine**, in the order
+  where failure hurts least: show the taskbar first, then remove the Run entry
+  and the App Paths key. The user's own config, presets and thumbnails are
+  _asked_ about, defaulting to keeping them.
+- **The binary is called `bw` now.** Every usage string, doc comment and rescue
+  instruction in this repository said `bw`, and none of them named a file that
+  existed — it was `beautiful-wallpaper.exe`. An App Paths entry makes the bare
+  name resolve from the Run dialog, which is what makes the rescue above
+  something a person can type; the installer deliberately does **not** touch
+  `PATH`, which is shared with every other program on the machine and cannot be
+  repaired from here if a write goes wrong.
+
+Not built: forgetting the API keys on uninstall. They are in the Windows
+credential manager rather than in either data folder, so removing them needs a
+command the shell does not have; until then an uninstall leaves them.
+
 ### Still to do
 
-The MSIX sparse package, the installer, and documentation.
+The MSIX sparse package and documentation.
 
 ## Deliberately not built
 
