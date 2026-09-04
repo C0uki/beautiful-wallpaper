@@ -290,6 +290,21 @@ pub struct Reservations {
     _unused: Mutex<()>,
 }
 
+/// Gives back the screen edge the bar reserved.
+///
+/// The reservation lasts until it is released, and Tauri's exit path does not
+/// unwind, so without this a work area shrunk for the bar stays shrunk after
+/// the shell is gone — every maximised window on the machine stopping short of
+/// an edge nothing is on any more.
+pub fn release_reservations(app: &AppHandle) {
+    #[cfg(windows)]
+    if let Some(held) = app.try_state::<Reservations>() {
+        drop(held.bar.lock().take());
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
 /// Creates a surface's window if it does not exist yet, and layers it.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     if app.get_webview_window(surface.label).is_some() {

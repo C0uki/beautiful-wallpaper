@@ -11,6 +11,8 @@ pub mod apps;
 #[cfg(windows)]
 pub mod audio;
 #[cfg(windows)]
+pub mod autostart;
+#[cfg(windows)]
 pub mod brightness;
 #[cfg(windows)]
 pub mod capture;

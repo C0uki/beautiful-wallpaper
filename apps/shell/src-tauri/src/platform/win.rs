@@ -522,6 +522,34 @@ pub unsafe fn set_taskbar_visible(visible: bool) {
     }
 }
 
+/// Hides the taskbar for as long as it is held, and puts it back on drop.
+///
+/// The same shape as [`AppBar`], for the same reason: this changes the desktop
+/// for every program on it, so giving it back has to be tied to something with
+/// a lifetime rather than to remembering.
+///
+/// It covers a graceful exit, which is not every exit — Windows ends a process
+/// killed from Task Manager without unwinding, and the taskbar would stay
+/// hidden with no shell left to show it. `bw taskbar show` is the way back,
+/// and it works with nothing running.
+pub struct HiddenTaskbar;
+
+impl HiddenTaskbar {
+    /// # Safety
+    /// Changes global desktop state; the returned value must be kept until the
+    /// taskbar should come back.
+    pub unsafe fn hide() -> Self {
+        set_taskbar_visible(false);
+        Self
+    }
+}
+
+impl Drop for HiddenTaskbar {
+    fn drop(&mut self) {
+        unsafe { set_taskbar_visible(true) }
+    }
+}
+
 /// Bytes sent and received across all interfaces since boot.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NetworkCounters {
