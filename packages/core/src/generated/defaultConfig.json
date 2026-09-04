@@ -180,10 +180,10 @@
     "captureOcr": "Ctrl+Print",
     "captureTranslate": "Shift+Print",
     "session": "Super+Shift+E",
-    "desktopMenu": "Super+Shift+M",
-    "shelf": "Super+Shift+D",
+    "desktopMenu": "Super+Shift+X",
+    "shelf": "Super+Shift+F",
     "overlay": "Super+Shift+O",
-    "settings": "Super+Shift+S"
+    "settings": "Super+Shift+I"
   },
   "language": {
     "ui": "auto"

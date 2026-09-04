@@ -15,7 +15,7 @@ use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
     AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
-    DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, MicHandle, MixerHandle,
+    DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
 
@@ -1955,4 +1955,52 @@ pub fn has_preset_undo(undo: State<'_, PresetUndo>) -> bool {
 #[tauri::command]
 pub fn undo_preset(app: AppHandle, state: State<'_, AppState>) -> Result<Config, String> {
     services::preset::undo(&app, &state)
+}
+
+// --- The first run ----------------------------------------------------------
+
+/// Every keyboard shortcut, and what is wrong with each.
+///
+/// Three different things can be wrong and only one of them is discoverable by
+/// pressing the key. Windows documents a set of combinations as its own, which
+/// is known before anything is registered; two bindings can name one chord,
+/// which nothing refuses and which silently costs whichever lost; and Windows
+/// can turn a registration down at runtime for reasons that are neither
+/// documented nor stable. All three are folded together here.
+#[tauri::command]
+pub fn get_key_report(
+    state: State<'_, AppState>,
+    report: State<'_, KeyReport>,
+) -> Vec<bw_core::keys::KeyStatus> {
+    let keybinds =
+        serde_json::to_value(state.config().keybinds).expect("keybinds are serialisable");
+    bw_core::keys::report(&keybinds, &report.refused())
+}
+
+/// Registers the keys again and says what happened this time.
+///
+/// The first-run screen changes a chord and needs to know whether the new one
+/// was taken; the config watcher would re-register anyway, but not before the
+/// answer is wanted on screen.
+#[tauri::command]
+pub fn retry_keys(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    report: State<'_, KeyReport>,
+) -> Vec<bw_core::keys::KeyStatus> {
+    services::hotkeys::apply(&app);
+    get_key_report(state, report)
+}
+
+/// Which tiling window manager is running, if any.
+///
+/// Windows has no public virtual-desktop API worth building on, so the
+/// workspaces widget shows nothing at all without one of these — and a widget
+/// that is permanently empty looks like a bug rather than a missing program.
+/// Only GlazeWM can be detected: its IPC is what this build reads, and asking
+/// komorebi would need the named-pipe client that does not exist yet.
+#[tauri::command]
+pub async fn detect_window_manager(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let port = state.config().windows.glazewm.port;
+    Ok(providers::workspaces(port).await.source)
 }

@@ -314,10 +314,15 @@ config_struct! {
         pub capture_ocr: String = s("Ctrl+Print"),
         pub capture_translate: String = s("Shift+Print"),
         pub session: String = s("Super+Shift+E"),
-        pub desktop_menu: String = s("Super+Shift+M"),
-        pub shelf: String = s("Super+Shift+D"),
+        /// `X` after `Win+X`, which is the closest thing Windows has to this.
+        /// Not `Win+Shift+M`, which restores every minimised window.
+        pub desktop_menu: String = s("Super+Shift+X"),
+        /// `F` for files, since `Win+Shift+D` is the widget editor's.
+        pub shelf: String = s("Super+Shift+F"),
         pub overlay: String = s("Super+Shift+O"),
-        pub settings: String = s("Super+Shift+S"),
+        /// `I` after `Win+I`, which is where Windows keeps its own settings.
+        /// Not `Win+Shift+S`, which opens the Snipping Tool.
+        pub settings: String = s("Super+Shift+I"),
     }
 }
 

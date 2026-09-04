@@ -47,6 +47,7 @@ import {
   type ShelfItem,
   type PresetSummary,
   type Comparison,
+  type KeyStatus,
   type DropOutcome,
   type ScreenChrome,
   type HotCorner,
@@ -266,6 +267,56 @@ export function mockBackend(): Backend {
       frameColor: bar.frameColor,
       hotCornersActive: config.sidebar.cornerOpen.enable,
     };
+  };
+
+  /** The shape of `bw-core::keys::report`.
+   *
+   * The table of what Windows keeps, the chord normalisation and the
+   * suggestion ladder are in Rust under tests — including the one that holds
+   * the shipped defaults against the table. This knows just enough of it for
+   * the step to have something to show, plus a refusal, which is the part no
+   * table can predict and no browser can produce. */
+  const keyReport = (): KeyStatus[] => {
+    const WINDOWS_KEEPS: Record<string, string> = {
+      "shift+super+s": "the Snipping Tool",
+      "shift+super+m": "restoring minimised windows",
+      "super+i": "Settings",
+    };
+    const REFUSED = ["captureOcr"];
+
+    const canonical = (chord: string) =>
+      chord
+        .toLowerCase()
+        .split("+")
+        .map((part) => (part === "win" || part === "meta" ? "super" : part))
+        .sort((left, right) => left.localeCompare(right))
+        .join("+");
+
+    const entries = Object.entries(config.keybinds).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    );
+
+    return entries.map(([binding, chord]) => {
+      const sharedWith = entries
+        .filter(
+          ([other, otherChord]) =>
+            other !== binding && canonical(otherChord) === canonical(chord),
+        )
+        .map(([other]) => other);
+      const takenByWindows = WINDOWS_KEEPS[canonical(chord)] ?? null;
+      const refused = REFUSED.includes(binding);
+      const trouble =
+        refused || takenByWindows !== null || sharedWith.length > 0;
+
+      return {
+        binding,
+        chord,
+        takenByWindows,
+        sharedWith,
+        refused,
+        suggestion: trouble ? `Ctrl+Alt+${chord.split("+").pop()}` : null,
+      };
+    });
   };
 
   // Two presets to look at without having to save one first, and a third that
@@ -712,6 +763,9 @@ export function mockBackend(): Backend {
   let persistent: Persistent = {
     sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
     idle: { inhibit: false },
+    // Done, so the first-run screen does not open itself over every other
+    // screenshot. The harness opens it from its own button instead.
+    firstRun: { done: true, step: 0 },
     overlay: {
       open: ["crosshair", "resources"],
       notesText: "",
@@ -1794,6 +1848,15 @@ export function mockBackend(): Backend {
           emit(Event.Chrome, screenChrome());
           return config as T;
         }
+
+        case Command.GetKeyReport:
+        case Command.RetryKeys:
+          return keyReport() as T;
+
+        case Command.DetectWindowManager:
+          // Nothing is running in a browser, which is also the case worth
+          // seeing: it is what the step has to explain.
+          return null as T;
 
         default:
           throw new Error(`the mock backend has no command \`${command}\``);

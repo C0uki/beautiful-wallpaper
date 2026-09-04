@@ -57,6 +57,7 @@ import {
   type Crosshair,
   type PresetSummary,
   type Comparison,
+  type KeyStatus,
 } from "@bw/core";
 import { create } from "zustand";
 import { backend } from "./backend";
@@ -126,6 +127,7 @@ const initial: ShellState = {
   persistent: {
     sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
     idle: { inhibit: false },
+    firstRun: { done: true, step: 0 },
     overlay: {
       open: ["crosshair", "resources"],
       notesText: "",
@@ -633,6 +635,16 @@ export const actions = {
   async retryChat() {
     set({ chat: await backend().invoke<ChatMessage[]>(Command.RetryChat) });
   },
+  /** Reads the persisted state, for a surface that needs it but not the rest
+   * of what `connectSidebar` fetches — enumerating radios and audio sessions
+   * costs real time, and most surfaces never draw either. */
+  async refreshPersistent(): Promise<Persistent> {
+    const persistent = await backend().invoke<Persistent>(
+      Command.GetPersistent,
+    );
+    set({ persistent });
+    return persistent;
+  },
   setPersistentValue(path: string, value: unknown) {
     return backend().invoke<Persistent>(Command.SetPersistentValue, {
       path,
@@ -668,5 +680,18 @@ export const actions = {
   },
   undoPreset() {
     return backend().invoke<Config>(Command.UndoPreset);
+  },
+  /** Every shortcut and what is wrong with it — what Windows keeps, what two
+   * bindings share, and what was refused when the shell last registered. */
+  keyReport() {
+    return backend().invoke<KeyStatus[]>(Command.GetKeyReport);
+  },
+  /** Registers the keys again and says what happened this time. */
+  retryKeys() {
+    return backend().invoke<KeyStatus[]>(Command.RetryKeys);
+  },
+  /** The tiling window manager that is running, or nothing. */
+  detectWindowManager() {
+    return backend().invoke<string | null>(Command.DetectWindowManager);
   },
 };

@@ -61,6 +61,7 @@ state_struct! {
         pub sidebar: SidebarState = SidebarState::default(),
         pub idle: IdleState = IdleState::default(),
         pub overlay: OverlayState = OverlayState::default(),
+        pub first_run: FirstRunState = FirstRunState::default(),
     }
 }
 
@@ -133,6 +134,23 @@ impl OverlayWidgetState {
             y: 508,
             ..Self::default()
         }
+    }
+}
+
+state_struct! {
+    /// Whether the machine has been through the first-run screen.
+    ///
+    /// Here rather than in `config.json` because it is not a setting: nobody
+    /// sits down to edit "have I been greeted", and a config file copied to a
+    /// second machine should not tell it that it has already been set up. The
+    /// original keeps a `first_run.txt` beside its state for the same reason.
+    pub struct FirstRunState {
+        /// Set when the screen is finished or dismissed. Either way it does
+        /// not open itself again; `bw wizard open` still will.
+        pub done: bool = false,
+        /// The step it was last on, so closing it half-way and coming back
+        /// resumes rather than starting over.
+        pub step: u32 = 0,
     }
 }
 

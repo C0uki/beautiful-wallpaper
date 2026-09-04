@@ -139,6 +139,16 @@ pub const SETTINGS: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The first-run screen. Full screen and over everything, because on a fresh
+/// install there is nothing else on screen worth seeing past it — the bar and
+/// the dock have not been set up yet.
+pub const WIZARD: Surface = Surface {
+    label: "wizard",
+    page: "wizard.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The floating overlay's canvas. Covers the screen; its input region is cut
 /// down to the pinned widgets whenever the overlay itself is shut, so it is
 /// deliberately not click-through — the region is the mask.
@@ -217,6 +227,7 @@ pub const ALL: &[Surface] = &[
     OVERLAY,
     OVERLAY_PINNED,
     SETTINGS,
+    WIZARD,
 ];
 
 /// Which surface a `GlobalStates` flag governs.
@@ -234,6 +245,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "desktopMenuOpen" => Some(DESKTOP_MENU.label),
         "shelfOpen" => Some(SHELF.label),
         "settingsOpen" => Some(SETTINGS.label),
+        "wizardOpen" => Some(WIZARD.label),
         // `overlayOpen` is deliberately absent: the overlay stays on screen
         // after the flag clears if anything on it was pinned, so only
         // `services::overlay::apply` can decide whether its windows are up.

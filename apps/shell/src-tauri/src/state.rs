@@ -29,6 +29,9 @@ pub struct GlobalStates {
     pub media_controls_open: bool,
     pub overlay_open: bool,
     pub widget_edit_mode: bool,
+    /// The first-run screen. Opened by the shell itself when the state file
+    /// says it has not been through, and by `bw wizard open` after that.
+    pub wizard_open: bool,
 }
 
 impl GlobalStates {
@@ -547,6 +550,25 @@ impl CaptureHandle {
 
     pub fn clear(&self) {
         *self.pending.lock() = None;
+    }
+}
+
+/// Which keys Windows would not give the shell, at the last registration.
+///
+/// Kept rather than only announced. The notification is gone the moment it is
+/// dismissed, and a key that does nothing stays broken until somebody changes
+/// it — so the first-run screen and the settings screen both have to be able
+/// to ask, at any point, rather than having had to be watching.
+#[derive(Default)]
+pub struct KeyReport(parking_lot::Mutex<Vec<String>>);
+
+impl KeyReport {
+    pub fn hold(&self, refused: Vec<String>) {
+        *self.0.lock() = refused;
+    }
+
+    pub fn refused(&self) -> Vec<String> {
+        self.0.lock().clone()
     }
 }
 

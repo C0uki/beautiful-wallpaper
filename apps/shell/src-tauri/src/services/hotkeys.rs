@@ -20,7 +20,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use crate::commands::event;
-use crate::state::{AppState, NotificationStore};
+use crate::state::{AppState, KeyReport, NotificationStore};
 
 /// Registers every configured key, replacing whatever was registered before.
 ///
@@ -39,6 +39,8 @@ pub fn apply(app: &AppHandle) {
         return;
     }
 
+    // Binding names rather than a sentence, so the first-run screen can line
+    // each refusal up with the key it belongs to and offer a way out.
     let mut refused: Vec<String> = Vec::new();
 
     for (binding, chord) in bindings(&config.keybinds) {
@@ -49,7 +51,7 @@ pub fn apply(app: &AppHandle) {
         };
 
         let Ok(shortcut) = Shortcut::from_str(&chord) else {
-            refused.push(format!("{chord} ({binding})"));
+            refused.push(binding.clone());
             tracing::warn!(%chord, %binding, "not a key combination");
             continue;
         };
@@ -65,12 +67,18 @@ pub fn apply(app: &AppHandle) {
         });
 
         if let Err(error) = registered {
-            refused.push(format!("{chord} ({binding})"));
+            refused.push(binding.clone());
             tracing::warn!(%error, %chord, %binding, "Windows would not give up this combination");
         }
     }
 
-    report(app, &refused);
+    // Kept, not just announced. A notification is gone the moment it is
+    // dismissed, and the first-run screen — and the settings screen after
+    // it — need to know which keys are missing for as long as they are.
+    if let Some(held) = app.try_state::<KeyReport>() {
+        held.hold(refused.clone());
+    }
+    report(app, &config.keybinds, &refused);
 }
 
 /// Each configured binding as a name and a chord, skipping the unassigned.
@@ -170,7 +178,7 @@ fn toggle(app: &AppHandle, flag: &str) {
 }
 
 /// Says which keys could not be taken, once, rather than per key.
-fn report(app: &AppHandle, refused: &[String]) {
+fn report(app: &AppHandle, keybinds: &bw_core::config::Keybinds, refused: &[String]) {
     if refused.is_empty() {
         return;
     }
@@ -178,12 +186,21 @@ fn report(app: &AppHandle, refused: &[String]) {
         return;
     };
 
+    // Named by their chord rather than their config key: the user pressed a
+    // combination, and that is what they will look for.
+    let serialised = serde_json::to_value(keybinds).unwrap_or_default();
+    let named: Vec<String> = bw_core::keys::chords(&serialised)
+        .into_iter()
+        .filter(|(binding, _)| refused.contains(binding))
+        .map(|(binding, chord)| format!("{chord} ({binding})"))
+        .collect();
+
     let notification = store.0.post(NewNotification::from_shell(
         "Some keyboard shortcuts are unavailable",
         format!(
             "Windows keeps these for itself, or another program already has them: {}. \
-             Change them under `keybinds` in config.json.",
-            refused.join(", ")
+             Settings offers a free combination for each.",
+            named.join(", ")
         ),
     ));
     let _ = app.emit(event::NOTIFICATIONS, store.0.list());
