@@ -9,6 +9,7 @@
 //! a Windows machine in the loop.
 
 pub mod ai;
+pub mod autostart;
 pub mod booru;
 pub mod brightness;
 pub mod calc;
