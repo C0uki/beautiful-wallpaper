@@ -18,4 +18,18 @@ export type Hacks = {
    * reachable by its key and from the launcher either way.
    */
   desktopMenu: boolean;
+  /**
+   * Show notifications posted by other applications, not just the
+   * shell's own.
+   *
+   * **Off, and it is in `hacks` for a reason.** Windows only lets
+   * `UserNotificationListener` read the Action Center for an
+   * application with *package identity*, which an ordinary installed
+   * program does not have. Getting it means registering a signed MSIX
+   * sparse package — and trusting the certificate it is signed with,
+   * which is a decision about the machine rather than about this shell.
+   * Switching this on without that in place changes nothing except the
+   * reason the settings screen gives for why it is not working.
+   */
+  readOtherNotifications: boolean;
 };

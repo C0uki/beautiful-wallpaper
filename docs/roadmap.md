@@ -160,10 +160,11 @@ but safe-rated work, and the tab itself is hidden entirely until
 - **Bluetooth pairing and connecting.** Only paired devices are listed;
   pairing needs a PIN exchange with a UI of its own, and connecting is largely
   the stack's decision, so the dialog opens Windows' own settings for both.
-- **Reading other applications' notifications**, which needs
-  `UserNotificationListener` and therefore package identity — the MSIX sparse
-  package in Phase 5. Until then the toasts and the centre show only what the
-  shell itself posts.
+- **Reading other applications' notifications** is built, behind
+  `hacks.readOtherNotifications` and the MSIX sparse package that gives the
+  shell the package identity Windows requires for it — see the Phase 5 entry
+  and `docs/msix.md`. With the setting off, the toasts and the centre show only
+  what the shell itself posts.
 
 ## Phase 4 — Overlays
 
@@ -581,9 +582,50 @@ Not built: forgetting the API keys on uninstall. They are in the Windows
 credential manager rather than in either data folder, so removing them needs a
 command the shell does not have; until then an uninstall leaves them.
 
+### Done: the MSIX sparse package
+
+One feature needs it and nothing else does: showing notifications posted by
+_other_ applications. `UserNotificationListener` is the only supported way to
+read the Action Center, and Windows will not hand anything to a process it
+cannot name — which is the normal state of a program installed from an `.exe`.
+A sparse package is the documented way out: an MSIX carrying a manifest and
+three logos and no payload at all, declaring `AllowExternalContent` and
+registered with the folder the shell is already installed in.
+
+- **The certificate is a decision about the machine, so nothing here makes
+  one.** Windows refuses an unsigned package and one signed by a certificate it
+  does not trust, and trusting a root certificate is a much larger permission
+  than "run this package" — it can vouch for anything. So the repository ships
+  no certificate, `build.ps1` takes one you already have, and `docs/msix.md`
+  says plainly what installing one means. The setting stays off by default.
+- **Every way this can fail gets its own sentence.** Four states rather than a
+  boolean: no package identity yet, a Windows too old to have the listener,
+  nobody has answered Windows' access prompt, and the user refused. "It is off"
+  tells somebody nothing about which of those they are standing at, and each
+  has a different next step.
+- **Registering the package does not give identity to the process that
+  registered it.** Windows decides identity when a process starts, so the shell
+  says so and asks to be restarted rather than appearing to work and reporting
+  nothing.
+- **Every read returns the whole Action Center**, so the listener inverts the
+  usual problem: not "what arrived" but "what is new since I last looked". Ids
+  answer it — and **the first look deliberately reports nothing**, because the
+  Action Center holds everything the user has not dismissed, often days of it,
+  and replaying all of that the moment somebody switched the feature on would
+  bury whatever was actually happening. Both rules are in `bw-core` under
+  tests, along with how a toast's text elements become a summary and a body and
+  what to call an application that has no display name.
+- It polls rather than using `NotificationChanged`, which is only delivered to
+  a packaged application with a background task — which a sparse package over a
+  Win32 executable is not.
+
+Not built: unregistering the package on uninstall, which needs the package
+manager rather than a registry write; a signed package in the releases, which
+needs a certificate held as a CI secret.
+
 ### Still to do
 
-The MSIX sparse package and documentation.
+Documentation.
 
 ## Deliberately not built
 

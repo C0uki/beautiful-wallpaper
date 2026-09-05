@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The sparse package.
+
+  It contains this file and the three logos beside it — nothing else. Its whole
+  job is to give the installed `bw.exe` package identity, which Windows
+  requires before `UserNotificationListener` will report what other
+  applications have posted. The executable itself stays where the installer put
+  it; `AllowExternalContent` is what says so, and the registration supplies the
+  folder.
+
+  Two values here are not this repository's to fill in:
+
+  * `Publisher` must match the subject of the certificate the package is signed
+    with, exactly, or Windows refuses the package. `build.ps1` rewrites it from
+    the certificate it is given.
+  * `Version` must be four parts, and its revision must be 0 for a package
+    Windows will accept from a file.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap10 rescap">
+
+  <Identity
+    Name="C0uki.beautiful-wallpaper"
+    Publisher="CN=REPLACE-WITH-YOUR-CERTIFICATE-SUBJECT"
+    Version="0.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>beautiful-wallpaper</DisplayName>
+    <PublisherDisplayName>C0uki</PublisherDisplayName>
+    <Logo>images\StoreLogo.png</Logo>
+    <!-- What makes this a sparse package rather than a real one. -->
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <!--
+      19041 is 2004, the first build where a package may declare external
+      content. Below that a sparse package is simply not a thing, which is why
+      the shell reports "this Windows does not offer it" rather than failing.
+    -->
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <!--
+      `Executable` is relative to the external location, which is the folder
+      the shell was installed into. `RuntimeBehavior` and `TrustLevel` are what
+      say this is an ordinary Win32 program rather than a packaged app: without
+      them Windows would try to run it in a container it was never built for.
+    -->
+    <Application
+      Id="bw"
+      Executable="bw.exe"
+      EntryPoint="Windows.FullTrustApplication"
+      uap10:RuntimeBehavior="win32App"
+      uap10:TrustLevel="mediumIL">
+      <uap:VisualElements
+        DisplayName="beautiful-wallpaper"
+        Description="A Material 3 desktop shell for Windows"
+        BackgroundColor="transparent"
+        Square150x150Logo="images\Square150x150Logo.png"
+        Square44x44Logo="images\Square44x44Logo.png">
+        <!--
+          Off the Start menu on purpose. The shell is started by the installer's
+          own shortcut and by the Run key; a second entry that launches the same
+          executable would look like a second program.
+        -->
+        <uap:ShowNameOnTiles>
+          <uap:ShowOn Tile="square150x150Logo" />
+        </uap:ShowNameOnTiles>
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+</Package>

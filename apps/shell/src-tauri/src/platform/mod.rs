@@ -21,9 +21,13 @@ pub mod deskclick;
 #[cfg(windows)]
 pub mod dragout;
 #[cfg(windows)]
+pub mod identity;
+#[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
 pub mod mixer;
+#[cfg(windows)]
+pub mod notifylisten;
 #[cfg(windows)]
 pub mod ocr;
 #[cfg(windows)]
