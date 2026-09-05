@@ -8,7 +8,7 @@
 // context — it falls back to two stacked images with a CSS crossfade, so the
 // shell still shows a wallpaper.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { VERTEX_SHADER, fragmentShaderFor } from "./transitions";
 
 export interface WallpaperCanvasProps {
@@ -144,6 +144,23 @@ export function WallpaperCanvas({
   const programRef = useRef<Program | null>(null);
   const currentSrcRef = useRef<string>("");
 
+  // A wallpaper spends almost all of its life sitting still, and a frame drawn
+  // then is identical to the one before it. Driving requestAnimationFrame
+  // through that pins a full-screen shader to the refresh rate — on a 144Hz
+  // panel, 144 redraws a second of a picture that has not changed — and keeps
+  // the GPU from ever idling. So nothing is drawn unless something asks for it:
+  // a running transition asks for the next frame, and the three things that can
+  // change a still frame — a new texture, a new shader, a resize — ask once.
+  const frameRef = useRef(0);
+  const drawRef = useRef<(() => void) | null>(null);
+  const requestRender = useCallback(() => {
+    if (frameRef.current) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0;
+      drawRef.current?.();
+    });
+  }, []);
+
   // Set up the context once. Rebuilding it on every wallpaper change would drop
   // the outgoing texture, which is exactly what the transition needs.
   useEffect(() => {
@@ -170,9 +187,7 @@ export function WallpaperCanvas({
       gl.STATIC_DRAW,
     );
 
-    let frame = 0;
-    const render = () => {
-      frame = requestAnimationFrame(render);
+    const draw = () => {
       const program = programRef.current;
       const state = stateRef.current;
       if (!program || !state.to) return;
@@ -213,14 +228,29 @@ export function WallpaperCanvas({
       gl.uniform2f(program.uniforms["uToSize"] ?? null, ...state.toSize);
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // Only a transition still in flight needs the frame after this one.
+      if (state.animating) requestRender();
     };
-    frame = requestAnimationFrame(render);
+
+    drawRef.current = draw;
+
+    // A resize changes the drawing buffer, and the canvas is `inset: 0`, so this
+    // also covers a scale change: at a fixed physical size, a different device
+    // pixel ratio is a different CSS size.
+    const observer = new ResizeObserver(requestRender);
+    observer.observe(canvas);
+
+    requestRender();
 
     return () => {
-      cancelAnimationFrame(frame);
+      observer.disconnect();
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
+      drawRef.current = null;
       gl.deleteBuffer(buffer);
     };
-  }, []);
+  }, [requestRender]);
 
   // Recompile when the configured transition changes.
   useEffect(() => {
@@ -229,7 +259,8 @@ export function WallpaperCanvas({
     if (!gl) return;
     const built = buildProgram(gl, fragmentShaderFor(transition));
     if (built) programRef.current = built;
-  }, [transition]);
+    requestRender();
+  }, [transition, requestRender]);
 
   // Swap in a new wallpaper, keeping the old texture to transition away from.
   useEffect(() => {
@@ -271,12 +302,14 @@ export function WallpaperCanvas({
         state.progress = 1;
         state.animating = false;
       }
+
+      requestRender();
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [src, durationMs]);
+  }, [src, durationMs, requestRender]);
 
   const transform = `scale(${zoom}) translate(${panX}%, ${panY}%)`;
 
