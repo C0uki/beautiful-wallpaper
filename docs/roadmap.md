@@ -418,7 +418,7 @@ Not built, and not because of time:
 
 Nothing: Phase 4 is complete.
 
-## Phase 5 — Finishing
+## Phase 5 — Finishing ✅
 
 ### Done: the settings screen
 
@@ -623,9 +623,40 @@ Not built: unregistering the package on uninstall, which needs the package
 manager rather than a registry write; a signed package in the releases, which
 needs a certificate held as a CI secret.
 
-### Still to do
+### Done: the documentation
 
-Documentation.
+Four documents, and one of them writes itself.
+
+- **`docs/config.md` is generated**, by `pnpm gen:docs`, with a staleness check
+  in CI beside the one for the shared types. 238 settable values is well past
+  the size at which a hand-kept table is wrong the first time somebody adds a
+  key and forgets a row — and that failure is the silent one: the setting
+  exists, nothing says so, and the only way to find it is to read the Rust.
+  Types and defaults come from `settings::fields` and `Config::default`, the
+  same values the shell itself reads.
+- **The prose comes from the schema's own doc comments.** `reference.rs`
+  compiles `config/schema.rs` in with `include_str!` and reads them back out,
+  so a key explained where a developer would naturally explain it is explained
+  in the reference too, with no second copy to fall behind. Parsing Rust would
+  be a bad idea in general; it is a reasonable one against a file whose shape
+  `config_struct!` enforces, and the tests hold every settable path against the
+  parse so a change the parser cannot follow fails `cargo test` rather than
+  quietly emitting a document with holes in it. Documenting a config key now
+  means writing a doc comment.
+- **Writing it turned up two false claims in the README.** It said the
+  `GlobalStates` flags and the IPC vocabulary were "all kept". Nine flag names
+  are identical, two were renamed (`dropShelfOpen` → `shelfOpen`,
+  `regionSelectorOpen` → `regionSelectOpen`), and six of nineteen IPC targets
+  carry over. A reader porting a script would have been misled by both.
+  `docs/differences.md` now lists what actually survives, and both READMEs say
+  so.
+- **`docs/troubleshooting.md` covers the failures that are not bugs** — an
+  empty tray, brightness that will not move, no workspaces, a chord Windows
+  refuses — because each of those is the shell reaching for something Windows
+  need not provide, and the interesting part is where it said so.
+- The keys table in `differences.md` was written out and then **deleted in
+  favour of a link** to the generated reference: a second copy of the defaults
+  is a second copy to go stale, which is the thing this whole entry is about.
 
 ## Deliberately not built
 
