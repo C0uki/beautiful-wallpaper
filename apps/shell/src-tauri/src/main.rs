@@ -202,9 +202,11 @@ fn main() {
             app.manage(PresetUndo::default());
             app.manage(KeyReport::default());
             app.manage(services::integration::Integration::default());
+            app.manage(services::listener::ListenerHandle::default());
             // After the handle is managed: hiding the taskbar is held by a
             // guard that lives in it.
             services::integration::apply(&handle);
+            services::listener::apply(&handle);
             // After the surfaces exist and the state is managed: the hot
             // corners need their window before they can be cut down to size.
             services::chrome::apply(&handle);

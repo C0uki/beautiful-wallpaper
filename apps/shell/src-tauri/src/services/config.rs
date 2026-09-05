@@ -80,6 +80,8 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         || config.appearance != previous.appearance
         || config.bar != previous.bar;
     let windows_changed = config.windows != previous.windows;
+    let listener_changed =
+        config.hacks.read_other_notifications != previous.hacks.read_other_notifications;
     let wallpaper = config.background.wallpaper_path.clone();
     let wallpaper_changed =
         wallpaper != previous.background.wallpaper_path && !wallpaper.is_empty();
@@ -115,6 +117,16 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     // than only being read once at startup.
     if windows_changed {
         crate::services::integration::apply(app);
+    }
+
+    if listener_changed {
+        crate::services::listener::apply(app);
+        // Switching it off takes the sparse package with it: leaving one
+        // behind would go on granting identity for a feature nobody asked for
+        // any more.
+        if !config.hacks.read_other_notifications {
+            crate::services::listener::forget();
+        }
     }
 
     // The wallpaper is the one setting that is not simply a value the surfaces
