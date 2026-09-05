@@ -99,7 +99,15 @@ is deliberately not built.
 
 ## Install
 
-Grab the installer from the latest CI run, or build it yourself:
+Take the `.exe` from [the latest release](https://github.com/C0uki/beautiful-wallpaper/releases),
+or the artifact from a CI run for something newer than the last tag. It installs
+for the current user, so it does not ask for an administrator.
+
+**The installers are not signed**, so SmartScreen will say _"Windows protected
+your PC"_ and put the Run button behind **More info**. That is what Windows says
+about any installer whose publisher it cannot verify, and it is the right
+default — signing needs a code-signing certificate this project does not have.
+Building it yourself avoids the question entirely:
 
 ```powershell
 pnpm install
@@ -109,6 +117,12 @@ pnpm --filter @bw/shell app:build
 The result lands in `target/release/bundle/`. Windows 10 and 11 are both
 supported; the shell needs [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/),
 which Windows 11 already has.
+
+Releases are cut by tagging: `git tag v0.1.0 && git push origin v0.1.0` builds
+the installers and attaches them to a draft release, which stays a draft until
+somebody publishes it. The tag has to match the version in `tauri.conf.json` —
+the workflow refuses a mismatch rather than shipping a `v0.2.0` release full of
+`0.1.0` installers.
 
 ## Develop
 
