@@ -97,11 +97,21 @@ Hyprland の IPC ソケットと会話し、すべてのパネルを `wlr-layer-
 これは発行元を確認できないインストーラー全般に対して Windows が言うことで、
 既定の挙動として正しいものです。署名にはコード署名証明書が必要で、この
 プロジェクトは持っていません。自分でビルドすればこの問題自体が発生しません。
+ビルドには Node と pnpm、[rustup](https://rustup.rs)（`rust-toolchain.toml` を
+読んで CI と同じコンパイラ・コンポーネント・ターゲットを入れます）、そして
+Visual Studio の **C++ によるデスクトップ開発** ワークロードが要ります。
+`link.exe` と Windows SDK はそこから来ます。
 
 ```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 pnpm install
 pnpm --filter @bw/shell app:build
 ```
+
+これは Git Bash ではなく PowerShell から実行してください。Git 自身が
+`link.exe`（GNU coreutils の `link`）を同梱しており、`PATH` 上で先に来ると
+MSVC のリンカーを隠します。そうなるとビルドはコードとは無関係な
+`extra operand` で終わります。
 
 成果物は `target/release/bundle/` に出ます。Windows 10 と 11 の両方に対応し、
 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) が必要です

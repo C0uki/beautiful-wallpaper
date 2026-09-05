@@ -12,6 +12,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { chromium } from "@playwright/test";
@@ -26,6 +27,16 @@ const launchOptions = existsSync(PRESET_CHROMIUM)
     }
   : { args: ["--no-sandbox"] };
 
+// Vite is run through Node directly rather than through `pnpm exec`. On Windows
+// the package manager on PATH is a `.CMD`, which `spawn` refuses without a
+// shell, and putting a shell in between would leave the `kill()` below killing
+// the shell while the preview server kept the port. `vite/bin/vite.js` is not
+// an exported path, so it is reached from the manifest, which is.
+const VITE_BIN = path.resolve(
+  createRequire(import.meta.url).resolve("vite/package.json"),
+  "../bin/vite.js",
+);
+
 const appDir = fileURLToPath(new URL("..", import.meta.url));
 const outDir = path.resolve(appDir, "../../screenshots");
 // Two of the shots are also written at 1x into docs/images/, small enough to
@@ -39,10 +50,9 @@ const BASE = `http://${HOST}:${PORT}`;
 /** Starts `vite preview` and resolves once it is answering. */
 async function startPreview() {
   const server = spawn(
-    "pnpm",
+    process.execPath,
     [
-      "exec",
-      "vite",
+      VITE_BIN,
       "preview",
       "--port",
       String(PORT),

@@ -1,0 +1,9 @@
+# The repository is stored with LF, and checked out with LF everywhere.
+#
+# Git for Windows ships with `core.autocrlf=true`, so without this a Windows
+# checkout gets CRLF in the working tree and `pnpm format:check` then fails on
+# every file in the repository: Prettier's default `endOfLine` is `lf`, and the
+# only difference it finds is the line ending. CI runs on Linux, so nothing
+# there ever sees it — the first person to hit it is somebody developing on the
+# platform this shell is written for.
+* text=auto eol=lf
