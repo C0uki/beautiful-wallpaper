@@ -107,12 +107,22 @@ for the current user, so it does not ask for an administrator.
 your PC"_ and put the Run button behind **More info**. That is what Windows says
 about any installer whose publisher it cannot verify, and it is the right
 default — signing needs a code-signing certificate this project does not have.
-Building it yourself avoids the question entirely:
+Building it yourself avoids the question entirely. It needs Node and pnpm,
+[rustup](https://rustup.rs) — which reads `rust-toolchain.toml` and installs the
+compiler, components and target CI uses — and Visual Studio's **Desktop
+development with C++** workload, which is where `link.exe` and the Windows SDK
+come from:
 
 ```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 pnpm install
 pnpm --filter @bw/shell app:build
 ```
+
+Run that from PowerShell rather than Git Bash. Git ships a `link.exe` of its own
+— GNU coreutils' `link` — and where it sits earlier on `PATH` it shadows the
+MSVC linker, which ends the build on `extra operand` rather than on anything to
+do with the code.
 
 The result lands in `target/release/bundle/`. Windows 10 and 11 are both
 supported; the shell needs [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/),
