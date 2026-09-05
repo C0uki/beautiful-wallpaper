@@ -33,11 +33,14 @@ What the original does with a Wayland protocol, this does with Win32:
 | MPRIS                                     | the Windows media session (SMTC)                     |
 | UPower, PipeWire, `/proc`                 | `GetSystemPowerStatus`, WASAPI, `sysinfo`            |
 | Hyprland workspaces                       | GlazeWM / komorebi, when one is running              |
-| `IpcHandler` targets                      | a named pipe, with the same target names             |
+| `IpcHandler` targets                      | a named pipe; six target names carry over            |
 
-The seams the original chose turn out to travel well. Its `colors.json` shape,
-its `GlobalStates` flags and its IPC vocabulary are all kept, so muscle memory
-and any scripts written against them still mean something here.
+The seams the original chose turn out to travel well. Its config key names, its
+`colors.json` shape and most of its state flags are kept, so muscle memory
+mostly carries over — but not all of it does, and
+[docs/differences.md](docs/differences.md) is the list of what changed and why:
+the keys Windows refuses to hand over, the two state flags that were renamed,
+and the six IPC targets that still mean the same thing.
 
 ## What works today
 
@@ -58,15 +61,41 @@ and any scripts written against them still mean something here.
   keep clear of it. Four styles, horizontal or vertical, with workspaces,
   active window, clock, weather, tray, battery, network, resources, media and
   utility buttons — laid out by `bar.left/center/right`.
+- **The two sidebars**: the right one's quick toggles, sliders, night light and
+  notification centre; the left one's AI chat, translator, media and image-board
+  tabs.
+- **The dock**, with pinned and running applications.
+- **The overview and launcher**, searching applications, files, the web and a
+  calculator, with `/` actions.
+- **Screenshots**: a region picker, OCR and an on-screen translator.
+- **The session screen, the desktop menu, the drop shelf and a floating
+  overlay** with a crosshair.
+- **A settings screen** whose form is generated from the config schema, so a new
+  setting has a control the moment it exists.
+- **Presets** — whole configurations saved by name, and a first-run screen that
+  reports which of your keys Windows refused to register.
+- **An installer** that puts the machine back on uninstall: the taskbar, the
+  autostart entry, the App Paths key.
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
-  shell follows.
+  shell follows. Every key is in [docs/config.md](docs/config.md).
 - **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
   hotkeys and scripts.
 - **Fourteen locales' worth of plumbing**, with English and Japanese filled in.
 
-Sidebars, notifications, the launcher and the settings UI are the next phases;
-see [docs/roadmap.md](docs/roadmap.md) for those and for what is still missing
-from the bar.
+What is missing is mostly at the edges: per-monitor surfaces, eight of the
+fourteen wallpaper transitions, drag-to-reorder in the dock, and the audio
+visualiser. [docs/roadmap.md](docs/roadmap.md) has the full list, including what
+is deliberately not built.
+
+## Documentation
+
+|                                                         |                                                                 |
+| ------------------------------------------------------- | --------------------------------------------------------------- |
+| [Configuration reference](docs/config.md)               | every key, its type and its default — generated from the schema |
+| [What is different from end4-pC](docs/differences.md)   | keys, workspaces, notifications, and what still means the same  |
+| [When something does not work](docs/troubleshooting.md) | an empty tray, a key Windows refuses, a hidden taskbar          |
+| [The MSIX sparse package](docs/msix.md)                 | reading other applications' notifications, and what it costs    |
+| [Roadmap](docs/roadmap.md)                              | what is done, what is not, and what will not be                 |
 
 ## Install
 
@@ -135,6 +164,13 @@ packages/tokens/         the derived token layer — Appearance.qml, in TypeScri
 Run `pnpm gen:types` after changing anything in `crates/bw-core`: the TypeScript
 types and the default config are generated from the Rust schema, and CI fails if
 they are stale.
+
+Adding or documenting a config key also means `pnpm gen:docs`, which rewrites
+[docs/config.md](docs/config.md) from the schema — types and defaults from the
+same values the shell reads, and the prose from the doc comments in
+`config/schema.rs`. There is no second copy to keep in step, and CI fails if the
+committed file does not match. A doc comment on a key is therefore the way to
+document it.
 
 ## Licence
 
