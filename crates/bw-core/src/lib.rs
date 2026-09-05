@@ -29,6 +29,7 @@ pub mod overlay;
 pub mod paths;
 pub mod persistent;
 pub mod preset;
+pub mod reference;
 pub mod search;
 pub mod session;
 pub mod settings;

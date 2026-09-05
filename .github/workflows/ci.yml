@@ -51,6 +51,19 @@ jobs:
             exit 1
           fi
 
+      # The config reference is derived from the schema for the same reason the
+      # types are: 238 rows kept by hand are 238 chances to forget one.
+      - name: Regenerate the config reference
+        run: pnpm gen:docs
+
+      - name: Fail if the config reference is stale
+        run: |
+          if ! git diff --quiet -- docs/config.md; then
+            echo "::error::docs/config.md is out of date; run 'pnpm gen:docs' and commit the result."
+            git --no-pager diff -- docs/config.md
+            exit 1
+          fi
+
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck

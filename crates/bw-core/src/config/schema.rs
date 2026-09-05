@@ -51,30 +51,74 @@ fn s(value: &str) -> String {
 config_struct! {
     /// Root of `config.json`.
     pub struct Config {
+        /// The assistant in the left sidebar: which model answers, and what it
+        /// is allowed to do while answering.
         pub ai: Ai = Ai::default(),
+        /// Colours, fonts and corner rounding — everything about how the shell
+        /// looks that the wallpaper does not decide for itself.
         pub appearance: Appearance = Appearance::default(),
+        /// Volume steps, and the guard against the volume jumping to something
+        /// painful.
         pub audio: Audio = Audio::default(),
+        /// The wallpaper, how it arrives on screen, and the widgets drawn over
+        /// it.
         pub background: Background = Background::default(),
+        /// The strip along one edge of the screen: where it sits, how it looks,
+        /// and what it carries.
         pub bar: Bar = Bar::default(),
+        /// Screenshots and what can be done with one — the region picker, OCR
+        /// and the screen translator.
         pub capture: Capture = Capture::default(),
+        /// The menu the desktop's right button opens, and which entries it
+        /// offers. Opening it that way needs `hacks.desktopMenu`; its key and
+        /// the launcher work either way.
         pub desktop_menu: DesktopMenu = DesktopMenu::default(),
+        /// The strip of pinned and running applications.
         pub dock: Dock = Dock::default(),
+        /// Settings that reach past what Windows offers an ordinary program.
+        /// Each one costs something, and the note on each says what.
         pub hacks: Hacks = Hacks::default(),
+        /// The chords that open each surface. Windows keeps some combinations
+        /// for itself and simply refuses to register them; the settings screen
+        /// says which of these it refused and suggests a free one.
         pub keybinds: Keybinds = Keybinds::default(),
+        /// Which language the interface is drawn in.
         pub language: Language = Language::default(),
+        /// Toasts: where they appear, how long they stay, and how many at once.
         pub notifications: Notifications = Notifications::default(),
+        /// The readout that appears on a volume or brightness key.
         pub osd: Osd = Osd::default(),
+        /// The floating always-on-top panel, and the crosshair it can draw.
         pub overlay: Overlay = Overlay::default(),
+        /// The overview and launcher — the search box, and what it may search.
         pub overview: Overview = Overview::default(),
+        /// Whether whole features are offered at all, which is how a feature is
+        /// turned off for good rather than merely closed.
         pub policies: Policies = Policies::default(),
+        /// How often CPU, RAM and disk are sampled for the widgets that show
+        /// them.
         pub resources: Resources = Resources::default(),
+        /// The session screen, and which of its actions are offered.
         pub session: Session = Session::default(),
+        /// The drop shelf: somewhere to park a dragged file on the way to
+        /// somewhere else.
         pub shelf: Shelf = Shelf::default(),
+        /// The two sidebars — the left one's tabs, the right one's toggles,
+        /// sliders and notification centre.
         pub sidebar: Sidebar = Sidebar::default(),
+        /// Clock and date formats, and which day a week starts on.
         pub time: Time = Time::default(),
+        /// The wallpaper picker: the folder it reads, how it is laid out, and
+        /// the online sources it can search.
         pub wallpaper_selector: WallpaperSelector = WallpaperSelector::default(),
+        /// Where the weather is fetched for, and in which units.
         pub weather: Weather = Weather::default(),
+        /// The things that only mean anything on Windows: the system taskbar,
+        /// starting with the machine, and which window manager the workspaces
+        /// come from.
         pub windows: WindowsIntegration = WindowsIntegration::default(),
+        /// Blanking the wallpaper when its filename matches a keyword, for a
+        /// screen other people can see.
         pub work_safety: WorkSafety = WorkSafety::default(),
     }
 }

@@ -29,29 +29,123 @@ import type { WorkSafety } from "./WorkSafety";
  * Root of `config.json`.
  */
 export type Config = {
+  /**
+   * The assistant in the left sidebar: which model answers, and what it
+   * is allowed to do while answering.
+   */
   ai: Ai;
+  /**
+   * Colours, fonts and corner rounding — everything about how the shell
+   * looks that the wallpaper does not decide for itself.
+   */
   appearance: Appearance;
+  /**
+   * Volume steps, and the guard against the volume jumping to something
+   * painful.
+   */
   audio: Audio;
+  /**
+   * The wallpaper, how it arrives on screen, and the widgets drawn over
+   * it.
+   */
   background: Background;
+  /**
+   * The strip along one edge of the screen: where it sits, how it looks,
+   * and what it carries.
+   */
   bar: Bar;
+  /**
+   * Screenshots and what can be done with one — the region picker, OCR
+   * and the screen translator.
+   */
   capture: Capture;
+  /**
+   * The menu the desktop's right button opens, and which entries it
+   * offers. Opening it that way needs `hacks.desktopMenu`; its key and
+   * the launcher work either way.
+   */
   desktopMenu: DesktopMenu;
+  /**
+   * The strip of pinned and running applications.
+   */
   dock: Dock;
+  /**
+   * Settings that reach past what Windows offers an ordinary program.
+   * Each one costs something, and the note on each says what.
+   */
   hacks: Hacks;
+  /**
+   * The chords that open each surface. Windows keeps some combinations
+   * for itself and simply refuses to register them; the settings screen
+   * says which of these it refused and suggests a free one.
+   */
   keybinds: Keybinds;
+  /**
+   * Which language the interface is drawn in.
+   */
   language: Language;
+  /**
+   * Toasts: where they appear, how long they stay, and how many at once.
+   */
   notifications: Notifications;
+  /**
+   * The readout that appears on a volume or brightness key.
+   */
   osd: Osd;
+  /**
+   * The floating always-on-top panel, and the crosshair it can draw.
+   */
   overlay: Overlay;
+  /**
+   * The overview and launcher — the search box, and what it may search.
+   */
   overview: Overview;
+  /**
+   * Whether whole features are offered at all, which is how a feature is
+   * turned off for good rather than merely closed.
+   */
   policies: Policies;
+  /**
+   * How often CPU, RAM and disk are sampled for the widgets that show
+   * them.
+   */
   resources: Resources;
+  /**
+   * The session screen, and which of its actions are offered.
+   */
   session: Session;
+  /**
+   * The drop shelf: somewhere to park a dragged file on the way to
+   * somewhere else.
+   */
   shelf: Shelf;
+  /**
+   * The two sidebars — the left one's tabs, the right one's toggles,
+   * sliders and notification centre.
+   */
   sidebar: Sidebar;
+  /**
+   * Clock and date formats, and which day a week starts on.
+   */
   time: Time;
+  /**
+   * The wallpaper picker: the folder it reads, how it is laid out, and
+   * the online sources it can search.
+   */
   wallpaperSelector: WallpaperSelector;
+  /**
+   * Where the weather is fetched for, and in which units.
+   */
   weather: Weather;
+  /**
+   * The things that only mean anything on Windows: the system taskbar,
+   * starting with the machine, and which window manager the workspaces
+   * come from.
+   */
   windows: WindowsIntegration;
+  /**
+   * Blanking the wallpaper when its filename matches a keyword, for a
+   * screen other people can see.
+   */
   workSafety: WorkSafety;
 };
