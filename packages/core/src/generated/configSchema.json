@@ -819,6 +819,13 @@
     "kind": "toggle"
   },
   {
+    "path": "hacks.readOtherNotifications",
+    "section": "hacks",
+    "label": "Read other notifications",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
     "path": "keybinds.enable",
     "section": "keybinds",
     "label": "Enable",

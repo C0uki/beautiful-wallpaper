@@ -167,7 +167,8 @@
   },
   "hacks": {
     "configReloadDelay": 50,
-    "desktopMenu": false
+    "desktopMenu": false,
+    "readOtherNotifications": false
   },
   "keybinds": {
     "enable": true,
