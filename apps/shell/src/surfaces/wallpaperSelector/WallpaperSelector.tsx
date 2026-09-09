@@ -13,6 +13,7 @@ import {
   type WallpaperItem,
   type WallpaperPage,
 } from "@bw/core";
+import { forEachLimit } from "../../lib/concurrency";
 import { backend } from "../../shell/backend";
 import { actions, useShell } from "../../shell/store";
 import {
@@ -199,19 +200,36 @@ export function WallpaperSelector() {
         });
         if (id !== requestId.current) return;
         setEntries(listed);
+        // The grid already has something to show — icons for now — so the
+        // spinner stops here rather than waiting on every thumbnail too.
+        setLoading(false);
+        setThumbs({});
 
-        const previews = await Promise.all(
-          listed
-            .filter((entry) => !entry.isDirectory)
-            .map(async (entry) => {
-              const thumb = await backend()
-                .invoke<string>(Command.ThumbnailFor, { path: entry.path })
-                .catch(() => "");
-              return [entry.path, thumb] as const;
-            }),
+        // A folder can hold thousands of pictures, and each uncached
+        // thumbnail is a real decode-resize-encode on the backend. Firing
+        // them all at once (Promise.all's usual shape) asks for as many
+        // decodes in parallel as there are files; capping it keeps that
+        // proportional to what the machine can actually do at once instead.
+        // Thumbnails are set as each one lands rather than collected and
+        // applied together, so the grid fills in progressively instead of
+        // sitting empty until the very last file in the folder is done.
+        const concurrency = Math.max(2, navigator.hardwareConcurrency || 4);
+        await forEachLimit(
+          listed.filter((entry) => !entry.isDirectory),
+          concurrency,
+          async (entry) => {
+            // Checked before firing the request too, not just after: once the
+            // user has moved on to another folder, there is no point starting
+            // more requests for this one — only the handful already in flight
+            // run to completion.
+            if (id !== requestId.current) return;
+            const thumb = await backend()
+              .invoke<string>(Command.ThumbnailFor, { path: entry.path })
+              .catch(() => "");
+            if (id !== requestId.current) return;
+            setThumbs((prev) => ({ ...prev, [entry.path]: thumb }));
+          },
         );
-        if (id !== requestId.current) return;
-        setThumbs(Object.fromEntries(previews));
       } catch (caught) {
         if (id === requestId.current) setError(String(caught));
       } finally {
