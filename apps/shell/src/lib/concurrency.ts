@@ -12,7 +12,11 @@
  * Runs `fn` over `items`, at most `limit` in flight at once.
  *
  * Order of completion is not the order of `items` — that is the point, since
- * a slow one at the front should not hold up the fast ones behind it.
+ * a slow one at the front should not hold up the fast ones behind it. A
+ * `limit` below 1 still runs everything, one at a time, rather than doing
+ * nothing. If `fn` rejects, the returned promise rejects too, but the other
+ * workers are not cancelled — each keeps pulling and running further items
+ * until the whole list is drained, same as if nothing had failed.
  */
 export async function forEachLimit<T>(
   items: readonly T[],
