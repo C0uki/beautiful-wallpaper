@@ -128,11 +128,13 @@ The result lands in `target/release/bundle/`. Windows 10 and 11 are both
 supported; the shell needs [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/),
 which Windows 11 already has.
 
-Releases are cut by tagging: `git tag v0.1.0 && git push origin v0.1.0` builds
-the installers and attaches them to a draft release, which stays a draft until
-somebody publishes it. The tag has to match the version in `tauri.conf.json` —
-the workflow refuses a mismatch rather than shipping a `v0.2.0` release full of
-`0.1.0` installers.
+Releases are cut by tagging: bump `version` in `tauri.conf.json`, then
+`git tag vX.Y.Z && git push origin vX.Y.Z` — matching that version exactly —
+builds the installers and attaches them to a draft release, which stays a
+draft until somebody publishes it. The workflow refuses a tag that disagrees
+with `tauri.conf.json` rather than shipping a `v0.2.0` release full of
+`0.1.0` installers. [v0.1.0](https://github.com/C0uki/beautiful-wallpaper/releases/tag/v0.1.0)
+is the first one, cut this way.
 
 ## Develop
 
