@@ -65,13 +65,50 @@ function useDirectoryHistory(initial: string) {
   };
 }
 
+/**
+ * Returns a setter that coalesces calls into one `apply` per animation
+ * frame, keyed so a later call for the same key overwrites an earlier one
+ * still waiting to flush.
+ *
+ * Thumbnails land one at a time from a worker pool, each a `setState` of its
+ * own; for a folder of a few thousand, that is a few thousand reconciles of
+ * the whole grid. Batching whatever completed within a frame keeps the
+ * progressive fill-in (the point of setting thumbnails as they arrive rather
+ * than all together) without a render per file.
+ */
+function batchedUpdater<T>(
+  apply: (updates: ReadonlyMap<string, T>) => void,
+): (key: string, value: T) => void {
+  let pending: Map<string, T> | null = null;
+  let scheduled = false;
+  return (key, value) => {
+    (pending ??= new Map()).set(key, value);
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      const batch = pending!;
+      pending = null;
+      scheduled = false;
+      apply(batch);
+    });
+  };
+}
+
 function parentOf(path: string): string | null {
   const normalized = path.replace(/[\\/]+$/, "");
   const cut = Math.max(
     normalized.lastIndexOf("/"),
     normalized.lastIndexOf("\\"),
   );
-  // Stop at a drive root (`C:`), which has no meaningful parent.
+  if (cut < 0) return null;
+  // A separator right after `C:` is the drive root itself — one step up
+  // from `C:\Users`, not past it. Keeping the separator that was actually
+  // there (`\` or `/`) rather than forcing one avoids fighting whatever
+  // style the path already used.
+  if (cut === 2 && /^[A-Za-z]:$/.test(normalized.slice(0, 2))) {
+    return normalized.slice(0, 2) + normalized[cut];
+  }
+  // A drive root itself (or anything shorter) has no meaningful parent.
   if (cut <= 2) return null;
   return normalized.slice(0, cut);
 }
@@ -170,6 +207,7 @@ function Tile({
 
 export function WallpaperSelector() {
   const config = useShell((state) => state.config);
+  const ready = useShell((state) => state.ready);
   const currentWallpaper = useShell((state) => state.wallpaper.path);
   const mode = useShell((state) => state.theme?.mode ?? "dark");
 
@@ -185,6 +223,22 @@ export function WallpaperSelector() {
     config.wallpaperSelector.userPath || "C:/Users/you/Pictures/Wallpapers";
   const history = useDirectoryHistory(startDirectory);
   const requestId = useRef(0);
+
+  // The surface mounts before the real config has arrived — `state.config`
+  // starts out as the schema default, with an empty `userPath`, and is
+  // replaced once `GetConfig` answers. `useDirectoryHistory`'s initial stack
+  // is only ever seeded once, at that first render, so without this the
+  // folder a user actually configured never gets picked up: the picker keeps
+  // browsing the placeholder guess it started with. This catches up exactly
+  // once, the moment `ready` flips — a config change after that (a preset
+  // applied mid-browse, say) should not yank the user somewhere else.
+  const syncedStartDirectory = useRef(false);
+  useEffect(() => {
+    if (!ready || syncedStartDirectory.current) return;
+    syncedStartDirectory.current = true;
+    history.reset(startDirectory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   // Local listing.
   useEffect(() => {
@@ -210,10 +264,24 @@ export function WallpaperSelector() {
         // them all at once (Promise.all's usual shape) asks for as many
         // decodes in parallel as there are files; capping it keeps that
         // proportional to what the machine can actually do at once instead.
+        // The cap tops out well below a high core count on purpose — a full
+        // decode holds a whole image in memory, so this is bound by memory
+        // bandwidth sooner than by cores.
         // Thumbnails are set as each one lands rather than collected and
         // applied together, so the grid fills in progressively instead of
         // sitting empty until the very last file in the folder is done.
-        const concurrency = Math.max(2, navigator.hardwareConcurrency || 4);
+        const concurrency = Math.min(
+          8,
+          Math.max(2, navigator.hardwareConcurrency || 4),
+        );
+        const setThumb = batchedUpdater<string>((batch) => {
+          if (id !== requestId.current) return;
+          setThumbs((prev) => {
+            const next = { ...prev };
+            for (const [path, thumb] of batch) next[path] = thumb;
+            return next;
+          });
+        });
         await forEachLimit(
           listed.filter((entry) => !entry.isDirectory),
           concurrency,
@@ -227,7 +295,11 @@ export function WallpaperSelector() {
               .invoke<string>(Command.ThumbnailFor, { path: entry.path })
               .catch(() => "");
             if (id !== requestId.current) return;
-            setThumbs((prev) => ({ ...prev, [entry.path]: thumb }));
+            // The cache returns a bare filesystem path; the surfaces that
+            // already show local images (Wizard, Presets, Dock) all resolve
+            // it through `assetUrl` first, since a raw path is not something
+            // an `<img>` can load through Tauri's asset protocol.
+            setThumb(entry.path, thumb ? backend().assetUrl(thumb) : "");
           },
         );
       } catch (caught) {
