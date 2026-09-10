@@ -5,9 +5,9 @@
 # workflow artifact needs a GitHub login to download and expires after ninety
 # days. A release does neither.
 #
-# Push a tag to make one:
+# Bump `version` in tauri.conf.json, then push a matching tag to make one:
 #
-#     git tag v0.1.0 && git push origin v0.1.0
+#     git tag vX.Y.Z && git push origin vX.Y.Z
 #
 # The release is created as a **draft**, so nothing is published until somebody
 # reads it and presses the button.
@@ -102,4 +102,14 @@ jobs:
           }
           $installers | ForEach-Object { Write-Output "attaching $($_.Name)" }
 
-          gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --notes-file .github/release-notes.md $installers.FullName
+          # Two files, not one with both languages inline, so each reads the
+          # way its own README does rather than as a translation bolted onto
+          # the other. Combined here into the one body a release actually has.
+          $notes = @(
+            Get-Content .github/release-notes.md -Raw
+            Get-Content .github/release-notes.ja.md -Raw
+          ) -join "`n`n---`n`n"
+          $notesPath = "$env:RUNNER_TEMP/release-notes-combined.md"
+          Set-Content -Path $notesPath -Value $notes -Encoding utf8NoBOM
+
+          gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --notes-file $notesPath $installers.FullName

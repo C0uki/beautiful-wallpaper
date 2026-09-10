@@ -117,11 +117,14 @@ MSVC のリンカーを隠します。そうなるとビルドはコードとは
 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) が必要です
 （Windows 11 には標準で入っています）。
 
-リリースはタグで作ります。`git tag v0.1.0 && git push origin v0.1.0` で
+リリースはタグで作ります。`tauri.conf.json` の `version` を上げてから
+`git tag vX.Y.Z && git push origin vX.Y.Z`（その version と一致させる）で
 インストーラーがビルドされ、**ドラフトの**リリースに添付されます。公開するまで
-ドラフトのままです。タグは `tauri.conf.json` の version と一致している必要が
-あり、食い違えばワークフローが**ビルド前に**落ちます — `v0.2.0` という名前の
-リリースに `0.1.0` のインストーラーが入る、という事故を防ぐためです。
+ドラフトのままです。タグが `tauri.conf.json` と食い違えばワークフローが
+**ビルド前に**落ちます — `v0.2.0` という名前のリリースに `0.1.0` のインストー
+ラーが入る、という事故を防ぐためです。
+[v0.1.0](https://github.com/C0uki/beautiful-wallpaper/releases/tag/v0.1.0)
+がこの方法で作られた最初のリリースです。
 
 ## 開発
 
