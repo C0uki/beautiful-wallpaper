@@ -40,7 +40,7 @@
         "languages": ["English", "Japanese"]
       },
       "wix": {
-        "languages": ["en-US", "ja-JP"]
+        "language": ["en-US", "ja-JP"]
       }
     }
   }
