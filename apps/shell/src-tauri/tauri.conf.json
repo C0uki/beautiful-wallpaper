@@ -36,7 +36,11 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "installerHooks": "./installer.nsh"
+        "installerHooks": "./installer.nsh",
+        "languages": ["English", "Japanese"]
+      },
+      "wix": {
+        "languages": ["en-US", "ja-JP"]
       }
     }
   }

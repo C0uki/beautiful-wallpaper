@@ -20,6 +20,16 @@
 ; without asking is rude; leaving a folder behind silently is untidy. Only the
 ; question is honest.
 
+; `tauri.conf.json` lists English and Japanese in `nsis.languages`, which is
+; what gets every stock page of the installer — welcome, license, directory,
+; finish — translated for free, `MUI2.nsh`'s own doing. It does not reach
+; text this file writes itself, so this one string gets the same two
+; languages by hand: a `LangString` per `LANG_*`, looked up with `$(...)`
+; wherever the plain text used to be. `MUI2.nsh` is included above this file,
+; so `${LANG_ENGLISH}` and `${LANG_JAPANESE}` already exist.
+LangString BW_REMOVE_DATA_QUESTION ${LANG_ENGLISH} "Remove your beautiful-wallpaper settings, presets and cached thumbnails as well?$\n$\nChoose No to keep them for a future installation."
+LangString BW_REMOVE_DATA_QUESTION ${LANG_JAPANESE} "beautiful-wallpaper の設定・プリセット・サムネイルキャッシュも削除しますか?$\n$\n「いいえ」を選ぶと、次にインストールするときのために残しておけます。"
+
 !define BW_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 !define BW_RUN_VALUE "beautiful-wallpaper"
 ; The Run dialog and Task Manager's "Run new task" resolve a bare name through
@@ -58,9 +68,7 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   ; Asked, not assumed. `IDNO` is the default so that an uninstall somebody
   ; clicked through in a hurry keeps their wallpapers and presets.
-  MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 \
-    "Remove your beautiful-wallpaper settings, presets and cached thumbnails as well?$\n$\nChoose No to keep them for a future installation." \
-    IDNO bw_keep_data
+  MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "$(BW_REMOVE_DATA_QUESTION)" IDNO bw_keep_data
 
   RMDir /r "$APPDATA\beautiful-wallpaper"
   RMDir /r "$LOCALAPPDATA\beautiful-wallpaper"
