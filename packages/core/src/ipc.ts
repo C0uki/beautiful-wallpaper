@@ -205,26 +205,6 @@ export const Command = {
   DetectWindowManager: "detect_window_manager",
 } as const;
 
-/** IPC targets, mirroring end4-pC's `IpcHandler` names. */
-export const IpcTarget = {
-  Background: "background",
-  Bar: "bar",
-  Config: "config",
-  MediaControls: "mediaControls",
-  SidebarLeft: "sidebarLeft",
-  SidebarRight: "sidebarRight",
-  Settings: "settings",
-  Wallpapers: "wallpapers",
-  WallpaperSelector: "wallpaperSelector",
-  Overview: "overview",
-  Capture: "capture",
-  Session: "session",
-  DesktopMenu: "desktopMenu",
-  Shelf: "shelf",
-  Chrome: "chrome",
-  Overlay: "overlay",
-} as const;
-
 export interface WallpaperChanged {
   monitor: string;
   path: string;

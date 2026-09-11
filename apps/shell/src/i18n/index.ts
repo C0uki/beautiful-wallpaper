@@ -43,10 +43,6 @@ export function setLocale(requested: string): string {
   return activeLocale;
 }
 
-export function currentLocale(): string {
-  return activeLocale;
-}
-
 export function availableLocales(): string[] {
   return Object.keys(DICTIONARIES);
 }

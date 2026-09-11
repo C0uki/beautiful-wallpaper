@@ -372,15 +372,6 @@ function startClock(): void {
   schedule();
 }
 
-/** Resets the connection, for tests. */
-export function resetShell(): void {
-  connected = undefined;
-  sidebarConnected = undefined;
-  dockConnected = undefined;
-  leftConnected = undefined;
-  set(initial, true);
-}
-
 // Actions — thin wrappers so components never name a command string.
 
 export const actions = {

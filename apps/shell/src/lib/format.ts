@@ -40,3 +40,9 @@ export function formatAge(
   if (elapsed < 86_400) return `${Math.round(elapsed / 3600)}h`;
   return `${Math.round(elapsed / 86_400)}d`;
 }
+
+/** "3:07" — a track position or length, as a media player writes it. */
+export function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}

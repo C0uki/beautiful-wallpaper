@@ -7,13 +7,9 @@
 // the lyrics came from an external script.
 
 import { IconButton, Placeholder, Symbol } from "../../widgets";
+import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
-
-function clock(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-}
 
 export function MediaTab() {
   const media = useShell((state) => state.media);
@@ -51,8 +47,8 @@ export function MediaTab() {
             <div style={{ width: `${progress * 100}%` }} />
           </div>
           <div className="bw-media-tab-times">
-            <span>{clock(media.position)}</span>
-            <span>{clock(media.duration)}</span>
+            <span>{formatClock(media.position)}</span>
+            <span>{formatClock(media.duration)}</span>
           </div>
         </div>
       ) : null}
