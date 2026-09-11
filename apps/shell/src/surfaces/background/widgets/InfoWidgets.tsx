@@ -6,7 +6,7 @@
 import { Card, IconButton, ProgressRing, Symbol } from "../../../widgets";
 import { tr } from "../../../i18n";
 import { actions, useShell } from "../../../shell/store";
-import { formatBytes } from "../../../lib/format";
+import { formatBytes, formatClock } from "../../../lib/format";
 
 export function WeatherWidget() {
   const weather = useShell((state) => state.weather);
@@ -210,12 +210,6 @@ export function ResourcesWidget() {
   );
 }
 
-function formatTime(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(total / 60);
-  return `${minutes}:${(total % 60).toString().padStart(2, "0")}`;
-}
-
 export function MediaWidget() {
   const media = useShell((state) => state.media);
 
@@ -319,7 +313,7 @@ export function MediaWidget() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {formatTime(media.position)} / {formatTime(media.duration)}
+              {formatClock(media.position)} / {formatClock(media.duration)}
             </span>
           </div>
         </div>

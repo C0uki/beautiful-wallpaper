@@ -2,14 +2,16 @@
 //
 // Each surface is its own document, so each one has to set its locale, mark
 // itself for the backend, and suppress the browser affordances that make a
-// desktop widget feel like a web page.
+// desktop widget feel like a web page. Every entry point renders the same
+// StrictMode/ThemeProvider shell around its one component, so that lives here
+// too and a `main-*.tsx` is just a name and a node.
 
+import { StrictMode, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+import { ThemeProvider } from "../design/ThemeProvider";
 import { backend } from "./backend";
 
-export function mountSurface(
-  name: string,
-  render: (root: HTMLElement) => void,
-): void {
+export function mountSurface(name: string, surface: ReactNode): void {
   const root = document.getElementById("root");
   if (!root) throw new Error("no #root element");
 
@@ -23,5 +25,9 @@ export function mountSurface(
 
   // The UI language follows `language.ui`; ThemeProvider applies it.
 
-  render(root);
+  createRoot(root).render(
+    <StrictMode>
+      <ThemeProvider>{surface}</ThemeProvider>
+    </StrictMode>,
+  );
 }

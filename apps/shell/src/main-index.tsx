@@ -5,9 +5,7 @@
 // against the mock backend. It is what makes the UI reviewable — and
 // screenshotable — from Linux, and it is not part of the shipped shell.
 
-import { StrictMode, useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { ThemeProvider } from "./design/ThemeProvider";
+import { useEffect, useState } from "react";
 import { Background } from "./surfaces/background/Background";
 import { Bar } from "./surfaces/bar/Bar";
 import { Dock } from "./surfaces/dock/Dock";
@@ -26,9 +24,9 @@ import { Overlay } from "./surfaces/overlay/Overlay";
 import { OverlayPinned } from "./surfaces/overlay/OverlayPinned";
 import { actions, connect, useShell } from "./shell/store";
 import { backend } from "./shell/backend";
+import { mountSurface } from "./shell/mount";
 import { Button, Segmented, Symbol } from "./widgets";
 import { TRANSITION_NAMES } from "./gl/transitions";
-import "./design/global.css";
 
 type View = "desktop" | "wallpapers" | "sidebar" | "left" | "both";
 
@@ -448,14 +446,4 @@ function Harness() {
   );
 }
 
-const root = document.getElementById("root");
-if (!root) throw new Error("no #root element");
-document.documentElement.dataset["surface"] = "devHarness";
-
-createRoot(root).render(
-  <StrictMode>
-    <ThemeProvider>
-      <Harness />
-    </ThemeProvider>
-  </StrictMode>,
-);
+mountSurface("devHarness", <Harness />);

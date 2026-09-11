@@ -157,21 +157,6 @@ export function IconButton({
   );
 }
 
-export function ProgressBar({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
-  return (
-    <div
-      className="bw-progress"
-      role="progressbar"
-      aria-valuenow={Math.round(clamped)}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    >
-      <i style={{ width: `${clamped}%` }} />
-    </div>
-  );
-}
-
 export interface ProgressRingProps {
   value: number;
   size?: number;

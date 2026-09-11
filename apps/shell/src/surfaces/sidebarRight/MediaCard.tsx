@@ -4,14 +4,9 @@
 // the position, so it gets both.
 
 import { IconButton, Symbol } from "../../widgets";
+import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
-
-function formatPosition(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(total / 60);
-  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
-}
 
 export function MediaCard() {
   const media = useShell((state) => state.media);
@@ -48,7 +43,7 @@ export function MediaCard() {
         <div className="bw-media-row">
           <span className="bw-media-time">
             {media.duration > 0
-              ? `${formatPosition(media.position)} / ${formatPosition(media.duration)}`
+              ? `${formatClock(media.position)} / ${formatClock(media.duration)}`
               : ""}
           </span>
           <div className="bw-media-buttons">

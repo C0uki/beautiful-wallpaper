@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAge, formatBytes, formatRate } from "./format";
+import { formatAge, formatBytes, formatClock, formatRate } from "./format";
 
 describe("formatRate", () => {
   it("keeps bytes whole and larger units to one decimal", () => {
@@ -40,5 +40,18 @@ describe("formatAge", () => {
   it("does not show a future time as negative", () => {
     const now = 1_000_000;
     expect(formatAge(now + 500, now)).toBe("now");
+  });
+});
+
+describe("formatClock", () => {
+  it("pads the seconds but not the minutes", () => {
+    expect(formatClock(0)).toBe("0:00");
+    expect(formatClock(9)).toBe("0:09");
+    expect(formatClock(65.7)).toBe("1:05");
+    expect(formatClock(3_725)).toBe("62:05");
+  });
+
+  it("treats a negative position as the start", () => {
+    expect(formatClock(-5)).toBe("0:00");
   });
 });

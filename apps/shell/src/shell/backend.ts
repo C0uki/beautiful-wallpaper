@@ -64,8 +64,3 @@ export function backend(): Backend {
   cached ??= isTauri() ? tauriBackend() : mockBackend();
   return cached;
 }
-
-/** Replaces the backend, for tests. */
-export function setBackend(replacement: Backend | undefined): void {
-  cached = replacement;
-}
