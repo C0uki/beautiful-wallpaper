@@ -494,4 +494,26 @@ describe("the mock backend", () => {
       /no_such_command/,
     );
   });
+
+  /// That refusal is what makes this test worth having. Every surface the dev
+  /// harness draws shares one page, so a command the mock has not caught up
+  /// with takes down the screenshots of surfaces that never called it — a
+  /// four-minute CI job failing everywhere except where the cause is. Here it
+  /// is one assertion naming the command.
+  it("implements every command the frontend can send", async () => {
+    const backend = mockBackend();
+
+    const missing: string[] = [];
+    for (const command of Object.values(Command)) {
+      try {
+        await backend.invoke(command, {});
+      } catch (error) {
+        // Anything else is a command that is implemented and unhappy with the
+        // empty arguments, which is not what this is looking for.
+        if (String(error).includes("has no command")) missing.push(command);
+      }
+    }
+
+    expect(missing, "commands the mock backend does not implement").toEqual([]);
+  });
 });
