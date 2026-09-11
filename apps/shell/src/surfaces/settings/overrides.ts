@@ -32,6 +32,7 @@ const plain = (values: string[]): Choice[] =>
 export const OVERRIDES: Record<string, Override> = {
   "language.ui": {
     choices: [
+      { value: "auto", label: () => tr("Automatic") },
       { value: "en_US", label: () => "English" },
       { value: "ja_JP", label: () => "日本語" },
     ],
@@ -98,14 +99,17 @@ export const OVERRIDES: Record<string, Override> = {
   "shelf.width": { range: { min: 0.1, max: 0.5, step: 0.01 } },
   "shelf.edge": { choices: plain(["left", "right"]) },
   "osd.position": { choices: plain(["top", "bottom"]) },
+  // Spelled as the backend spells them: `Notifications::position` is a plain
+  // string the Rust side matches with `ends_with("left")`, and its default is
+  // `top_right`. camelCase here would leave the box showing no value at all.
   "notifications.position": {
     choices: plain([
-      "topLeft",
-      "topCenter",
-      "topRight",
-      "bottomLeft",
-      "bottomCenter",
-      "bottomRight",
+      "top_left",
+      "top_center",
+      "top_right",
+      "bottom_left",
+      "bottom_center",
+      "bottom_right",
     ]),
   },
   "overlay.clickthroughOpacity": { range: { min: 0.1, max: 1, step: 0.05 } },
