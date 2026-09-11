@@ -16,14 +16,14 @@ use std::path::PathBuf;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, MAX_PATH};
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
-    DIB_RGB_COLORS, HBITMAP,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, SelectObject, BITMAPINFO,
+    BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HGDIOBJ,
 };
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::Shell::ExtractIconExW;
-use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO};
+use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, DrawIconEx, DI_NORMAL, HICON};
 
 /// The size icons are rasterised at. Large enough for the mixer's 36px rows on
 /// a 200% display, small enough that caching them all costs nothing.
@@ -110,6 +110,22 @@ pub fn for_executable_at(executable: &std::path::Path, index: i32) -> Option<Str
     Some(target.to_string_lossy().into_owned())
 }
 
+/// The PNG for an icon we already hold a handle to, under `key`.
+///
+/// The notification area hands over `HICON`s rather than paths: they come out
+/// of Explorer's own button data, so there is no file to extract from.
+///
+/// ponytail: the handle is not an identity, so `key` has to be the owner and
+/// id and the PNG is rewritten on every refresh. Hash the pixels instead if
+/// that ever shows up in a profile.
+pub fn for_hicon(icon: HICON, key: &str) -> Option<String> {
+    let target = cache_path(key)?;
+    let pixels = unsafe { icon_pixels(icon)? };
+    let image: image::RgbaImage = image::ImageBuffer::from_raw(ICON_SIZE, ICON_SIZE, pixels)?;
+    image.save(&target).ok()?;
+    Some(target.to_string_lossy().into_owned())
+}
+
 /// Puts an already-encoded image into the same cache, under `key`.
 ///
 /// Packaged applications hand over a logo as a stream rather than an `HICON`,
@@ -155,28 +171,18 @@ unsafe fn rasterise(executable: &std::path::Path, index: i32) -> Option<Vec<u8>>
     pixels
 }
 
-/// Reads an icon's colour bitmap as straight RGBA.
+/// Draws an icon into RGBA pixels at [`ICON_SIZE`], whatever size it really is.
+///
+/// `DrawIconEx` rather than `GetDIBits` off the colour bitmap, for two reasons
+/// that both show up as a broken picture rather than an error:
+///
+///   * it scales. `GetDIBits` does not — asking it for 64 rows of a 32×32 icon
+///     reads the rows it has against the wrong stride and garbles the result,
+///     and a notification-area icon is 16×16 or 32×32 far more often than 64.
+///   * it composites the mask. The colour bitmap on its own has no
+///     transparency, so every icon with a cut-out came back on a black square.
 unsafe fn icon_pixels(icon: HICON) -> Option<Vec<u8>> {
-    let mut info = ICONINFO::default();
-    GetIconInfo(icon, &mut info).ok()?;
-
-    // Both bitmaps are ours to free once we are done with them, whatever
-    // happens below.
-    let colour = info.hbmColor;
-    let mask = info.hbmMask;
-    let pixels = read_bitmap(colour);
-    if !colour.is_invalid() {
-        let _ = DeleteObject(colour);
-    }
-    if !mask.is_invalid() {
-        let _ = DeleteObject(mask);
-    }
-    pixels
-}
-
-/// Pulls a GDI bitmap's pixels out as RGBA, at [`ICON_SIZE`].
-unsafe fn read_bitmap(bitmap: HBITMAP) -> Option<Vec<u8>> {
-    if bitmap.is_invalid() {
+    if icon.is_invalid() {
         return None;
     }
 
@@ -185,7 +191,7 @@ unsafe fn read_bitmap(bitmap: HBITMAP) -> Option<Vec<u8>> {
         return None;
     }
 
-    let mut header = BITMAPINFO {
+    let header = BITMAPINFO {
         bmiHeader: BITMAPINFOHEADER {
             biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
             biWidth: ICON_SIZE as i32,
@@ -200,27 +206,39 @@ unsafe fn read_bitmap(bitmap: HBITMAP) -> Option<Vec<u8>> {
         ..Default::default()
     };
 
-    let mut buffer = vec![0u8; (ICON_SIZE * ICON_SIZE * 4) as usize];
-    let copied = GetDIBits(
-        dc,
-        bitmap,
-        0,
-        ICON_SIZE,
-        Some(buffer.as_mut_ptr().cast()),
-        &mut header,
-        DIB_RGB_COLORS,
-    );
-    let _ = DeleteDC(dc);
-
-    if copied == 0 {
+    let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+    let Ok(bitmap) = CreateDIBSection(dc, &header, DIB_RGB_COLORS, &mut bits, None, 0) else {
+        let _ = DeleteDC(dc);
         return None;
-    }
+    };
 
-    // GDI hands back BGRA; every consumer of this wants RGBA.
-    for pixel in buffer.as_chunks_mut::<4>().0 {
-        pixel.swap(0, 2);
-    }
-    Some(buffer)
+    let previous = SelectObject(dc, HGDIOBJ::from(bitmap));
+    let drawn = DrawIconEx(
+        dc,
+        0,
+        0,
+        icon,
+        ICON_SIZE as i32,
+        ICON_SIZE as i32,
+        0,
+        None,
+        DI_NORMAL,
+    );
+    SelectObject(dc, previous);
+
+    let pixels = drawn.is_ok().then(|| {
+        let count = (ICON_SIZE * ICON_SIZE * 4) as usize;
+        let mut buffer = std::slice::from_raw_parts(bits.cast::<u8>(), count).to_vec();
+        // GDI hands back BGRA; every consumer of this wants RGBA.
+        for pixel in buffer.as_chunks_mut::<4>().0 {
+            pixel.swap(0, 2);
+        }
+        buffer
+    });
+
+    let _ = DeleteObject(HGDIOBJ::from(bitmap));
+    let _ = DeleteDC(dc);
+    pixels
 }
 
 /// FNV-1a over the lowercased key: not cryptographic, but stable across runs,
