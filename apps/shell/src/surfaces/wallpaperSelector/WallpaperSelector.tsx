@@ -13,7 +13,7 @@ import {
   type WallpaperItem,
   type WallpaperPage,
 } from "@bw/core";
-import { forEachLimit } from "../../lib/concurrency";
+import { createLimiter } from "../../lib/concurrency";
 import { backend } from "../../shell/backend";
 import { actions, useShell } from "../../shell/store";
 import {
@@ -121,6 +121,8 @@ function Tile({
   onActivate,
   onSecondary,
   caption,
+  onVisible,
+  scrollRoot,
 }: {
   label: string;
   thumb?: string;
@@ -129,9 +131,39 @@ function Tile({
   onActivate: () => void;
   onSecondary?: () => void;
   caption?: string;
+  /**
+   * Called once, the first time this tile scrolls into `scrollRoot` (or the
+   * viewport, without one). Left undefined for tiles that already have
+   * everything they need — the online-search grid passes a thumbnail URL
+   * straight from the search result, so there is nothing to wait on.
+   */
+  onVisible?: () => void;
+  scrollRoot?: React.RefObject<HTMLElement | null>;
 }) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!onVisible) return;
+    const node = buttonRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (records) => {
+        if (!records.some((record) => record.isIntersecting)) return;
+        onVisible();
+        observer.disconnect();
+      },
+      // A little ahead of the edge, so the icon-to-thumbnail swap happens
+      // just before a tile is scrolled to rather than exactly as it arrives.
+      { root: scrollRoot?.current ?? null, rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onVisible]);
+
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onActivate}
       onContextMenu={(event) => {
@@ -223,6 +255,13 @@ export function WallpaperSelector() {
     config.wallpaperSelector.userPath || "C:/Users/you/Pictures/Wallpapers";
   const history = useDirectoryHistory(startDirectory);
   const requestId = useRef(0);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  // Which paths already have a thumbnail requested for the folder currently
+  // being browsed — a tile can call its onVisible more than once (a resize
+  // can re-trigger IntersectionObserver before it has disconnected), and
+  // this is what keeps that from asking twice.
+  const requestedThumbs = useRef<Set<string>>(new Set());
+  const requestThumbRef = useRef<(entry: Entry) => void>(() => {});
 
   // The surface mounts before the real config has arrived — `state.config`
   // starts out as the schema default, with an empty `userPath`, and is
@@ -255,25 +294,28 @@ export function WallpaperSelector() {
         if (id !== requestId.current) return;
         setEntries(listed);
         // The grid already has something to show — icons for now — so the
-        // spinner stops here rather than waiting on every thumbnail too.
+        // spinner stops here rather than waiting on any thumbnail at all.
         setLoading(false);
         setThumbs({});
+        requestedThumbs.current = new Set();
 
         // A folder can hold thousands of pictures, and each uncached
-        // thumbnail is a real decode-resize-encode on the backend. Firing
-        // them all at once (Promise.all's usual shape) asks for as many
-        // decodes in parallel as there are files; capping it keeps that
-        // proportional to what the machine can actually do at once instead.
-        // The cap tops out well below a high core count on purpose — a full
-        // decode holds a whole image in memory, so this is bound by memory
-        // bandwidth sooner than by cores.
-        // Thumbnails are set as each one lands rather than collected and
-        // applied together, so the grid fills in progressively instead of
-        // sitting empty until the very last file in the folder is done.
+        // thumbnail is a real decode-resize-encode on the backend — asking
+        // for all of them the moment a folder opens means deciding how long
+        // a wait is acceptable for a folder nobody has picked a size for yet.
+        // Asking only for what is actually on screen sidesteps that: a tile
+        // requests its own thumbnail the moment it scrolls into view (wired
+        // up below, via onVisible), so the wait is bounded by how many tiles
+        // fit in the window rather than by how many files are in the folder.
+        //
+        // The cap on how many of those run at once tops out well below a
+        // high core count on purpose — a full decode holds a whole image in
+        // memory, so this is bound by memory bandwidth sooner than by cores.
         const concurrency = Math.min(
           8,
           Math.max(2, navigator.hardwareConcurrency || 4),
         );
+        const limit = createLimiter(concurrency);
         const setThumb = batchedUpdater<string>((batch) => {
           if (id !== requestId.current) return;
           setThumbs((prev) => {
@@ -282,14 +324,15 @@ export function WallpaperSelector() {
             return next;
           });
         });
-        await forEachLimit(
-          listed.filter((entry) => !entry.isDirectory),
-          concurrency,
-          async (entry) => {
-            // Checked before firing the request too, not just after: once the
-            // user has moved on to another folder, there is no point starting
-            // more requests for this one — only the handful already in flight
-            // run to completion.
+        requestThumbRef.current = (entry) => {
+          if (entry.isDirectory) return;
+          if (requestedThumbs.current.has(entry.path)) return;
+          requestedThumbs.current.add(entry.path);
+          void limit(async () => {
+            // Checked before firing the request too, not just after: once
+            // the user has moved on to another folder, there is no point
+            // starting more requests for this one — only the handful
+            // already in flight run to completion.
             if (id !== requestId.current) return;
             const thumb = await backend()
               .invoke<string>(Command.ThumbnailFor, { path: entry.path })
@@ -300,8 +343,8 @@ export function WallpaperSelector() {
             // it through `assetUrl` first, since a raw path is not something
             // an `<img>` can load through Tauri's asset protocol.
             setThumb(entry.path, thumb ? backend().assetUrl(thumb) : "");
-          },
-        );
+          });
+        };
       } catch (caught) {
         if (id === requestId.current) setError(String(caught));
       } finally {
@@ -502,7 +545,10 @@ export function WallpaperSelector() {
         </div>
       ) : null}
 
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+      <div
+        ref={scrollRootRef}
+        style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
+      >
         <div
           style={{
             display: "grid",
@@ -522,6 +568,12 @@ export function WallpaperSelector() {
                   icon={entry.isDirectory ? "folder" : "image"}
                   selected={entry.path === currentWallpaper}
                   onActivate={() => applyLocal(entry)}
+                  {...(entry.isDirectory
+                    ? {}
+                    : {
+                        onVisible: () => requestThumbRef.current(entry),
+                        scrollRoot: scrollRootRef,
+                      })}
                 />
               ))
             : (online?.items ?? []).map((item) => (

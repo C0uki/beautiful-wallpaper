@@ -32,3 +32,49 @@ export async function forEachLimit<T>(
   const workers = Math.max(1, Math.min(limit, items.length));
   await Promise.all(Array.from({ length: workers }, worker));
 }
+
+/**
+ * Returns a `run` function that caps how many of its callers are ever
+ * mid-flight at once, the same guarantee `forEachLimit` makes — but for work
+ * that shows up over time rather than as one array known upfront.
+ *
+ * `forEachLimit` fits a folder listing, where every file is already in hand
+ * when the pool starts. It does not fit a picker that only asks for a
+ * thumbnail once its tile scrolls into view: calling `forEachLimit` again
+ * for each newly-visible batch would run its own separate pool alongside
+ * whichever earlier batches are still finishing, and the combined total
+ * could run well past `limit`. A `run` shared across every visibility event
+ * keeps the cap real regardless of how the work arrives.
+ *
+ * A rejected `fn` only fails its own `run(...)` call; every other task
+ * already queued or running is unaffected.
+ */
+export function createLimiter(
+  limit: number,
+): <T>(fn: () => Promise<T>) => Promise<T> {
+  const cap = Math.max(1, limit);
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  function dispatch() {
+    if (active >= cap) return;
+    const task = queue.shift();
+    if (!task) return;
+    active += 1;
+    task();
+  }
+
+  return function run<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      queue.push(() => {
+        fn()
+          .then(resolve, reject)
+          .finally(() => {
+            active -= 1;
+            dispatch();
+          });
+      });
+      dispatch();
+    });
+  };
+}
