@@ -521,11 +521,20 @@ export function mockBackend(): Backend {
     totalSent: 2_100_000_000,
   });
 
+  // No icon paths: off Windows there is no Explorer to read bitmaps out of, so
+  // the mock exercises the same fallback a rasterisation failure takes.
+  const noIcon = { hidden: false, icon: "", callbackMessage: 0x400 };
   const tray: TrayIcon[] = [
-    { window: "0x10a2c", id: 1, tooltip: "Sync client", hidden: false },
-    { window: "0x2f110", id: 2, tooltip: "Audio mixer", hidden: false },
-    { window: "0x3c884", id: 1, tooltip: "Update service", hidden: false },
-    { window: "0x4a190", id: 7, tooltip: "Background task", hidden: true },
+    { window: "0x10a2c", id: 1, tooltip: "Sync client", ...noIcon },
+    { window: "0x2f110", id: 2, tooltip: "Audio mixer", ...noIcon },
+    { window: "0x3c884", id: 1, tooltip: "Update service", ...noIcon },
+    {
+      window: "0x4a190",
+      id: 7,
+      tooltip: "Background task",
+      ...noIcon,
+      hidden: true,
+    },
   ];
 
   let notifications: Notification[] = [
