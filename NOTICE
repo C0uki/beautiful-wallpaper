@@ -17,9 +17,11 @@ apps/shell/public/fonts/MaterialSymbolsRounded.woff2
 Copyright 2022 Google LLC, licensed under the Apache License, Version 2.0.
 Obtain a copy of the licence at http://www.apache.org/licenses/LICENSE-2.0.
 
-The bundled file is a subset: the axes the shell does not vary are pinned and
-only the icons listed in assets/fonts/icons.txt are retained. See
-scripts/subset-icons.py for the exact transformation. No other change was made.
+The bundled file is a subset: only the icons listed in
+apps/shell/scripts/icons.json are retained, along with the letters their
+ligatures are spelled from. Every variable axis is kept. See
+apps/shell/scripts/gen_icons.py, which `pnpm gen:icons` runs, for the exact
+transformation. No other change was made.
 
 
 Design and behaviour derived from illogical-impulse / end4-pC
