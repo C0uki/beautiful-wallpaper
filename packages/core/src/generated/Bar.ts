@@ -11,9 +11,22 @@ export type Bar = {
   /**
    * Reserve screen space through `SHAppBarMessage` so maximised windows
    * keep clear of the bar.
+   *
+   * Ignored while `auto_hide` is on: reserving an edge for something
+   * that is off screen would leave a strip no window may use and no bar
+   * in it.
    */
   reserveSpace: boolean;
+  /**
+   * Slide off the screen edge until the pointer reaches it.
+   */
   autoHide: boolean;
+  /**
+   * How much of the bar stays on screen while it is hidden. This is the
+   * strip the pointer has to reach, so zero would make the bar
+   * unreachable.
+   */
+  hoverRegionHeight: number;
   /**
    * `"hug"` | `"float"` | `"islands"` | `"m3"`
    */

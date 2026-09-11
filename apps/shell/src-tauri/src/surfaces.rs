@@ -314,11 +314,9 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let screen = primary_screen(app);
     let config = app.state::<AppState>().config();
 
-    let (x, y, width, height) = match surface.layer {
-        Layer::Background | Layer::Chrome => (0.0, 0.0, screen.0, screen.1),
-        Layer::Bar => bar_geometry(&config, screen),
-        Layer::Overlay => overlay_geometry(surface, &config, screen),
-    };
+    // An auto-hiding surface starts hidden; the pointer reaching its strip is
+    // what reveals it, through `set_revealed`.
+    let (x, y, width, height) = geometry(surface, &config, screen, false);
 
     let mut builder =
         WebviewWindowBuilder::new(app, surface.label, WebviewUrl::App(surface.page.into()))
@@ -346,6 +344,49 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Where a surface sits, hidden or revealed.
+///
+/// One entry point because two callers need the same answer: `ensure` when it
+/// creates the window, and `set_revealed` when the pointer arrives at an
+/// auto-hiding surface's strip and it has to come back.
+fn geometry(
+    surface: &Surface,
+    config: &bw_core::Config,
+    screen: (f64, f64),
+    revealed: bool,
+) -> (f64, f64, f64, f64) {
+    match surface.layer {
+        Layer::Background | Layer::Chrome => (0.0, 0.0, screen.0, screen.1),
+        Layer::Bar => bar_geometry(config, screen, revealed),
+        Layer::Overlay => overlay_geometry(surface, config, screen, revealed),
+    }
+}
+
+/// Moves an auto-hiding surface between its hidden and revealed positions.
+///
+/// The window has to move, rather than the page sliding its own content: it is
+/// not click-through, so a window left covering its whole band would swallow
+/// every click meant for what is behind it, and a window parked off the edge
+/// cannot bring content back on screen no matter what its CSS does. This is one
+/// `SetWindowPos` per transition, not per frame — the slide itself is still the
+/// page's transition, running in the compositor.
+pub fn set_revealed(app: &AppHandle, label: &str, revealed: bool) {
+    let Some(surface) = ALL.iter().find(|surface| surface.label == label) else {
+        return;
+    };
+    let Some(window) = app.get_webview_window(label) else {
+        return;
+    };
+
+    let screen = primary_screen(app);
+    let config = app.state::<AppState>().config();
+    let (x, y, _, _) = geometry(surface, &config, screen, revealed);
+
+    if let Err(error) = window.set_position(tauri::LogicalPosition::new(x, y)) {
+        tracing::warn!(%error, surface = label, "could not move a surface to its hover position");
+    }
+}
+
 /// Where an overlay sits.
 ///
 /// Most overlays are centred, but the two transient ones are not: the readout
@@ -355,6 +396,7 @@ fn overlay_geometry(
     surface: &Surface,
     config: &bw_core::Config,
     screen: (f64, f64),
+    revealed: bool,
 ) -> (f64, f64, f64, f64) {
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
@@ -392,7 +434,7 @@ fn overlay_geometry(
         // hidden — all but the hover strip, which is what the pointer has to
         // reach to bring it back.
         let height = f64::from(config.dock.height) + margin * 2.0;
-        let hidden = if config.dock.auto_hide && !config.dock.pinned_on_startup {
+        let hidden = if config.dock.auto_hide && !config.dock.pinned_on_startup && !revealed {
             bw_core::dock::hidden_offset(height, f64::from(config.dock.hover_region_height))
         } else {
             0.0
@@ -557,25 +599,39 @@ fn overlay_geometry(
 }
 
 /// The bar's rectangle before the shell has had a chance to negotiate it.
-fn bar_geometry(config: &bw_core::Config, screen: (f64, f64)) -> (f64, f64, f64, f64) {
+fn bar_geometry(
+    config: &bw_core::Config,
+    screen: (f64, f64),
+    revealed: bool,
+) -> (f64, f64, f64, f64) {
     let thickness = f64::from(config.bar.height);
     let (screen_width, screen_height) = screen;
+
+    // Pushed off its own edge while hidden, all but the strip the pointer has
+    // to reach. The dock hides the same way, so it is the dock's arithmetic —
+    // the sign is what differs, because the bar can be on any of four edges
+    // while the dock is only ever on the bottom.
+    let hidden = if config.bar.auto_hide && !revealed {
+        bw_core::dock::hidden_offset(thickness, f64::from(config.bar.hover_region_height))
+    } else {
+        0.0
+    };
 
     if config.bar.vertical {
         // A vertical bar is anchored left unless it is configured to the far
         // side, which `bar.bottom` doubles as in vertical mode — the same
         // overload the original's config uses.
         let x = if config.bar.bottom {
-            screen_width - thickness
+            screen_width - thickness + hidden
         } else {
-            0.0
+            -hidden
         };
         (x, 0.0, thickness, screen_height)
     } else {
         let y = if config.bar.bottom {
-            screen_height - thickness
+            screen_height - thickness + hidden
         } else {
-            0.0
+            -hidden
         };
         (0.0, y, screen_width, thickness)
     }
@@ -631,7 +687,10 @@ fn apply_layer(
         }
     }
 
-    if layer != Layer::Bar || !config.bar.reserve_space {
+    // An auto-hiding bar must not reserve its edge, whatever `reserve_space`
+    // says: the reservation would hold a strip open that no window may use and
+    // the bar is not in, which is the opposite of what hiding it is for.
+    if layer != Layer::Bar || !config.bar.reserve_space || config.bar.auto_hide {
         return;
     }
 
@@ -735,7 +794,7 @@ mod tests {
     fn a_top_bar_spans_the_width_at_the_top() {
         let config = Config::default();
         assert_eq!(
-            bar_geometry(&config, (1920.0, 1080.0)),
+            bar_geometry(&config, (1920.0, 1080.0), false),
             (0.0, 0.0, 1920.0, f64::from(config.bar.height))
         );
     }
@@ -744,7 +803,7 @@ mod tests {
     fn a_bottom_bar_sits_on_the_bottom_edge() {
         let mut config = Config::default();
         config.bar.bottom = true;
-        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0));
+        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0), false);
         assert_eq!((x, width), (0.0, 1920.0));
         assert_eq!(y + height, 1080.0);
     }
@@ -753,13 +812,63 @@ mod tests {
     fn a_vertical_bar_spans_the_height() {
         let mut config = Config::default();
         config.bar.vertical = true;
-        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0));
+        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0), false);
         assert_eq!((x, y, height), (0.0, 0.0, 1080.0));
         assert_eq!(width, f64::from(config.bar.height));
 
         // In vertical mode `bottom` means the far side.
         config.bar.bottom = true;
-        let (x, _, width, _) = bar_geometry(&config, (1920.0, 1080.0));
+        let (x, _, width, _) = bar_geometry(&config, (1920.0, 1080.0), false);
         assert_eq!(x + width, 1920.0);
+    }
+
+    /// Every edge has to hide *outwards*. A sign the wrong way round puts the
+    /// bar a screen's width into the desktop instead of off its own edge, and
+    /// nothing else in the shell would notice.
+    #[test]
+    fn an_auto_hiding_bar_leaves_only_its_hover_strip_on_screen() {
+        let mut config = Config::default();
+        config.bar.auto_hide = true;
+        let strip = f64::from(config.bar.hover_region_height);
+        let thickness = f64::from(config.bar.height);
+        let screen = (1920.0, 1080.0);
+
+        let (_, y, _, height) = bar_geometry(&config, screen, false);
+        assert_eq!(y + height, strip, "a top bar hides upwards");
+
+        config.bar.bottom = true;
+        let (_, y, _, _) = bar_geometry(&config, screen, false);
+        assert_eq!(screen.1 - y, strip, "a bottom bar hides downwards");
+
+        config.bar.vertical = true;
+        config.bar.bottom = false;
+        let (x, _, width, _) = bar_geometry(&config, screen, false);
+        assert_eq!(x + width, strip, "a left bar hides leftwards");
+
+        config.bar.bottom = true;
+        let (x, _, _, _) = bar_geometry(&config, screen, false);
+        assert_eq!(screen.0 - x, strip, "a right bar hides rightwards");
+
+        // The strip is what makes an auto-hiding bar reachable at all, so it
+        // survives a configuration that asks for none.
+        config.bar.hover_region_height = 0;
+        let (x, _, _, _) = bar_geometry(&config, screen, false);
+        assert_eq!(screen.0 - x, 1.0);
+
+        // A hover region bigger than the bar cannot hide it further than flush.
+        config.bar.hover_region_height = thickness as u32 * 2;
+        let (x, _, _, _) = bar_geometry(&config, screen, false);
+        assert_eq!(screen.0 - x, thickness);
+    }
+
+    #[test]
+    fn a_bar_that_is_not_hiding_is_where_it_always_was() {
+        let mut config = Config::default();
+        config.bar.auto_hide = false;
+        config.bar.hover_region_height = 40;
+        assert_eq!(
+            bar_geometry(&config, (1920.0, 1080.0), false),
+            (0.0, 0.0, 1920.0, f64::from(config.bar.height))
+        );
     }
 }

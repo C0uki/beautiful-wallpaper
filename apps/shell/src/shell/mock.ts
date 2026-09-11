@@ -521,11 +521,20 @@ export function mockBackend(): Backend {
     totalSent: 2_100_000_000,
   });
 
+  // No icon paths: off Windows there is no Explorer to read bitmaps out of, so
+  // the mock exercises the same fallback a rasterisation failure takes.
+  const noIcon = { hidden: false, icon: "", callbackMessage: 0x400 };
   const tray: TrayIcon[] = [
-    { window: "0x10a2c", id: 1, tooltip: "Sync client", hidden: false },
-    { window: "0x2f110", id: 2, tooltip: "Audio mixer", hidden: false },
-    { window: "0x3c884", id: 1, tooltip: "Update service", hidden: false },
-    { window: "0x4a190", id: 7, tooltip: "Background task", hidden: true },
+    { window: "0x10a2c", id: 1, tooltip: "Sync client", ...noIcon },
+    { window: "0x2f110", id: 2, tooltip: "Audio mixer", ...noIcon },
+    { window: "0x3c884", id: 1, tooltip: "Update service", ...noIcon },
+    {
+      window: "0x4a190",
+      id: 7,
+      tooltip: "Background task",
+      ...noIcon,
+      hidden: true,
+    },
   ];
 
   let notifications: Notification[] = [
@@ -899,6 +908,14 @@ export function mockBackend(): Backend {
           return config as T;
         }
 
+        // Both of these ask Win32 to move or message a window, which is the one
+        // thing a browser cannot stand in for. Accepting them is the point: the
+        // dock asks to be revealed the moment it mounts, and a mock that threw
+        // would take down every surface on the harness page with it.
+        case Command.SetSurfaceRevealed:
+        case Command.ClickTrayIcon:
+          return undefined as T;
+
         case Command.ToggleState:
         case Command.SetState: {
           const name = String(args["name"] ?? "") as keyof GlobalStates;
@@ -1041,6 +1058,25 @@ export function mockBackend(): Backend {
           config = next;
           emit(Event.ConfigChanged, config);
           return config as T;
+        }
+
+        // No frontend caller today — the shell's own actions post from Rust —
+        // but the mock covers the whole command surface so that wiring one up
+        // is a frontend change and nothing else.
+        case Command.PostNotification: {
+          const posted: Notification = {
+            id: Math.max(0, ...notifications.map((one) => one.id)) + 1,
+            appName: String(args["appName"] ?? "beautiful-wallpaper"),
+            summary: String(args["summary"] ?? ""),
+            body: String(args["body"] ?? ""),
+            image: "",
+            urgency: (args["urgency"] as Notification["urgency"]) ?? "normal",
+            time: Math.floor(Date.now() / 1000),
+            actions: [],
+          };
+          notifications = [posted, ...notifications];
+          emit(Event.Notifications, notifications);
+          return posted as T;
         }
 
         case Command.DismissNotification: {

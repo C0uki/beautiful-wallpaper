@@ -100,10 +100,16 @@ export function Dock() {
     void connectDock();
   }, []);
 
-  // The window is positioned by Rust; this only tells it which state to be in.
-  // Keeping the class on the root means the CSS transition runs in the webview
-  // rather than the window being moved every frame.
+  // The window is parked off the bottom while hidden, with only the hover strip
+  // on screen, so reaching it has to bring the window back before the slide can
+  // show anything — a transition inside an off-screen window is invisible. That
+  // is one move per transition; the slide itself still runs in the webview.
   const revealed = pinned || !config.autoHide || hovered;
+
+  useEffect(() => {
+    if (!config.autoHide || pinned) return;
+    void actions.setSurfaceRevealed("dock", hovered);
+  }, [config.autoHide, pinned, hovered]);
 
   if (!ready) return null;
 

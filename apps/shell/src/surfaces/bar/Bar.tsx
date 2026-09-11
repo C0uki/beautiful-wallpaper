@@ -4,7 +4,8 @@
 // windows keep clear of it. The layout comes from `config.bar.left/center/right`,
 // the same three-slot arrangement the original uses.
 
-import { useShell } from "../../shell/store";
+import { useState } from "react";
+import { actions, useShell } from "../../shell/store";
 import { BAR_WIDGETS } from "./widgets";
 import "./bar.css";
 
@@ -22,6 +23,16 @@ function Slot({ names, justify }: { names: string[]; justify: string }) {
 
 export function Bar() {
   const bar = useShell((state) => state.config.bar);
+  const [revealed, setRevealed] = useState(false);
+
+  // While hiding, the window is parked off its edge with only the hover strip
+  // on screen; reaching it is what asks Rust to bring the window back. Nothing
+  // to do when the bar is not hiding — it is already where it belongs.
+  const hover = (next: boolean) => {
+    if (!bar.autoHide || next === revealed) return;
+    setRevealed(next);
+    void actions.setSurfaceRevealed("bar", next);
+  };
 
   return (
     <div
@@ -29,7 +40,10 @@ export function Bar() {
       data-style={bar.style}
       data-vertical={bar.vertical}
       data-bottom={bar.bottom}
+      data-revealed={!bar.autoHide || revealed}
       style={{ ["--bar-height" as string]: `${bar.height}px` }}
+      onPointerEnter={() => hover(true)}
+      onPointerLeave={() => hover(false)}
     >
       <Slot names={bar.left} justify="flex-start" />
       <Slot names={bar.center} justify="center" />

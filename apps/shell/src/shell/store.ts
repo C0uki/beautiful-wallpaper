@@ -393,6 +393,24 @@ export const actions = {
   setState(name: StateFlagName, value: boolean) {
     return backend().invoke<GlobalStates>(Command.SetState, { name, value });
   },
+  /** Slides an auto-hiding surface in or out. The window itself has to move:
+   *  it is not click-through, so one parked over its whole band would swallow
+   *  clicks meant for what is behind it. */
+  setSurfaceRevealed(label: string, revealed: boolean) {
+    return backend().invoke<void>(Command.SetSurfaceRevealed, {
+      label,
+      revealed,
+    });
+  },
+  /** Forwards a click to the application that owns a tray icon. */
+  clickTrayIcon(icon: TrayIcon, secondary: boolean) {
+    return backend().invoke<void>(Command.ClickTrayIcon, {
+      window: icon.window,
+      id: icon.id,
+      callbackMessage: icon.callbackMessage,
+      secondary,
+    });
+  },
   mediaCommand(action: "playPause" | "next" | "previous") {
     return backend().invoke<void>(Command.MediaCommand, { action });
   },

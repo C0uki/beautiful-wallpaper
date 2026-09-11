@@ -588,6 +588,13 @@
     "kind": "toggle"
   },
   {
+    "path": "bar.hoverRegionHeight",
+    "section": "bar",
+    "label": "Hover region height",
+    "group": "",
+    "kind": "integer"
+  },
+  {
     "path": "bar.style",
     "section": "bar",
     "label": "Style",

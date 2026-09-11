@@ -27,7 +27,8 @@ use windows::Win32::System::Threading::{
 };
 use windows::Win32::UI::Controls::{TBBUTTON, TBSTATE_HIDDEN};
 use windows::Win32::UI::WindowsAndMessaging::{
-    FindWindowExW, FindWindowW, GetWindowThreadProcessId, IsWindow, SendMessageW,
+    FindWindowExW, FindWindowW, GetWindowThreadProcessId, IsWindow, PostMessageW, SendMessageW,
+    SetForegroundWindow, HICON, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP,
 };
 
 /// One icon in the notification area.
@@ -41,6 +42,14 @@ pub struct TrayIcon {
     pub tooltip: String,
     /// Whether Explorer currently hides this icon in the overflow flyout.
     pub hidden: bool,
+    /// Cached PNG path for the icon, or empty — the same shape `WindowInfo`
+    /// uses, so the bar draws it the way the dock draws an application.
+    pub icon: String,
+    /// The message the owner asked to be notified through. Opaque to the bar,
+    /// which only hands it back to [`click`]; it travels with the icon because
+    /// it is Explorer's record of the registration, not something we can look
+    /// up again from the outside.
+    pub callback_message: u32,
 }
 
 // Toolbar messages. `windows` exposes these as plain constants of the wrong
@@ -58,7 +67,7 @@ const TB_GETBUTTON: u32 = 0x0400 + 23;
 struct TrayData {
     window: isize,
     id: u32,
-    _callback_message: u32,
+    callback_message: u32,
     _reserved: [u32; 2],
     icon: isize,
 }
@@ -164,15 +173,73 @@ unsafe fn read_toolbar(toolbar: HWND, hidden_toolbar: bool) -> Vec<TrayIcon> {
             continue;
         }
 
+        // An icon we cannot rasterise is still an icon that is there: the bar
+        // falls back to a dot rather than dropping the entry, which keeps the
+        // degradation the same shape as everything else in this file.
+        let icon = crate::platform::appicon::for_hicon(
+            HICON(data.icon as *mut std::ffi::c_void),
+            &format!("tray:{:#x}:{}", data.window, data.id),
+        )
+        .unwrap_or_default();
+
         icons.push(TrayIcon {
             window: format!("{:#x}", data.window),
             id: data.id,
             tooltip: String::new(),
             hidden: hidden_toolbar || button.fsState & TBSTATE_HIDDEN as u8 != 0,
+            icon,
+            callback_message: data.callback_message,
         });
     }
 
     icons
+}
+
+/// Forwards a click to the window that registered the icon.
+///
+/// `Shell_NotifyIcon`'s contract is that the owner is sent its chosen message
+/// with the icon's id in `wParam` and the mouse message in `lParam`, so that is
+/// what goes back — the click is not synthesised inside Explorer, which owns
+/// nothing but the button we read it from.
+///
+/// The owner is brought to the foreground first. A context menu belongs to the
+/// foreground window; raised from a background one it stays up after the next
+/// click lands elsewhere, which is the oldest bug in the notification area and
+/// the reason `SetForegroundWindow` is in every sample Microsoft ever shipped
+/// for this.
+///
+/// ponytail: the classic registration only. An owner that asked for
+/// `NOTIFYICON_VERSION_4` packs the cursor position into `wParam` and the
+/// message and id into `lParam` instead, and will ignore this. Explorer's
+/// button data does not record which version was asked for, so telling them
+/// apart means probing — worth doing only if an application turns out not to
+/// respond.
+pub fn click(window: isize, id: u32, callback_message: u32, secondary: bool) {
+    let owner = HWND(window as *mut std::ffi::c_void);
+    let (down, up) = if secondary {
+        (WM_RBUTTONDOWN, WM_RBUTTONUP)
+    } else {
+        (WM_LBUTTONDOWN, WM_LBUTTONUP)
+    };
+
+    unsafe {
+        // The icon can go away between the bar drawing it and the user
+        // reaching it; posting to a dead window is how this crashes.
+        if !IsWindow(owner).as_bool() {
+            return;
+        }
+        let _ = SetForegroundWindow(owner);
+
+        // Both halves, because owners differ on which one they act upon.
+        for message in [down, up] {
+            let _ = PostMessageW(
+                owner,
+                callback_message,
+                WPARAM(id as usize),
+                LPARAM(message as isize),
+            );
+        }
+    }
 }
 
 /// A handle to the process owning a window, plus the memory allocated in it.

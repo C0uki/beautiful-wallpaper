@@ -8,6 +8,7 @@ import { useMemo, type ReactElement } from "react";
 import { IconButton, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
+import { backend } from "../../shell/backend";
 import { HoverPopup } from "./HoverPopup";
 import { formatBytes, formatRate } from "../../lib/format";
 
@@ -354,10 +355,8 @@ export function TrayWidget() {
   const visible = tray.filter((icon) => !icon.hidden);
   if (visible.length === 0) return null;
 
-  // Windows does not publish the icon bitmaps to other processes in any
-  // supported way, so each entry is shown as a dot until the icon extraction in
-  // the roadmap lands. The count is still useful, and the tooltip identifies
-  // the owner.
+  // An icon Explorer would not give up its bitmap for still gets a dot, so the
+  // row keeps the same shape whether or not the rasterisation worked.
   return (
     <div
       style={{
@@ -368,16 +367,28 @@ export function TrayWidget() {
       }}
     >
       {visible.map((icon) => (
-        <span
+        <button
+          type="button"
           key={`${icon.window}-${icon.id}`}
           title={icon.tooltip || icon.window}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: "var(--on-surface-variant)",
+          className="bw-tray-icon"
+          onClick={() => void actions.clickTrayIcon(icon, false)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            void actions.clickTrayIcon(icon, true);
           }}
-        />
+        >
+          {icon.icon ? (
+            <img
+              src={backend().assetUrl(icon.icon)}
+              alt=""
+              width={16}
+              height={16}
+            />
+          ) : (
+            <span className="bw-tray-dot" />
+          )}
+        </button>
       ))}
     </div>
   );
