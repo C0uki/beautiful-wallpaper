@@ -15,7 +15,3 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 thiserror = "2"
 ts-rs = "12"
 dirs = "6"
-tracing = "0.1"
-
-[dev-dependencies]
-serde_json = "1"
