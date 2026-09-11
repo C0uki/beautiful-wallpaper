@@ -15,12 +15,20 @@
   font-size: 0.95em;
 }
 
+/* While the bar is hiding, only its hover strip is on screen. Fading the slots
+ * out leaves a clean line along the edge rather than the top few pixels of the
+ * clock and the tray. */
+.bw-bar[data-revealed="false"] .bw-bar-slot {
+  opacity: 0;
+}
+
 .bw-bar-slot {
   display: flex;
   align-items: center;
   height: 100%;
   min-width: 0;
   flex: 1;
+  transition: opacity var(--duration-fast) var(--ease-effects-default);
 }
 
 /* The centre slot must stay centred on the screen, not on the space the other
@@ -95,4 +103,36 @@
   transform: translateY(-50%);
   max-width: none;
   max-height: 60%;
+}
+
+/* --- Tray ------------------------------------------------------------- */
+
+/* A button rather than a span now that clicking one reaches its owner, so it
+ * has to be focusable and reachable from the keyboard like any other. */
+.bw-tray-icon {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border: none;
+  border-radius: var(--rounding-small);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-tray-icon:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-tray-icon img {
+  display: block;
+  image-rendering: auto;
+}
+
+/* What an icon Explorer would not give up its bitmap for falls back to. */
+.bw-tray-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--on-surface-variant);
 }

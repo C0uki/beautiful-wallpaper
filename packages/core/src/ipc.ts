@@ -112,6 +112,8 @@ export const Command = {
   ThumbnailFor: "thumbnail_for",
   SetMode: "set_mode",
   ToggleState: "toggle_state",
+  SetSurfaceRevealed: "set_surface_revealed",
+  ClickTrayIcon: "click_tray_icon",
   SetState: "set_state",
   GetStates: "get_states",
   MediaCommand: "media_command",
@@ -298,6 +300,11 @@ export interface TrayIcon {
   tooltip: string;
   /** Whether Explorer keeps this icon in the overflow flyout. */
   hidden: boolean;
+  /** Cached PNG path for the icon, or empty when Explorer would not give it up. */
+  icon: string;
+  /** The message its owner registered to hear clicks on. Opaque — hand it back
+   *  to `clickTrayIcon` unchanged. */
+  callbackMessage: number;
 }
 
 export interface VolumeReading {

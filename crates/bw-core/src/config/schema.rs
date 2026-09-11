@@ -269,8 +269,17 @@ config_struct! {
         pub height: u32 = 40,
         /// Reserve screen space through `SHAppBarMessage` so maximised windows
         /// keep clear of the bar.
+        ///
+        /// Ignored while `auto_hide` is on: reserving an edge for something
+        /// that is off screen would leave a strip no window may use and no bar
+        /// in it.
         pub reserve_space: bool = true,
+        /// Slide off the screen edge until the pointer reaches it.
         pub auto_hide: bool = false,
+        /// How much of the bar stays on screen while it is hidden. This is the
+        /// strip the pointer has to reach, so zero would make the bar
+        /// unreachable.
+        pub hover_region_height: u32 = 3,
         /// `"hug"` | `"float"` | `"islands"` | `"m3"`
         pub style: String = s("m3"),
         pub left: Vec<String> = vec![s("media")],

@@ -281,24 +281,27 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
 The strip along one edge of the screen: where it sits, how it looks, and what it carries.
 
-| Setting              | Value        | Default                                                          |
-| -------------------- | ------------ | ---------------------------------------------------------------- |
-| `bar.enable`         | true / false | `true`                                                           |
-| `bar.bottom`         | true / false | `false`                                                          |
-| `bar.vertical`       | true / false | `false`                                                          |
-| `bar.height`         | whole number | `40`                                                             |
-| `bar.reserveSpace`   | true / false | `true`                                                           |
-| `bar.autoHide`       | true / false | `false`                                                          |
-| `bar.style`          | text         | `"m3"`                                                           |
-| `bar.left`           | list of text | `["media"]`                                                      |
-| `bar.center`         | list of text | `["workspaces","activeWindow"]`                                  |
-| `bar.right`          | list of text | `["tray","resources","network","battery","utilButtons","clock"]` |
-| `bar.showFrame`      | true / false | `false`                                                          |
-| `bar.frameThickness` | whole number | `4`                                                              |
-| `bar.frameColor`     | text         | `"black"`                                                        |
+| Setting                 | Value        | Default                                                          |
+| ----------------------- | ------------ | ---------------------------------------------------------------- |
+| `bar.enable`            | true / false | `true`                                                           |
+| `bar.bottom`            | true / false | `false`                                                          |
+| `bar.vertical`          | true / false | `false`                                                          |
+| `bar.height`            | whole number | `40`                                                             |
+| `bar.reserveSpace`      | true / false | `true`                                                           |
+| `bar.autoHide`          | true / false | `false`                                                          |
+| `bar.hoverRegionHeight` | whole number | `3`                                                              |
+| `bar.style`             | text         | `"m3"`                                                           |
+| `bar.left`              | list of text | `["media"]`                                                      |
+| `bar.center`            | list of text | `["workspaces","activeWindow"]`                                  |
+| `bar.right`             | list of text | `["tray","resources","network","battery","utilButtons","clock"]` |
+| `bar.showFrame`         | true / false | `false`                                                          |
+| `bar.frameThickness`    | whole number | `4`                                                              |
+| `bar.frameColor`        | text         | `"black"`                                                        |
 
 - **`bar.bottom`** — Anchor the bar to the bottom edge instead of the top.
-- **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar.
+- **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
+- **`bar.autoHide`** — Slide off the screen edge until the pointer reaches it.
+- **`bar.hoverRegionHeight`** — How much of the bar stays on screen while it is hidden. This is the strip the pointer has to reach, so zero would make the bar unreachable.
 - **`bar.style`** — `"hug"` | `"float"` | `"islands"` | `"m3"`
 - **`bar.showFrame`** — Draw a thin border around the whole screen.
 - **`bar.frameColor`** — A palette role name — `primary`, `surface`, `outline` and so on — or any CSS colour. The default is the original's.

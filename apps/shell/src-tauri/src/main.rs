@@ -66,6 +66,8 @@ fn main() {
             commands::get_states,
             commands::toggle_state,
             commands::set_state,
+            commands::set_surface_revealed,
+            commands::click_tray_icon,
             commands::list_wallpapers,
             commands::apply_wallpaper,
             commands::random_wallpaper,

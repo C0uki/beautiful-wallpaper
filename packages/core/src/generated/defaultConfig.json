@@ -120,6 +120,7 @@
     "height": 40,
     "reserveSpace": true,
     "autoHide": false,
+    "hoverRegionHeight": 3,
     "style": "m3",
     "left": ["media"],
     "center": ["workspaces", "activeWindow"],

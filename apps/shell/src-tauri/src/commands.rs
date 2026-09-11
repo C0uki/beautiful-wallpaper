@@ -124,6 +124,33 @@ pub fn get_states(state: State<'_, AppState>) -> GlobalStates {
     state.states()
 }
 
+/// Hands a click on a notification-area icon to the application that owns it.
+///
+/// The window arrives as the `{:#x}` string the icon was listed with, because
+/// an `HWND` has no integer type that survives a JSON round trip intact.
+#[tauri::command]
+pub fn click_tray_icon(window: String, id: u32, callback_message: u32, secondary: bool) {
+    #[cfg(windows)]
+    {
+        let Ok(handle) = isize::from_str_radix(window.trim_start_matches("0x"), 16) else {
+            return;
+        };
+        crate::platform::tray::click(handle, id, callback_message, secondary);
+    }
+    #[cfg(not(windows))]
+    let _ = (window, id, callback_message, secondary);
+}
+
+/// Moves an auto-hiding surface in or out, as the pointer arrives and leaves.
+///
+/// The bar and the dock both park off their edge while hidden, leaving only a
+/// strip for the pointer to find. Only the page knows when the pointer is on
+/// that strip; only Rust can move the window. This is the join.
+#[tauri::command]
+pub fn set_surface_revealed(app: AppHandle, label: String, revealed: bool) {
+    crate::surfaces::set_revealed(&app, &label, revealed);
+}
+
 #[tauri::command]
 pub fn toggle_state(
     app: AppHandle,
