@@ -276,6 +276,12 @@ config_struct! {
         pub reserve_space: bool = true,
         /// Slide off the screen edge until the pointer reaches it.
         pub auto_hide: bool = false,
+        /// Put a bar on every monitor rather than only the primary one.
+        ///
+        /// Each gets its own window along the same edge of its own screen, and
+        /// reserves that edge on that monitor. The bars draw the same thing:
+        /// nothing in `left`/`center`/`right` is per-monitor yet.
+        pub per_monitor: bool = false,
         /// How much of the bar stays on screen while it is hidden. This is the
         /// strip the pointer has to reach, so zero would make the bar
         /// unreachable.

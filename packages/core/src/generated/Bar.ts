@@ -22,6 +22,14 @@ export type Bar = {
    */
   autoHide: boolean;
   /**
+   * Put a bar on every monitor rather than only the primary one.
+   *
+   * Each gets its own window along the same edge of its own screen, and
+   * reserves that edge on that monitor. The bars draw the same thing:
+   * nothing in `left`/`center`/`right` is per-monitor yet.
+   */
+  perMonitor: boolean;
+  /**
    * How much of the bar stays on screen while it is hidden. This is the
    * strip the pointer has to reach, so zero would make the bar
    * unreachable.

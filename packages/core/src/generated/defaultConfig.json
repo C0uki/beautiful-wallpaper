@@ -120,6 +120,7 @@
     "height": 40,
     "reserveSpace": true,
     "autoHide": false,
+    "perMonitor": false,
     "hoverRegionHeight": 3,
     "style": "m3",
     "left": ["media"],
