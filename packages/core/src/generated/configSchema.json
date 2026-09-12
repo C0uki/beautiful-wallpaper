@@ -588,6 +588,13 @@
     "kind": "toggle"
   },
   {
+    "path": "bar.perMonitor",
+    "section": "bar",
+    "label": "Per monitor",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
     "path": "bar.hoverRegionHeight",
     "section": "bar",
     "label": "Hover region height",

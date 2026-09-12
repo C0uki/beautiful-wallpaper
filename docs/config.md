@@ -289,6 +289,7 @@ The strip along one edge of the screen: where it sits, how it looks, and what it
 | `bar.height`            | whole number | `40`                                                             |
 | `bar.reserveSpace`      | true / false | `true`                                                           |
 | `bar.autoHide`          | true / false | `false`                                                          |
+| `bar.perMonitor`        | true / false | `false`                                                          |
 | `bar.hoverRegionHeight` | whole number | `3`                                                              |
 | `bar.style`             | text         | `"m3"`                                                           |
 | `bar.left`              | list of text | `["media"]`                                                      |
@@ -301,6 +302,7 @@ The strip along one edge of the screen: where it sits, how it looks, and what it
 - **`bar.bottom`** — Anchor the bar to the bottom edge instead of the top.
 - **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
 - **`bar.autoHide`** — Slide off the screen edge until the pointer reaches it.
+- **`bar.perMonitor`** — Put a bar on every monitor rather than only the primary one. Each gets its own window along the same edge of its own screen, and reserves that edge on that monitor. The bars draw the same thing: nothing in `left`/`center`/`right` is per-monitor yet.
 - **`bar.hoverRegionHeight`** — How much of the bar stays on screen while it is hidden. This is the strip the pointer has to reach, so zero would make the bar unreachable.
 - **`bar.style`** — `"hug"` | `"float"` | `"islands"` | `"m3"`
 - **`bar.showFrame`** — Draw a thin border around the whole screen.

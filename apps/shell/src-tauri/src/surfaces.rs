@@ -284,8 +284,10 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
 /// leave the work area shrunk after the shell exits.
 #[derive(Default)]
 pub struct Reservations {
+    /// One per bar window. `perMonitor` makes this as many as there are
+    /// monitors, and every one of them has to be given back.
     #[cfg(windows)]
-    bar: Mutex<Option<crate::platform::win::AppBar>>,
+    bars: Mutex<Vec<crate::platform::win::AppBar>>,
     #[cfg(not(windows))]
     _unused: Mutex<()>,
 }
@@ -299,49 +301,143 @@ pub struct Reservations {
 pub fn release_reservations(app: &AppHandle) {
     #[cfg(windows)]
     if let Some(held) = app.try_state::<Reservations>() {
-        drop(held.bar.lock().take());
+        drop(std::mem::take(&mut *held.bars.lock()));
     }
     #[cfg(not(windows))]
     let _ = app;
 }
 
-/// Creates a surface's window if it does not exist yet, and layers it.
-pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
-    if app.get_webview_window(surface.label).is_some() {
-        return Ok(());
-    }
+/// One screen a surface can be put on: where its origin is, and how big it is.
+///
+/// Logical rather than physical throughout, because that is what the window
+/// builder and every geometry function take. A second monitor can be at a
+/// different scale factor, so the division has to happen per screen rather
+/// than once against the primary one.
+struct Screen {
+    /// Empty for the primary monitor, which keeps its plain `bar` label and so
+    /// its window through a `per_monitor` change.
+    device: String,
+    origin: (f64, f64),
+    size: (f64, f64),
+}
 
-    let screen = primary_screen(app);
+/// Creates a surface's windows if they do not exist yet, and layers them.
+///
+/// One window, except for a bar asked to appear on every monitor.
+pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let config = app.state::<AppState>().config();
 
-    // An auto-hiding surface starts hidden; the pointer reaching its strip is
-    // what reveals it, through `set_revealed`.
-    let (x, y, width, height) = geometry(surface, &config, screen, false);
+    for screen in screens_for(app, surface, &config) {
+        let label = bar_label(surface.label, &screen.device);
+        if app.get_webview_window(&label).is_some() {
+            continue;
+        }
 
-    let mut builder =
-        WebviewWindowBuilder::new(app, surface.label, WebviewUrl::App(surface.page.into()))
-            .title("beautiful-wallpaper")
-            .decorations(false)
-            .transparent(true)
-            .shadow(false)
-            .resizable(false)
-            .position(x, y)
-            .inner_size(width, height)
-            // The shell's windows do not belong in Alt-Tab or on the taskbar.
-            .skip_taskbar(true);
+        // An auto-hiding surface starts hidden; the pointer reaching its strip
+        // is what reveals it, through `set_revealed`.
+        let (x, y, width, height) = geometry(surface, &config, screen.size, false);
 
-    builder = match surface.layer {
-        Layer::Background => builder.focused(false).always_on_bottom(true),
-        // On screen from the start, and never taking the focus off whatever
-        // the user is actually working in.
-        Layer::Bar | Layer::Chrome => builder.focused(false).always_on_top(true),
-        // Overlays start hidden and are shown by their `GlobalStates` flag.
-        Layer::Overlay => builder.always_on_top(true).visible(false),
+        let mut builder =
+            WebviewWindowBuilder::new(app, &label, WebviewUrl::App(surface.page.into()))
+                .title("beautiful-wallpaper")
+                .decorations(false)
+                .transparent(true)
+                .shadow(false)
+                .resizable(false)
+                .position(x + screen.origin.0, y + screen.origin.1)
+                .inner_size(width, height)
+                // The shell's windows do not belong in Alt-Tab or on the taskbar.
+                .skip_taskbar(true);
+
+        builder = match surface.layer {
+            Layer::Background => builder.focused(false).always_on_bottom(true),
+            // On screen from the start, and never taking the focus off whatever
+            // the user is actually working in.
+            Layer::Bar | Layer::Chrome => builder.focused(false).always_on_top(true),
+            // Overlays start hidden and are shown by their `GlobalStates` flag.
+            Layer::Overlay => builder.always_on_top(true).visible(false),
+        };
+
+        let window = builder.build()?;
+        apply_layer(app, &window, surface.layer, &config, &screen.device);
+    }
+    Ok(())
+}
+
+/// The screens a surface gets a window on.
+///
+/// The primary one, unless this is the bar and `bar.perMonitor` is set — then
+/// every monitor, the primary one first so it keeps the plain `bar` label.
+fn screens_for(app: &AppHandle, surface: &Surface, config: &bw_core::Config) -> Vec<Screen> {
+    let primary = || {
+        vec![Screen {
+            device: String::new(),
+            origin: (0.0, 0.0),
+            size: primary_screen(app),
+        }]
     };
 
-    let window = builder.build()?;
-    apply_layer(app, &window, surface.layer, &config);
-    Ok(())
+    if surface.layer != Layer::Bar || !config.bar.per_monitor {
+        return primary();
+    }
+
+    let Ok(monitors) = app.available_monitors() else {
+        return primary();
+    };
+
+    let mut screens: Vec<Screen> = monitors
+        .iter()
+        .map(|monitor| {
+            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
+            let position = monitor.position();
+            let size = monitor.size();
+            Screen {
+                device: monitor.name().cloned().unwrap_or_default(),
+                origin: (f64::from(position.x) / scale, f64::from(position.y) / scale),
+                size: (
+                    f64::from(size.width) / scale,
+                    f64::from(size.height) / scale,
+                ),
+            }
+        })
+        .collect();
+
+    if screens.is_empty() {
+        return primary();
+    }
+
+    // The primary monitor is the one at the origin: Windows lays every other
+    // monitor out relative to it, so this holds however they are arranged.
+    if let Some(index) = screens
+        .iter()
+        .position(|screen| screen.origin == (0.0, 0.0))
+    {
+        screens[index].device = String::new();
+        screens.swap(0, index);
+    }
+    screens
+}
+
+/// The window label a surface takes on a given monitor.
+///
+/// The primary monitor's bar keeps the bare label, so turning `perMonitor` on
+/// and off again does not orphan the window every other part of the shell has
+/// always known by that name. Tauri only accepts alphanumerics, `-`, `/`, `:`
+/// and `_` in a label, and a device name is `\\.\DISPLAY2`, so everything else
+/// is dropped rather than substituted — two monitors cannot produce the same
+/// name to begin with.
+fn bar_label(label: &str, device: &str) -> String {
+    if device.is_empty() {
+        return label.to_owned();
+    }
+    let cleaned: String = device
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect();
+    if cleaned.is_empty() {
+        return label.to_owned();
+    }
+    format!("{label}-{cleaned}")
 }
 
 /// Where a surface sits, hidden or revealed.
@@ -371,20 +467,51 @@ fn geometry(
 /// `SetWindowPos` per transition, not per frame — the slide itself is still the
 /// page's transition, running in the compositor.
 pub fn set_revealed(app: &AppHandle, label: &str, revealed: bool) {
-    let Some(surface) = ALL.iter().find(|surface| surface.label == label) else {
+    let Some(surface) = ALL
+        .iter()
+        .find(|surface| surface.label == surface_of(label))
+    else {
         return;
     };
     let Some(window) = app.get_webview_window(label) else {
         return;
     };
 
-    let screen = primary_screen(app);
+    // The screen this window is on, which for a `perMonitor` bar is not the
+    // primary one — hiding it against the primary monitor's height would send
+    // it off the wrong edge, or off no edge at all.
+    let (origin, screen) = match window.current_monitor() {
+        Ok(Some(monitor)) => {
+            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
+            let position = monitor.position();
+            let size = monitor.size();
+            (
+                (f64::from(position.x) / scale, f64::from(position.y) / scale),
+                (
+                    f64::from(size.width) / scale,
+                    f64::from(size.height) / scale,
+                ),
+            )
+        }
+        _ => ((0.0, 0.0), primary_screen(app)),
+    };
+
     let config = app.state::<AppState>().config();
     let (x, y, _, _) = geometry(surface, &config, screen, revealed);
 
-    if let Err(error) = window.set_position(tauri::LogicalPosition::new(x, y)) {
+    let position = tauri::LogicalPosition::new(x + origin.0, y + origin.1);
+    if let Err(error) = window.set_position(position) {
         tracing::warn!(%error, surface = label, "could not move a surface to its hover position");
     }
+}
+
+/// The surface a window label is an instance of.
+///
+/// `perMonitor` gives every bar but the primary one a label like
+/// `bar-DISPLAY2`; no surface label contains a dash of its own, which is what
+/// makes the suffix separable at all.
+fn surface_of(label: &str) -> &str {
+    label.split_once('-').map_or(label, |(base, _)| base)
 }
 
 /// Where an overlay sits.
@@ -659,6 +786,7 @@ fn apply_layer(
     window: &tauri::WebviewWindow,
     layer: Layer,
     config: &bw_core::Config,
+    device: &str,
 ) {
     use crate::platform::win::{self, Edge, Layer as WinLayer};
     use windows::Win32::Foundation::HWND;
@@ -701,10 +829,14 @@ fn apply_layer(
         (true, true) => Edge::Right,
     };
 
+    // The bar reserves an edge of the screen it is actually on. `device` is
+    // empty for the primary monitor, which is also the only screen there is
+    // unless `perMonitor` is set.
     let monitors = win::monitors();
     let Some(monitor) = monitors
         .iter()
-        .find(|monitor| monitor.primary)
+        .find(|monitor| !device.is_empty() && monitor.name == device)
+        .or_else(|| monitors.iter().find(|monitor| monitor.primary))
         .or_else(|| monitors.first())
     else {
         return;
@@ -723,7 +855,7 @@ fn apply_layer(
                 (granted.right - granted.left).max(1),
                 (granted.bottom - granted.top).max(1),
             ));
-            *app.state::<Reservations>().bar.lock() = Some(bar);
+            app.state::<Reservations>().bars.lock().push(bar);
         }
         None => tracing::warn!("the shell refused to reserve space for the bar"),
     }
@@ -735,6 +867,7 @@ fn apply_layer(
     _window: &tauri::WebviewWindow,
     _layer: Layer,
     _config: &bw_core::Config,
+    _device: &str,
 ) {
 }
 
@@ -870,5 +1003,39 @@ mod tests {
             bar_geometry(&config, (1920.0, 1080.0), false),
             (0.0, 0.0, 1920.0, f64::from(config.bar.height))
         );
+    }
+
+    /// `surface_of` splits on the first dash, so a surface whose own label had
+    /// one would resolve to something shorter than itself and its window would
+    /// stop being found at all.
+    #[test]
+    fn no_surface_label_contains_the_character_that_separates_a_monitor() {
+        for surface in ALL {
+            assert!(!surface.label.contains('-'), "{}", surface.label);
+            assert_eq!(surface_of(surface.label), surface.label);
+        }
+    }
+
+    #[test]
+    fn a_per_monitor_label_names_its_monitor_and_still_resolves_to_its_surface() {
+        // Tauri accepts only alphanumerics, `-`, `/`, `:` and `_` in a label,
+        // and a Windows device name is `\\.\DISPLAY2`.
+        let label = bar_label(BAR.label, r"\\.\DISPLAY2");
+        assert_eq!(label, "bar-DISPLAY2");
+        assert!(label
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-/:_".contains(c)));
+        assert_eq!(surface_of(&label), BAR.label);
+    }
+
+    /// The primary monitor keeps the bare label so that turning `perMonitor`
+    /// on and off does not leave the window every other part of the shell
+    /// knows as `bar` orphaned under a different name.
+    #[test]
+    fn the_primary_monitor_keeps_the_plain_label() {
+        assert_eq!(bar_label(BAR.label, ""), "bar");
+        // A device name with nothing Tauri would accept falls back rather than
+        // producing `bar-`, which is a label no monitor could be read out of.
+        assert_eq!(bar_label(BAR.label, r"\\.\"), "bar");
     }
 }
