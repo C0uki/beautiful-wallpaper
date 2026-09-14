@@ -34,16 +34,18 @@ beautiful-wallpaper — a Material 3 desktop shell for Windows
   bw preset remove <name>                delete one
   bw taskbar show|hide                   the stock Windows taskbar
   bw autostart on|off|status             start the shell at login
+  bw quit                                stop the running shell
   bw --help                              this message
 ";
 
-/// Runs a CLI request in a process where no shell is running.
+/// Answers a CLI request that does not need a shell to be running.
 ///
-/// Only the requests that make sense without a live shell are handled here;
-/// everything else needs the running instance, which the single-instance plugin
-/// forwards to.
-pub fn run(arguments: &[String]) -> i32 {
-    match arguments.first().map(String::as_str) {
+/// `Some(code)` means the request was answered here and the process should stop
+/// with that code. `None` means it is a message for the running shell, which
+/// only the single-instance plugin can deliver — so the caller carries on into
+/// Tauri rather than exiting.
+pub fn run(arguments: &[String]) -> Option<i32> {
+    let code = match arguments.first().map(String::as_str) {
         Some("--help" | "-h" | "help") => {
             println!("{USAGE}");
             0
@@ -96,14 +98,19 @@ pub fn run(arguments: &[String]) -> i32 {
                 1
             }
         },
-        // The shell is not running, so there is nothing to talk to. Starting it
-        // and replaying the request would be surprising, so say so instead.
-        Some(_) => {
-            eprintln!("beautiful-wallpaper is not running");
-            1
-        }
-        None => 0,
-    }
+        // Everything else is for the running shell. Exiting here is what broke
+        // it: the single-instance plugin is the only thing that can reach that
+        // shell, and it lives inside Tauri, which this process never reached —
+        // so every one of these requests answered "not running" whether one was
+        // up or not. Falling through lets the plugin forward it, and `main`
+        // reports the truth when there turns out to be nothing to forward to.
+        Some(_) => return None,
+        // No arguments at all is not a request, it is the shell being started.
+        // Carry on into Tauri, where the plugin turns this into a no-op if one
+        // is already running.
+        None => return None,
+    };
+    Some(code)
 }
 
 /// Handles a request forwarded from a second launch, against the live shell.
@@ -114,6 +121,19 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
     let rest = arguments.get(2..).unwrap_or_default();
 
     match (target, function) {
+        // Launching `bw` again with no arguments is someone starting the shell
+        // that is already up, not a request. The plugin still forwards it, so
+        // swallow it here rather than logging a missing IPC target.
+        ("", "") => Ok(()),
+        // The only way out. The surfaces have no decorations and so no close
+        // button, and `WM_CLOSE` reaches a webview rather than the shell, so
+        // without this the only way to stop it is to kill the process — which
+        // skips `RunEvent::Exit`, and with it the two things that hand the
+        // desktop back: the app bar's reserved edge and the hidden taskbar.
+        ("quit", _) => {
+            app.exit(0);
+            Ok(())
+        }
         ("wallpapers", "apply") => {
             let path = rest
                 .first()
@@ -409,5 +429,36 @@ fn handle_autostart_offline(arguments: &[String]) -> Result<Option<String>, Stri
             "`{}` is not on, off or status",
             other.unwrap_or_default()
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run;
+
+    fn arguments(words: &[&str]) -> Vec<String> {
+        words.iter().map(|word| (*word).to_owned()).collect()
+    }
+
+    /// `run` decides who answers, and getting that wrong is invisible until the
+    /// shell is launched: `None` for no arguments once meant `Some(0)`, so the
+    /// process exited before Tauri and the shell could not start at all.
+    #[test]
+    fn only_answers_what_needs_no_running_shell() {
+        // Nothing to answer — this is the shell being started.
+        assert_eq!(run(&[]), None);
+
+        // Meaningful with nothing running, so answered here.
+        assert_eq!(run(&arguments(&["--help"])), Some(0));
+
+        // For the running shell, so left to the single-instance plugin.
+        for request in [
+            vec!["quit"],
+            vec!["settings", "open"],
+            vec!["session", "toggle"],
+            vec!["capture", "region"],
+        ] {
+            assert_eq!(run(&arguments(&request)), None, "{request:?}");
+        }
     }
 }
