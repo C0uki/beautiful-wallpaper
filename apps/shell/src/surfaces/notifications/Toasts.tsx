@@ -174,8 +174,6 @@ export function Toasts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications, config.timeout, config.doNotDisturb]);
 
-  if (config.doNotDisturb) return null;
-
   const visible = groups
     .map((group) => ({
       ...group,
@@ -185,6 +183,18 @@ export function Toasts() {
     }))
     .filter((group) => group.notifications.length > 0)
     .slice(0, config.maxVisible);
+
+  // This window is a quarter of the screen and is not click-through, so while
+  // it is on screen with nothing on it every click in that rectangle lands
+  // here and goes no further — `pointer-events: none` cannot pass a click to
+  // another window. Only the page knows whether a toast is up, so the page is
+  // what parks the window off screen when none is.
+  const showing = !config.doNotDisturb && visible.length > 0;
+  useEffect(() => {
+    void actions.setSurfaceRevealed("notifications", showing);
+  }, [showing]);
+
+  if (config.doNotDisturb) return null;
 
   const fromBottom = config.position.startsWith("bottom");
 

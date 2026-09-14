@@ -736,6 +736,22 @@ fn overlay_geometry(
         } else {
             bar + margin
         };
+
+        // Parked off the side it hugs while it has no toast on it. A window
+        // with nothing to show is still a window: Windows delivers the click
+        // to it and the page cannot hand that on, so `pointer-events: none`
+        // in the stylesheet cannot save the desktop underneath. Nothing was
+        // ever hiding this surface again after the first notification showed
+        // it, which left a rectangle this size swallowing every click in it
+        // for the life of the shell.
+        if !revealed {
+            let parked = if position.ends_with("left") {
+                -width
+            } else {
+                screen.0
+            };
+            return (parked, y, width, height);
+        }
         return (x, y, width, height);
     }
 
@@ -939,6 +955,23 @@ mod tests {
         for surface in ALL {
             assert!(surface.page.ends_with(".html"), "{}", surface.page);
         }
+    }
+
+    /// The toast surface covers a quarter of the screen and is not
+    /// click-through, so the desktop is only usable while it is parked.
+    #[test]
+    fn the_toasts_park_off_screen_when_they_have_nothing_to_show() {
+        let config = Config::default();
+        let screen = (1920.0, 1080.0);
+
+        let (shown_x, _, width, _) = overlay_geometry(&NOTIFICATIONS, &config, screen, true);
+        let (parked_x, _, _, _) = overlay_geometry(&NOTIFICATIONS, &config, screen, false);
+
+        assert!(shown_x + width <= screen.0, "a toast must be on screen");
+        assert!(
+            parked_x >= screen.0 || parked_x + width <= 0.0,
+            "a parked toast must be off screen entirely, got x={parked_x} width={width}"
+        );
     }
 
     #[test]
