@@ -351,10 +351,32 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
         builder = match surface.layer {
             Layer::Background => builder.focused(false).always_on_bottom(true),
+            // The hot corners are the one surface that is neither
+            // click-through nor small: what keeps them out of the way is a
+            // window region, and `services::chrome::apply` is what puts it on.
+            // Born visible, they cover the screen and eat every click until it
+            // does — and if it ran before this window existed, it returned
+            // without applying anything and nothing tries again. Born hidden,
+            // there is no such moment: `apply` shows them once they are masked.
+            Layer::Chrome if surface.label == HOT_CORNERS.label => {
+                builder.focused(false).always_on_top(true).visible(false)
+            }
             // On screen from the start, and never taking the focus off whatever
             // the user is actually working in.
             Layer::Bar | Layer::Chrome => builder.focused(false).always_on_top(true),
-            // Overlays start hidden and are shown by their `GlobalStates` flag.
+            // The dock is layered like an overlay but nobody opens it, so there
+            // is no flag to show it and `surface_for_flag` has no entry to give.
+            // It is on screen whenever it is enabled, like the bar.
+            //
+            // ponytail: read once, at creation. Turning `dock.enable` on in the
+            // settings takes a restart until something re-applies the config to
+            // the windows, which nothing does for any surface yet.
+            Layer::Overlay if surface.label == DOCK.label => builder
+                .focused(false)
+                .always_on_top(true)
+                .visible(config.dock.enable),
+            // Every other overlay starts hidden and is shown by its
+            // `GlobalStates` flag.
             Layer::Overlay => builder.always_on_top(true).visible(false),
         };
 
@@ -792,7 +814,10 @@ fn apply_layer(
     use windows::Win32::Foundation::HWND;
 
     let Ok(handle) = window.hwnd() else {
-        tracing::warn!("a surface has no window handle yet");
+        tracing::warn!(
+            surface = window.label(),
+            "a surface has no window handle yet"
+        );
         return;
     };
     let hwnd = HWND(handle.0);

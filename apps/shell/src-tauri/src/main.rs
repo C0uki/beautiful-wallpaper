@@ -29,9 +29,15 @@ fn main() {
         .init();
 
     // Treat any argument as a CLI request rather than starting a second shell.
+    //
+    // The ones that mean something with nothing running are answered outright.
+    // The rest fall through into Tauri, because the single-instance plugin is
+    // what reaches the running shell: exiting before the builder, as this used
+    // to, left `dispatch` with no caller and made every such request report
+    // "not running" whether a shell was up or not.
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    if !arguments.is_empty() {
-        std::process::exit(cli::run(&arguments));
+    if let Some(code) = cli::run(&arguments) {
+        std::process::exit(code);
     }
 
     let state = match AppState::load() {
@@ -165,6 +171,16 @@ fn main() {
             commands::detect_window_manager,
         ])
         .setup(move |app| {
+            // Arguments still here means the single-instance plugin found no
+            // shell to hand them to and let this process become the primary
+            // one: its secondary path sends the request on and exits before
+            // ever reaching here. Opening the whole desktop because someone
+            // asked to toggle a sidebar would be surprising, so stop instead.
+            if !arguments.is_empty() {
+                eprintln!("beautiful-wallpaper is not running");
+                std::process::exit(1);
+            }
+
             let handle = app.handle().clone();
 
             for surface in surfaces::ALL {

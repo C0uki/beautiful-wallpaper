@@ -27,21 +27,27 @@ pub fn apply(app: &AppHandle) {
     let corners = bw_core::chrome::hot_corners(&config.sidebar.corner_open, screen_size(app));
     let wanted = !corners.is_empty() && !fullscreen;
 
-    // Hidden rather than given an empty region: clearing a window's region
-    // hands the whole window back, and a full-screen window that is not
-    // click-through would swallow every click on the desktop.
-    if let Err(error) =
-        crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, wanted)
-    {
-        tracing::warn!(%error, "could not change the hot corners' visibility");
-    }
+    // Hiding is always safe and always first. Hidden rather than given an
+    // empty region: clearing a window's region hands the whole window back,
+    // and a full-screen window that is not click-through would swallow every
+    // click on the desktop.
     if !wanted {
+        if let Err(error) =
+            crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, false)
+        {
+            tracing::warn!(%error, "could not hide the hot corners");
+        }
         return;
     }
 
+    // Showing is last, and only once the mask is on. Doing it the other way
+    // round leaves a window covering the screen for as long as it takes to
+    // shape it — and for good, if any step below bails out, because nothing
+    // calls this again until the config changes.
     #[cfg(windows)]
     {
         let Some(window) = app.get_webview_window(crate::surfaces::HOT_CORNERS.label) else {
+            tracing::warn!("the hot corners have no window to shape yet");
             return;
         };
         let Ok(handle) = window.hwnd() else {
@@ -55,7 +61,6 @@ pub fn apply(app: &AppHandle) {
             tracing::warn!(%error, "could not shape the hot corners");
             // Better no hot corners than a full-screen window that eats every
             // click because its region was never applied.
-            let _ = crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, false);
             return;
         }
 
@@ -64,6 +69,11 @@ pub fn apply(app: &AppHandle) {
         unsafe {
             crate::platform::win::set_click_through(hwnd, false);
         }
+    }
+
+    if let Err(error) = crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, true)
+    {
+        tracing::warn!(%error, "could not show the hot corners");
     }
 }
 
