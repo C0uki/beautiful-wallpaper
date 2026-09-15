@@ -339,7 +339,12 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
         let mut builder =
             WebviewWindowBuilder::new(app, &label, WebviewUrl::App(surface.page.into()))
-                .title("beautiful-wallpaper")
+                // Named after the surface. Nothing shows these titles — the
+                // windows have no decorations and stay out of the taskbar —
+                // but every tool that can look at a window shows one, and a
+                // screen full of identical "beautiful-wallpaper" entries is
+                // what makes "which surface is covering the desktop?" a guess.
+                .title(format!("beautiful-wallpaper — {label}"))
                 .decorations(false)
                 .transparent(true)
                 .shadow(false)
