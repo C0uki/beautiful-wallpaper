@@ -234,16 +234,24 @@ export function connect(): Promise<void> {
 
     // Events cover changes; these fill in the state that already existed when the
     // surface opened.
-    const [config, theme, states] = await Promise.all([
+    //
+    // The notifications belong here for the same reason the rest do, and were
+    // the one thing missing from it: the history outlives the process, and the
+    // shell posts its own notifications long before the last surface has
+    // finished loading, so a page that only listens starts out believing there
+    // have never been any.
+    const [config, theme, states, notifications] = await Promise.all([
       api.invoke<Config>(Command.GetConfig),
       api.invoke<GeneratedTheme>(Command.GetTheme),
       api.invoke<GlobalStates>(Command.GetStates),
+      api.invoke<Notification[]>(Command.GetNotifications),
     ]);
 
     set({
       config,
       theme,
       states,
+      notifications,
       ready: true,
       wallpaper: { path: config.background.wallpaperPath, blanked: false },
     });
