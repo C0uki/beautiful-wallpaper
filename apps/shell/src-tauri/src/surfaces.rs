@@ -277,6 +277,49 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     crate::services::overlay::apply(app);
 }
 
+/// Names any surface that is covering a monitor with nothing to let a click
+/// past, once each time it starts doing it.
+///
+/// Which surface is on top is decided in a dozen places — flags, the overlay's
+/// own bookkeeping, the capture flow, Tauri itself — so this watches the
+/// result rather than any one of those paths. It only reads window state and
+/// writes a log line; it does not try to fix what it finds, because hiding a
+/// surface the user just opened would be its own bug.
+#[cfg(windows)]
+pub fn warn_about_surfaces_that_swallow_a_monitor(app: &AppHandle) {
+    use std::collections::BTreeSet;
+    use std::sync::{Mutex, OnceLock};
+    use windows::Win32::Foundation::HWND;
+
+    static WARNED: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
+    let warned = WARNED.get_or_init(|| Mutex::new(BTreeSet::new()));
+    let Ok(mut warned) = warned.lock() else {
+        return;
+    };
+
+    for (label, window) in app.webview_windows() {
+        let swallowing = window.is_visible().unwrap_or(false)
+            && match window.hwnd() {
+                Ok(handle) => unsafe { crate::platform::win::swallows_its_monitor(HWND(handle.0)) },
+                Err(_) => false,
+            };
+
+        // Once per spell, not once a second: this runs on a timer, and a
+        // surface that stays like this would otherwise fill the log with the
+        // same line until the shell is stopped.
+        if swallowing {
+            if warned.insert(label.clone()) {
+                tracing::warn!(
+                    surface = %label,
+                    "this surface covers its monitor and is neither click-through nor masked,                      so every click on that screen lands on it and goes no further"
+                );
+            }
+        } else {
+            warned.remove(&label);
+        }
+    }
+}
+
 /// Holds the bar's app-bar registration for the life of the process.
 ///
 /// Reserving screen space lasts until it is given back, so this must outlive

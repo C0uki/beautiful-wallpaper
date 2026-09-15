@@ -18,8 +18,9 @@ use windows::Win32::Graphics::Dwm::{
     DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
 };
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO,
-    MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
+    CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, GetWindowRgn,
+    MonitorFromWindow, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
+    MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
 use windows::Win32::UI::Shell::{
     SHAppBarMessage, ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE,
@@ -489,6 +490,59 @@ unsafe fn is_fullscreen(hwnd: HWND, class: &str) -> bool {
         && bounds.top <= screen.top
         && bounds.right >= screen.right
         && bounds.bottom >= screen.bottom
+}
+
+/// Whether this window covers a whole monitor with no way for a click to
+/// reach past it.
+///
+/// Every surface that spans the screen is meant to have one of two things: it
+/// is click-through, or it carries a window region that cuts it back to the
+/// parts that should exist. One that is visible with neither swallows every
+/// click on that monitor, and because these surfaces are transparent the
+/// desktop does not look covered — it looks broken.
+///
+/// This is a watchdog rather than a guard. It changes nothing; it names the
+/// surface in the log so the next report of "the screen stopped responding"
+/// arrives with the answer already in it.
+///
+/// # Safety
+/// `hwnd` must be a live window owned by this process.
+pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
+    let mut bounds = RECT::default();
+    if GetWindowRect(hwnd, &mut bounds).is_err() {
+        return false;
+    }
+
+    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    let mut info = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if monitor.is_invalid() || !GetMonitorInfoW(monitor, &mut info).as_bool() {
+        return false;
+    }
+
+    let screen = info.rcMonitor;
+    let covers = bounds.left <= screen.left
+        && bounds.top <= screen.top
+        && bounds.right >= screen.right
+        && bounds.bottom >= screen.bottom;
+    if !covers {
+        return false;
+    }
+
+    if GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT.0 as isize != 0 {
+        return false;
+    }
+
+    // `GetWindowRgn` needs somewhere to put a copy of the region, and answers
+    // `ERROR` (0) when the window has none. The scratch region is ours either
+    // way — unlike `SetWindowRgn`, this call never takes ownership.
+    let scratch = CreateRectRgn(0, 0, 1, 1);
+    let has_region = GetWindowRgn(hwnd, scratch) != RGN_ERROR;
+    let _ = DeleteObject(HGDIOBJ::from(scratch));
+
+    !has_region
 }
 
 /// Shows or hides the stock taskbar.
