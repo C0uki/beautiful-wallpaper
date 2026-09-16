@@ -30,7 +30,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
     GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
@@ -113,7 +113,15 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
         Layer::Normal => {}
         Layer::Overlay => {
-            add_ex_style(hwnd, WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+            // `WS_EX_NOACTIVATE` is Tao's to set, through `set_focusable`:
+            // anything added here is erased the next time Tao writes the
+            // styles, and it writes them whole, from its own flags.
+            //
+            // `WS_EX_TOOLWINDOW` has no flag of its own over there, so it stays
+            // here and the caller applies this last. Without it the surface is
+            // an ordinary taskbar window, which Windows watches for a reply and
+            // covers with a "not responding" ghost while it is busy.
+            add_ex_style(hwnd, WS_EX_TOOLWINDOW);
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
@@ -520,6 +528,14 @@ pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
         ex & WS_EX_TRANSPARENT.0 as isize != 0 && ex & WS_EX_LAYERED.0 as isize != 0;
     if lets_the_pointer_through {
         return false;
+    }
+
+    // Lost its furniture styles. A surface that spans the screen and is an
+    // ordinary application window is one Windows will ghost the moment it is
+    // slow to answer, and one that can be activated by a click it was never
+    // meant to receive. Both mean something has written over the styles.
+    if ex & WS_EX_APPWINDOW.0 as isize != 0 && ex & WS_EX_TOOLWINDOW.0 as isize == 0 {
+        return true;
     }
 
     // `GetWindowRgn` needs somewhere to put a copy of the region, and answers

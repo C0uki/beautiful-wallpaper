@@ -891,9 +891,20 @@ fn apply_layer(
         Layer::Bar | Layer::Overlay | Layer::Chrome => WinLayer::Overlay,
     };
 
-    unsafe {
-        if let Err(error) = win::set_layer(hwnd, target) {
-            tracing::warn!(%error, "could not place the surface on its layer");
+    // Everything that goes through Tao comes first, because Tao owns these
+    // windows' styles: each of its calls writes `GWL_EXSTYLE` whole, from its
+    // own flags, and erases anything set behind its back. Doing it the other
+    // way round cost `screenChrome` its `WS_EX_TOOLWINDOW` and
+    // `WS_EX_NOACTIVATE` — which made it an ordinary taskbar window, and
+    // Windows starts watching those for a reply and drawing a "not responding"
+    // ghost over the ones that are busy.
+
+    // Nobody presses these, and nothing they do should take the focus off what
+    // the user is working in. Tao's flag rather than `WS_EX_NOACTIVATE` by
+    // hand, so that it survives the next time Tao rewrites the styles.
+    if target == WinLayer::Overlay {
+        if let Err(error) = window.set_focusable(false) {
+            tracing::warn!(%error, surface = window.label(), "could not stop a surface taking the focus");
         }
     }
 
@@ -909,6 +920,12 @@ fn apply_layer(
     if layer == Layer::Chrome && window.label() != HOT_CORNERS.label {
         if let Err(error) = window.set_ignore_cursor_events(true) {
             tracing::warn!(%error, surface = window.label(), "could not let the pointer through a surface");
+        }
+    }
+
+    unsafe {
+        if let Err(error) = win::set_layer(hwnd, target) {
+            tracing::warn!(%error, "could not place the surface on its layer");
         }
     }
 
