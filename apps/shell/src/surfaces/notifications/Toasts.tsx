@@ -17,6 +17,27 @@ import { actions, useShell } from "../../shell/store";
 import type { Notification } from "@bw/core";
 import "./toasts.css";
 
+/**
+ * How much of a toast's time on screen is left, in milliseconds.
+ *
+ * Measured from when the notification was posted rather than from when this
+ * page happened to see it. The two are the same for anything arriving live,
+ * and very different at startup: the history is kept on disk and the shell
+ * posts its own notifications while the surfaces are still being built, so
+ * without this a page would greet its first render with every toast of every
+ * past session — and hold any `critical` one there for good, because those are
+ * never given a timer.
+ *
+ * Zero or less means it belongs in the history and was never news.
+ */
+export function toastLife(
+  notification: Pick<Notification, "time">,
+  timeout: number,
+  now: number = Date.now(),
+): number {
+  return timeout - (now - notification.time * 1000);
+}
+
 /** Drag further than this and letting go dismisses. */
 const DISMISS_THRESHOLD = 70;
 
@@ -159,13 +180,37 @@ export function Toasts() {
   useEffect(() => {
     if (config.doNotDisturb) return;
 
-    const timers = notifications
+    const now = Date.now();
+    const fresh = notifications.filter(
+      (notification) => !expired.includes(notification.id),
+    );
+
+    // Already over before this page ever saw it. The history outlives the
+    // process, so without this every notification of every past session would
+    // toast at once the moment the page connects — and a `critical` one, which
+    // is never given a timer, would then sit on the screen for good.
+    const stale = fresh
+      .filter(
+        (notification) => toastLife(notification, config.timeout, now) <= 0,
+      )
+      .map((notification) => notification.id);
+    if (stale.length > 0) {
+      setExpired((previous) => [...previous, ...stale]);
+    }
+
+    const timers = fresh
       .filter((notification) => notification.urgency !== "critical")
-      .filter((notification) => !expired.includes(notification.id))
-      .map((notification) =>
+      // Whatever is left of its welcome, not a fresh helping of it: one that
+      // arrived two seconds before this page did has two seconds less to run.
+      .map((notification) => ({
+        notification,
+        left: toastLife(notification, config.timeout, now),
+      }))
+      .filter(({ left }) => left > 0)
+      .map(({ notification, left }) =>
         window.setTimeout(
           () => setExpired((previous) => [...previous, notification.id]),
-          config.timeout,
+          left,
         ),
       );
     return () => timers.forEach(window.clearTimeout);
@@ -173,8 +218,6 @@ export function Toasts() {
     // every other toast's timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications, config.timeout, config.doNotDisturb]);
-
-  if (config.doNotDisturb) return null;
 
   const visible = groups
     .map((group) => ({
@@ -185,6 +228,18 @@ export function Toasts() {
     }))
     .filter((group) => group.notifications.length > 0)
     .slice(0, config.maxVisible);
+
+  // This window is a quarter of the screen and is not click-through, so while
+  // it is on screen with nothing on it every click in that rectangle lands
+  // here and goes no further — `pointer-events: none` cannot pass a click to
+  // another window. Only the page knows whether a toast is up, so the page is
+  // what parks the window off screen when none is.
+  const showing = !config.doNotDisturb && visible.length > 0;
+  useEffect(() => {
+    void actions.setSurfaceRevealed("notifications", showing);
+  }, [showing]);
+
+  if (config.doNotDisturb) return null;
 
   const fromBottom = config.position.startsWith("bottom");
 

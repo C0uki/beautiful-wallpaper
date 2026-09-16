@@ -66,8 +66,8 @@ pub fn apply(app: &AppHandle) {
 
         // The region is the mask, so this window must *not* be click-through:
         // everything outside the strips already falls through it.
-        unsafe {
-            crate::platform::win::set_click_through(hwnd, false);
+        if let Err(error) = window.set_ignore_cursor_events(false) {
+            tracing::warn!(%error, "could not make the hot corners catch the pointer");
         }
     }
 

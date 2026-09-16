@@ -18,8 +18,9 @@ use windows::Win32::Graphics::Dwm::{
     DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
 };
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO,
-    MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
+    CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, GetWindowRgn,
+    MonitorFromWindow, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
+    MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
 use windows::Win32::UI::Shell::{
     SHAppBarMessage, ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE,
@@ -29,8 +30,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
     GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT,
+    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -112,7 +113,15 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
         Layer::Normal => {}
         Layer::Overlay => {
-            add_ex_style(hwnd, WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+            // `WS_EX_NOACTIVATE` is Tao's to set, through `set_focusable`:
+            // anything added here is erased the next time Tao writes the
+            // styles, and it writes them whole, from its own flags.
+            //
+            // `WS_EX_TOOLWINDOW` has no flag of its own over there, so it stays
+            // here and the caller applies this last. Without it the surface is
+            // an ordinary taskbar window, which Windows watches for a reply and
+            // covers with a "not responding" ghost while it is busy.
+            add_ex_style(hwnd, WS_EX_TOOLWINDOW);
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
@@ -125,21 +134,6 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
     }
     Ok(())
-}
-
-/// Makes a window ignore the mouse, so clicks land on whatever is beneath it.
-///
-/// This is the Windows answer to `mask: Region` — surfaces that cover the screen
-/// but should only be interactive over their visible content.
-///
-/// # Safety
-/// `hwnd` must be a live window owned by this process.
-pub unsafe fn set_click_through(hwnd: HWND, click_through: bool) {
-    if click_through {
-        add_ex_style(hwnd, WS_EX_TRANSPARENT);
-    } else {
-        remove_ex_style(hwnd, WS_EX_TRANSPARENT);
-    }
 }
 
 /// Applies a DWM backdrop and dark-mode titlebar hint.
@@ -404,11 +398,6 @@ unsafe fn add_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | style.0 as isize);
 }
 
-unsafe fn remove_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
-    let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current & !(style.0 as isize));
-}
-
 /// The window the user is currently working in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -489,6 +478,74 @@ unsafe fn is_fullscreen(hwnd: HWND, class: &str) -> bool {
         && bounds.top <= screen.top
         && bounds.right >= screen.right
         && bounds.bottom >= screen.bottom
+}
+
+/// Whether this window covers a whole monitor with no way for a click to
+/// reach past it.
+///
+/// Every surface that spans the screen is meant to have one of two things: it
+/// is click-through, or it carries a window region that cuts it back to the
+/// parts that should exist. One that is visible with neither swallows every
+/// click on that monitor, and because these surfaces are transparent the
+/// desktop does not look covered — it looks broken.
+///
+/// This is a watchdog rather than a guard. It changes nothing; it names the
+/// surface in the log so the next report of "the screen stopped responding"
+/// arrives with the answer already in it.
+///
+/// # Safety
+/// `hwnd` must be a live window owned by this process.
+pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
+    let mut bounds = RECT::default();
+    if GetWindowRect(hwnd, &mut bounds).is_err() {
+        return false;
+    }
+
+    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    let mut info = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    if monitor.is_invalid() || !GetMonitorInfoW(monitor, &mut info).as_bool() {
+        return false;
+    }
+
+    let screen = info.rcMonitor;
+    let covers = bounds.left <= screen.left
+        && bounds.top <= screen.top
+        && bounds.right >= screen.right
+        && bounds.bottom >= screen.bottom;
+    if !covers {
+        return false;
+    }
+
+    // Both, not either: `WS_EX_TRANSPARENT` on its own leaves a window that
+    // reads as click-through in any list of styles and still catches every
+    // click. That is the shape of the bug this watchdog exists for, so it must
+    // not be the shape it treats as safe.
+    let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    let lets_the_pointer_through =
+        ex & WS_EX_TRANSPARENT.0 as isize != 0 && ex & WS_EX_LAYERED.0 as isize != 0;
+    if lets_the_pointer_through {
+        return false;
+    }
+
+    // Lost its furniture styles. A surface that spans the screen and is an
+    // ordinary application window is one Windows will ghost the moment it is
+    // slow to answer, and one that can be activated by a click it was never
+    // meant to receive. Both mean something has written over the styles.
+    if ex & WS_EX_APPWINDOW.0 as isize != 0 && ex & WS_EX_TOOLWINDOW.0 as isize == 0 {
+        return true;
+    }
+
+    // `GetWindowRgn` needs somewhere to put a copy of the region, and answers
+    // `ERROR` (0) when the window has none. The scratch region is ours either
+    // way — unlike `SetWindowRgn`, this call never takes ownership.
+    let scratch = CreateRectRgn(0, 0, 1, 1);
+    let has_region = GetWindowRgn(hwnd, scratch) != RGN_ERROR;
+    let _ = DeleteObject(HGDIOBJ::from(scratch));
+
+    !has_region
 }
 
 /// Shows or hides the stock taskbar.

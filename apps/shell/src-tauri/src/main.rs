@@ -313,6 +313,13 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
                     services::chrome::apply(&app);
                 }
             }
+
+            // Rides this timer rather than one of its own: it reads the same
+            // kind of window state, and a desktop that has stopped taking
+            // clicks can wait a second to be named.
+            #[cfg(windows)]
+            surfaces::warn_about_surfaces_that_swallow_a_monitor(&app);
+
             std::thread::sleep(Duration::from_secs(1));
         });
     }
