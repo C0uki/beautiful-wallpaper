@@ -66,9 +66,14 @@ fn show(app: &AppHandle, label: &str, visible: bool, focus: bool) {
         let _ = window.hide();
         return;
     }
-    let _ = window.show();
     if focus {
+        let _ = window.show();
         let _ = window.set_focus();
+    } else {
+        // The passive half is never opened by anyone, so it must not arrive
+        // holding the foreground. See the note on the helper: a surface the
+        // user cannot see or click has no way to hand it back.
+        let _ = crate::surfaces::show_without_taking_the_foreground(&window);
     }
 }
 
@@ -127,21 +132,12 @@ fn apply_region(app: &AppHandle, layout: &bw_core::overlay::OverlayLayout) {
 ///
 /// It only ever draws things that are explicitly see-through, so unlike its
 /// sibling it is masked by transparency rather than by a region.
-pub fn make_passive_clickthrough(_app: &AppHandle) {
-    #[cfg(windows)]
-    {
-        let Some(window) = _app.get_webview_window(crate::surfaces::OVERLAY_PINNED.label) else {
-            return;
-        };
-        let Ok(handle) = window.hwnd() else {
-            return;
-        };
-        unsafe {
-            crate::platform::win::set_click_through(
-                windows::Win32::Foundation::HWND(handle.0),
-                true,
-            );
-        }
+pub fn make_passive_clickthrough(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(crate::surfaces::OVERLAY_PINNED.label) else {
+        return;
+    };
+    if let Err(error) = window.set_ignore_cursor_events(true) {
+        tracing::warn!(%error, "could not let the pointer through the pinned overlay");
     }
 }
 

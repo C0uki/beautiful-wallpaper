@@ -895,12 +895,20 @@ fn apply_layer(
         if let Err(error) = win::set_layer(hwnd, target) {
             tracing::warn!(%error, "could not place the surface on its layer");
         }
+    }
 
-        // The decorations are drawn over everything and pressed by nobody. The
-        // hot corners are the exception: they are masked by their window
-        // region instead, which is applied once the strips are known.
-        if layer == Layer::Chrome && window.label() != HOT_CORNERS.label {
-            win::set_click_through(hwnd, true);
+    // The decorations are drawn over everything and pressed by nobody. The hot
+    // corners are the exception: they are masked by their window region
+    // instead, which is applied once the strips are known.
+    //
+    // Tauri's own call rather than `WS_EX_TRANSPARENT` by hand: on Windows a
+    // transparent window is only see-through to the pointer when it is layered
+    // as well, and setting one without the other leaves a window that looks
+    // click-through in a list of styles and swallows every click underneath it.
+    // `screenChrome` covers the screen, so that was every click on the desktop.
+    if layer == Layer::Chrome && window.label() != HOT_CORNERS.label {
+        if let Err(error) = window.set_ignore_cursor_events(true) {
+            tracing::warn!(%error, surface = window.label(), "could not let the pointer through a surface");
         }
     }
 
@@ -966,12 +974,14 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
         return Ok(());
     };
     if visible {
-        window.show()?;
         // An overlay only takes focus when the user opened it deliberately.
         // The readout and the toasts never do — taking focus from whatever the
         // user is typing into would be worse than the information is worth.
         if takes_focus(label) {
+            window.show()?;
             window.set_focus()?;
+        } else {
+            show_without_taking_the_foreground(&window)?;
         }
     } else {
         window.hide()?;
@@ -979,12 +989,81 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
     Ok(())
 }
 
+/// Shows a window and leaves the foreground where it was.
+///
+/// Showing one takes the foreground whether it is wanted or not. Tao asks
+/// Windows for `SW_SHOW`, which activates; the flag that would have made it
+/// `SW_SHOWNOACTIVATE` is set from the builder's `focused` and spent on the
+/// window's first show. `WS_EX_NOACTIVATE` does not cover it either — that
+/// refuses activation by a click, not by a program.
+///
+/// What that costs is out of all proportion to a toast appearing. The window
+/// holding the foreground is one of these surfaces: off screen, or a strip a
+/// few pixels tall, or transparent — so the user cannot see it, cannot click
+/// it, and has nothing to click to take the foreground back. Every click they
+/// make lands on a window that never becomes active. The pointer still moves,
+/// so it reads as the whole desktop refusing the mouse rather than as anything
+/// to do with a notification.
+///
+/// Handing it straight back is allowed: this process owns the foreground for
+/// the moment between showing and giving it away, and a process that owns it
+/// may pass it on.
+#[cfg(windows)]
+pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+
+    let previous = unsafe { GetForegroundWindow() };
+    window.show()?;
+
+    let ours = window.hwnd().map(|handle| HWND(handle.0)).ok();
+    if !previous.is_invalid() && ours != Some(previous) {
+        // Best effort: Windows refuses this from a process that has lost the
+        // foreground in between, and there is nothing useful to do about it
+        // here beyond leaving the surface up.
+        unsafe {
+            let _ = SetForegroundWindow(previous);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    window.show()
+}
+
 /// Whether showing this surface should also focus it.
 fn takes_focus(label: &str) -> bool {
-    // The dock joins the two transient overlays here: clicking an icon should
-    // put the user in the application they picked, and a dock that grabbed
-    // focus first would take it straight back off them.
-    !matches!(label, l if l == OSD.label || l == NOTIFICATIONS.label || l == DOCK.label)
+    // Only a surface the user opened on purpose may take the focus off what
+    // they were doing, so this asks which surfaces those are rather than
+    // listing the ones that must not. Naming the exceptions was what let the
+    // decorations through: the hot corners and the screen chrome are opened by
+    // nobody, are shown again every time the config is applied, and were on
+    // the permitted side of a list of three.
+    //
+    // Taking the focus is not a small thing here. `set_focus` puts the window
+    // in the foreground, and these surfaces are a masked strip, a window off
+    // the side of the screen, or transparent — nothing the user can see or
+    // click to take it back. Every click they make afterwards lands on a
+    // window that never becomes active, which reads as the mouse having died
+    // rather than as anything to do with a shell surface.
+    let Some(surface) = ALL
+        .iter()
+        .find(|surface| surface.label == surface_of(label))
+    else {
+        return false;
+    };
+
+    // The background, the bar and the decorations are furniture; nobody opens
+    // them. Of the overlays, the dock and the two that only ever report
+    // something are shown without being asked for, and the overlay's passive
+    // half is never opened at all.
+    surface.layer == Layer::Overlay
+        && !matches!(label, l if l == DOCK.label
+            || l == OSD.label
+            || l == NOTIFICATIONS.label
+            || l == OVERLAY_PINNED.label)
 }
 
 #[cfg(test)]
@@ -1007,6 +1086,55 @@ mod tests {
 
     /// The toast surface covers a quarter of the screen and is not
     /// click-through, so the desktop is only usable while it is parked.
+    /// Getting this wrong takes the foreground and does not give it back: the
+    /// surfaces that must not take it are ones the user cannot see or click,
+    /// so nothing hands it on, and every click afterwards lands on a window
+    /// that never becomes active. It reads as a dead mouse, not as a shell
+    /// surface misbehaving, which is what made it so hard to find.
+    #[test]
+    fn only_the_surfaces_a_user_opens_may_take_the_focus() {
+        for surface in [
+            SETTINGS,
+            OVERVIEW,
+            SESSION,
+            SHELF,
+            WIZARD,
+            WALLPAPER_SELECTOR,
+            SIDEBAR_LEFT,
+            SIDEBAR_RIGHT,
+            DESKTOP_MENU,
+            REGION_SELECT,
+            OVERLAY,
+        ] {
+            assert!(
+                takes_focus(surface.label),
+                "{} is opened on purpose",
+                surface.label
+            );
+        }
+
+        for surface in [
+            BACKGROUND,
+            BAR,
+            SCREEN_CHROME,
+            HOT_CORNERS,
+            DOCK,
+            OSD,
+            NOTIFICATIONS,
+            OVERLAY_PINNED,
+        ] {
+            assert!(
+                !takes_focus(surface.label),
+                "{} is never opened by anyone",
+                surface.label
+            );
+        }
+
+        // A per-monitor bar carries its screen in its label and must resolve
+        // to the same answer as the surface it was made from.
+        assert!(!takes_focus(&bar_label(BAR.label, r"\\.\DISPLAY2")));
+    }
+
     #[test]
     fn the_toasts_park_off_screen_when_they_have_nothing_to_show() {
         let config = Config::default();

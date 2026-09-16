@@ -30,8 +30,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
     GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT,
+    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -126,21 +126,6 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
     }
     Ok(())
-}
-
-/// Makes a window ignore the mouse, so clicks land on whatever is beneath it.
-///
-/// This is the Windows answer to `mask: Region` — surfaces that cover the screen
-/// but should only be interactive over their visible content.
-///
-/// # Safety
-/// `hwnd` must be a live window owned by this process.
-pub unsafe fn set_click_through(hwnd: HWND, click_through: bool) {
-    if click_through {
-        add_ex_style(hwnd, WS_EX_TRANSPARENT);
-    } else {
-        remove_ex_style(hwnd, WS_EX_TRANSPARENT);
-    }
 }
 
 /// Applies a DWM backdrop and dark-mode titlebar hint.
@@ -405,11 +390,6 @@ unsafe fn add_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | style.0 as isize);
 }
 
-unsafe fn remove_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
-    let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current & !(style.0 as isize));
-}
-
 /// The window the user is currently working in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -531,7 +511,14 @@ pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
         return false;
     }
 
-    if GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT.0 as isize != 0 {
+    // Both, not either: `WS_EX_TRANSPARENT` on its own leaves a window that
+    // reads as click-through in any list of styles and still catches every
+    // click. That is the shape of the bug this watchdog exists for, so it must
+    // not be the shape it treats as safe.
+    let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    let lets_the_pointer_through =
+        ex & WS_EX_TRANSPARENT.0 as isize != 0 && ex & WS_EX_LAYERED.0 as isize != 0;
+    if lets_the_pointer_through {
         return false;
     }
 
