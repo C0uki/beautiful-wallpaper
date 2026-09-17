@@ -12,7 +12,7 @@
 use std::sync::atomic::{AtomicIsize, Ordering};
 
 use windows::core::{w, Result, PCWSTR};
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT, WPARAM};
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE,
     DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
@@ -23,15 +23,15 @@ use windows::Win32::Graphics::Gdi::{
     MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
 use windows::Win32::UI::Shell::{
-    SHAppBarMessage, ABE_BOTTOM, ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE,
-    ABM_SETPOS, APPBARDATA,
+    DefSubclassProc, RemoveWindowSubclass, SHAppBarMessage, SetWindowSubclass, ABE_BOTTOM,
+    ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
     GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WS_EX_APPWINDOW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WM_NCDESTROY, WM_STYLECHANGING,
+    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -117,11 +117,11 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
             // anything added here is erased the next time Tao writes the
             // styles, and it writes them whole, from its own flags.
             //
-            // `WS_EX_TOOLWINDOW` has no flag of its own over there, so it stays
-            // here and the caller applies this last. Without it the surface is
-            // an ordinary taskbar window, which Windows watches for a reply and
-            // covers with a "not responding" ghost while it is busy.
+            // `WS_EX_TOOLWINDOW` has no flag of its own over there, so it is
+            // set here for the window as it stands and defended by a subclass
+            // for every write to come.
             add_ex_style(hwnd, WS_EX_TOOLWINDOW);
+            let _ = SetWindowSubclass(hwnd, Some(keep_tool_window), KEEP_TOOL_WINDOW, 0);
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
@@ -134,6 +134,47 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Tells our subclass apart from anyone else's on the same window.
+const KEEP_TOOL_WINDOW: usize = 0x6277_7477; // "bwtw"
+
+/// Puts `WS_EX_TOOLWINDOW` back into every write of a surface's ex-styles.
+///
+/// Tao rewrites `GWL_EXSTYLE` whole, from its own `WindowFlags`, whenever it
+/// shows or hides a window — and it has no flag for `WS_EX_TOOLWINDOW`, so the
+/// bit is gone by the first `show()` after it was set. Without it a surface is
+/// an ordinary application window: `skip_taskbar` keeps it off the taskbar
+/// through `ITaskbarList`, but nothing keeps it out of Alt-Tab, and the toasts
+/// sit there visible, parked off the edge of the screen, for the life of the
+/// shell.
+///
+/// Windows asks a window before it writes its styles, through
+/// `WM_STYLECHANGING`, and a subclass may edit what is about to be written.
+/// That is the one point every writer passes through, so the bit goes back
+/// here rather than after each of Tao's calls — chasing those is what let this
+/// through twice already.
+unsafe extern "system" fn keep_tool_window(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> LRESULT {
+    if msg == WM_STYLECHANGING && wparam.0 as i32 == GWL_EXSTYLE.0 {
+        let styles = lparam.0 as *mut STYLESTRUCT;
+        if !styles.is_null() {
+            (*styles).styleNew |= WS_EX_TOOLWINDOW.0;
+        }
+    }
+
+    // The window outlives nothing, so the subclass comes off with it.
+    if msg == WM_NCDESTROY {
+        let _ = RemoveWindowSubclass(hwnd, Some(keep_tool_window), KEEP_TOOL_WINDOW);
+    }
+
+    DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
 /// Applies a DWM backdrop and dark-mode titlebar hint.
@@ -649,4 +690,52 @@ pub fn network_counters() -> NetworkCounters {
         FreeMibTable(table.cast());
     }
     totals
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DestroyWindow, WINDOW_STYLE, WS_POPUP,
+    };
+
+    /// Tao writes a surface's ex-styles whole and has no flag for
+    /// `WS_EX_TOOLWINDOW`, so every `show()` would drop the bit. Twice now a
+    /// fix has put it back in one place and left another writer to erase it;
+    /// this is the writer, standing in for Tao.
+    #[test]
+    fn a_surface_keeps_its_tool_window_bit_through_a_wholesale_rewrite() {
+        unsafe {
+            // `STATIC` is a class Windows has already registered for us.
+            let hwnd = CreateWindowExW(
+                WS_EX_APPWINDOW,
+                w!("STATIC"),
+                w!("tool window test"),
+                WINDOW_STYLE(WS_POPUP.0),
+                0,
+                0,
+                1,
+                1,
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("Windows would not give us a window to test with");
+
+            let _ = SetWindowSubclass(hwnd, Some(keep_tool_window), KEEP_TOOL_WINDOW, 0);
+
+            // What Tao does: the whole style word, from its own flags, with no
+            // `WS_EX_TOOLWINDOW` anywhere in it.
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW.0 as isize);
+
+            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            let _ = DestroyWindow(hwnd);
+
+            assert!(
+                ex & WS_EX_TOOLWINDOW.0 as isize != 0,
+                "the rewrite dropped WS_EX_TOOLWINDOW: {ex:#010x}",
+            );
+        }
+    }
 }
