@@ -572,9 +572,9 @@ pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
     }
 
     // Lost its furniture styles. A surface that spans the screen and is an
-    // ordinary application window is one Windows will ghost the moment it is
-    // slow to answer, and one that can be activated by a click it was never
-    // meant to receive. Both mean something has written over the styles.
+    // ordinary application window is one Alt-Tab lists and one a click can
+    // bring to the front, neither of which a decoration should be. Either way
+    // something has written over the styles, which is worth saying out loud.
     if ex & WS_EX_APPWINDOW.0 as isize != 0 && ex & WS_EX_TOOLWINDOW.0 as isize == 0 {
         return true;
     }
