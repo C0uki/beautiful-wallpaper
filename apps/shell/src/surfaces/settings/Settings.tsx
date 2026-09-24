@@ -34,10 +34,12 @@ function valueAt(config: unknown, path: string): unknown {
     );
 }
 
-/** Everything a search term should match: the label, the group, the path. */
+/** Everything a search term should match: the label, the group, the path —
+ * as shown and in English, so a term from the docs still finds its row. */
 function matches(field: Field, term: string): boolean {
   if (!term) return true;
-  const haystack = `${field.label} ${field.group} ${field.path}`.toLowerCase();
+  const haystack =
+    `${tr(field.label)} ${field.label} ${tr(field.group)} ${field.group} ${field.path}`.toLowerCase();
   return term
     .toLowerCase()
     .split(/\s+/)
@@ -148,7 +150,12 @@ export function Settings() {
                 ? tr("%1 settings match").replace("%1", String(shown.length))
                 : (current?.title() ?? "")}
             </h1>
-            <IconButton icon="close" size={32} label="Close" onClick={close} />
+            <IconButton
+              icon="close"
+              size={32}
+              label={tr("Close")}
+              onClick={close}
+            />
           </header>
 
           {problem ? <p className="bw-settings-problem">{problem}</p> : null}
@@ -207,7 +214,7 @@ function Rows({
           lastGroup = null;
           headings.push(
             <h2 key={`s-${field.section}`} className="bw-settings-section">
-              {field.section}
+              {tr(field.section)}
             </h2>,
           );
         }
@@ -219,7 +226,7 @@ function Rows({
                 key={`g-${field.section}-${field.group}`}
                 className="bw-settings-group"
               >
-                {field.group}
+                {tr(field.group)}
               </h3>,
             );
           }
@@ -251,7 +258,7 @@ function Row({
   return (
     <div className="bw-settings-row">
       <div className="bw-settings-label">
-        <span>{field.label}</span>
+        <span>{tr(field.label)}</span>
         {override?.hint ? <em>{override.hint()}</em> : null}
         <code>{field.path}</code>
       </div>
@@ -307,7 +314,7 @@ function Control({
       return (
         <Switch
           checked={Boolean(value)}
-          label={field.label}
+          label={tr(field.label)}
           onChange={(next) => onSet(field.path, next)}
         />
       );
@@ -323,7 +330,7 @@ function Control({
               min={override.range.min}
               max={override.range.max}
               step={override.range.step}
-              label={field.label}
+              label={tr(field.label)}
               onChange={(next) => onSet(field.path, next)}
             />
             <span>{current}</span>

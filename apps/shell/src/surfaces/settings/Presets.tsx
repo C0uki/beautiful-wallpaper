@@ -32,12 +32,14 @@ import "./presets.css";
  * The section is part of it here where it is not on the settings page: there,
  * a heading says which section you are reading; in a flat list of changes,
  * "Height" on its own could be four different settings. */
-const LABELS = new Map(
-  configSchema.map((field) => [
-    field.path,
-    [field.section, field.group, field.label].filter(Boolean).join(" · "),
-  ]),
-);
+function labelOf(path: string): string {
+  const field = configSchema.find((each) => each.path === path);
+  if (!field) return path;
+  return [field.section, field.group, field.label]
+    .filter(Boolean)
+    .map((part) => tr(part))
+    .join(" · ");
+}
 
 /** A value as a row shows it — an empty one still needs to occupy space. */
 function shown(value: string): string {
@@ -400,7 +402,7 @@ function ConfirmApply({
                       onChange={() => toggle(change.path)}
                     />
                     <span className="bw-presets-what">
-                      <strong>{LABELS.get(change.path) ?? change.path}</strong>
+                      <strong>{labelOf(change.path)}</strong>
                       <code>{change.path}</code>
                     </span>
                     <span className="bw-presets-move">
