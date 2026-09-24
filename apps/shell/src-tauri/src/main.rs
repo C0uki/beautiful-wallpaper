@@ -40,6 +40,20 @@ fn main() {
         std::process::exit(code);
     }
 
+    // Windows are built on this thread, and building one needs it to be in a
+    // single-threaded apartment — Tao asks for that with `OleInitialize`, which
+    // fails outright on a thread already in a multi-threaded one. Whoever calls
+    // COM first decides, and several of the watchers ask for a multi-threaded
+    // apartment on whatever thread builds them, so leaving it to chance means
+    // the shell starts or panics depending on the order things run in. Say it
+    // here instead: a later `CoInitializeEx` for the other kind fails harmlessly
+    // and every one of those calls already ignores its result.
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+    }
+
     let state = match AppState::load() {
         Ok(state) => state,
         Err(error) => {
@@ -183,14 +197,9 @@ fn main() {
 
             let handle = app.handle().clone();
 
-            for surface in surfaces::ALL {
-                if let Err(error) = surfaces::ensure(&handle, surface) {
-                    tracing::error!(%error, surface = surface.label, "could not create a surface");
-                }
-            }
-
             // Generate the first palette before anything paints, so no surface
-            // renders against fallback colours.
+            // renders against fallback colours. Ahead of the surfaces now, so
+            // the first one to exist already has one to read.
             match services::theme::regenerate(&state) {
                 Ok(theme) => {
                     let _ = handle.emit(event::THEME_CHANGED, &theme);
@@ -225,34 +234,24 @@ fn main() {
             // guard that lives in it.
             services::integration::apply(&handle);
             services::listener::apply(&handle);
-            // After the surfaces exist and the state is managed: the hot
-            // corners need their window before they can be cut down to size.
-            services::chrome::apply(&handle);
-            // The passive half is masked by transparency rather than by a
-            // region, and its window has to exist before that can be set.
-            services::overlay::make_passive_clickthrough(&handle);
-            services::overlay::apply(&handle);
-            // After the handle is managed, and after the surfaces exist: the
-            // first click has somewhere to go.
-            services::deskmenu::apply(&handle);
 
-            // After the surfaces exist, so a key pressed the instant the
-            // shell is up has something to open. And before the first-run
-            // screen, which shows what Windows refused.
-            services::hotkeys::apply(&handle);
-
-            // A machine that has not been through the first run opens it
-            // itself. There is nothing to see past it on a fresh install: no
-            // wallpaper has been chosen, so the palette has no source, and no
-            // key has been proven to work.
-            if !app.state::<PersistentStore>().0.get().first_run.done {
-                if let Some(states) = state.set_state("wizardOpen", true) {
-                    surfaces::apply_states(&handle, &states);
-                    let _ = handle.emit(event::STATE_CHANGED, &states);
-                }
+            // One surface to a turn of the event loop, rather than nineteen
+            // back to back. See the note on `later`.
+            for surface in surfaces::ALL {
+                let each = handle.clone();
+                later(&handle, move || {
+                    if let Err(error) = surfaces::ensure(&each, surface) {
+                        tracing::error!(%error, surface = surface.label, "could not create a surface");
+                    }
+                });
             }
 
-            spawn_providers(handle, state.clone());
+            // Behind every one of them in the queue, because each step of it
+            // needs a surface to have a window before it can touch it.
+            let rest = handle.clone();
+            let state = state.clone();
+            later(&handle, move || finish_starting(rest, state));
+
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -275,6 +274,70 @@ fn main() {
 struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 
 /// Starts the timers that push system readings to the surfaces.
+/// Queues `work` for a later turn of the event loop.
+///
+/// Creating a webview takes long enough that nineteen of them back to back
+/// leave the main thread without a message pump for well past the five seconds
+/// Windows waits before it decides a window is hung. What it puts up then is a
+/// full-screen "not responding" ghost over `screenChrome` — transparent but
+/// not layered, which is exactly the pair that swallows every click on the
+/// desktop rather than passing it through. Spread over the loop, the thread is
+/// never silent long enough to be asked.
+fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
+    if let Err(error) = handle.run_on_main_thread(work) {
+        tracing::error!(%error, "could not queue a step of the startup");
+    }
+}
+
+/// The rest of the startup, once every surface has a window.
+///
+/// Each of these reaches for a particular surface and does nothing at all if
+/// it is not there yet, with nothing to try again later — so this runs behind
+/// the whole queue rather than alongside it.
+fn finish_starting(handle: tauri::AppHandle, state: AppState) {
+    // One to a turn, like the surfaces ahead of them, and for the same reason:
+    // run end to end these took long enough on their own to leave the windows
+    // silent past the five seconds Windows waits before it ghosts one. They
+    // keep their order — each still runs behind the surfaces it reaches for,
+    // and behind each other — but the loop gets to breathe between them.
+
+    // The hot corners need their window before they can be cut down to size.
+    let each = handle.clone();
+    later(&handle, move || services::chrome::apply(&each));
+
+    // The passive half is masked by transparency rather than by a region, and
+    // its window has to exist before that can be set.
+    let each = handle.clone();
+    later(&handle, move || {
+        services::overlay::make_passive_clickthrough(&each);
+        services::overlay::apply(&each);
+    });
+
+    // So the first click has somewhere to go.
+    let each = handle.clone();
+    later(&handle, move || services::deskmenu::apply(&each));
+
+    // So a key pressed the instant the shell is up has something to open. And
+    // before the first-run screen, which shows what Windows refused.
+    let each = handle.clone();
+    later(&handle, move || services::hotkeys::apply(&each));
+
+    later(&handle.clone(), move || {
+        // A machine that has not been through the first run opens it itself.
+        // There is nothing to see past it on a fresh install: no wallpaper has
+        // been chosen, so the palette has no source, and no key has been proven
+        // to work.
+        if !handle.state::<PersistentStore>().0.get().first_run.done {
+            if let Some(states) = state.set_state("wizardOpen", true) {
+                surfaces::apply_states(&handle, &states);
+                let _ = handle.emit(event::STATE_CHANGED, &states);
+            }
+        }
+
+        spawn_providers(handle, state);
+    });
+}
+
 fn spawn_providers(app: tauri::AppHandle, state: AppState) {
     let resource_interval = Duration::from_millis(state.config().resources.poll_interval.into());
 

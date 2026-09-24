@@ -287,35 +287,54 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
 /// surface the user just opened would be its own bug.
 #[cfg(windows)]
 pub fn warn_about_surfaces_that_swallow_a_monitor(app: &AppHandle) {
-    use std::collections::BTreeSet;
+    use std::collections::BTreeMap;
     use std::sync::{Mutex, OnceLock};
     use windows::Win32::Foundation::HWND;
 
-    static WARNED: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
-    let warned = WARNED.get_or_init(|| Mutex::new(BTreeSet::new()));
-    let Ok(mut warned) = warned.lock() else {
+    /// How many checks in a row a surface has been swallowing its monitor.
+    static SPELLS: OnceLock<Mutex<BTreeMap<String, u8>>> = OnceLock::new();
+    let spells = SPELLS.get_or_init(|| Mutex::new(BTreeMap::new()));
+    let Ok(mut spells) = spells.lock() else {
         return;
     };
 
     for (label, window) in app.webview_windows() {
+        // The wallpaper is meant to cover its monitor, and for the whole of the
+        // second or so its webview takes to build it is doing so from the top,
+        // before `set_layer` puts it under the icons. Nothing here could tell
+        // that apart from the real fault, and it does not have to: when that
+        // reparenting fails, `apply_layer` says so where it happens.
+        if surface_of(&label) == BACKGROUND.label {
+            continue;
+        }
+
         let swallowing = window.is_visible().unwrap_or(false)
             && match window.hwnd() {
                 Ok(handle) => unsafe { crate::platform::win::swallows_its_monitor(HWND(handle.0)) },
                 Err(_) => false,
             };
 
-        // Once per spell, not once a second: this runs on a timer, and a
-        // surface that stays like this would otherwise fill the log with the
-        // same line until the shell is stopped.
-        if swallowing {
-            if warned.insert(label.clone()) {
-                tracing::warn!(
-                    surface = %label,
-                    "this surface covers its monitor and is neither click-through nor masked,                      so every click on that screen lands on it and goes no further"
-                );
-            }
-        } else {
-            warned.remove(&label);
+        if !swallowing {
+            spells.remove(&label);
+            continue;
+        }
+
+        // Two checks running, not one: a surface is briefly this shape while it
+        // is being built — the wallpaper covers the screen from the moment it
+        // exists and only goes under the icons once `set_layer` reparents it,
+        // and creating a webview pumps messages, so this can run in between.
+        // A surface that is really stuck is still stuck a second later.
+        //
+        // Then once per spell, not once a second: it runs on a timer, and one
+        // that stays like this would otherwise repeat the line until the shell
+        // is stopped.
+        let seen = spells.entry(label.clone()).or_default();
+        *seen = seen.saturating_add(1);
+        if *seen == 2 {
+            tracing::warn!(
+                surface = %label,
+                "this surface covers its monitor and is neither click-through nor masked,                      so every click on that screen lands on it and goes no further"
+            );
         }
     }
 }
@@ -895,9 +914,12 @@ fn apply_layer(
     // windows' styles: each of its calls writes `GWL_EXSTYLE` whole, from its
     // own flags, and erases anything set behind its back. Doing it the other
     // way round cost `screenChrome` its `WS_EX_TOOLWINDOW` and
-    // `WS_EX_NOACTIVATE` — which made it an ordinary taskbar window, and
-    // Windows starts watching those for a reply and drawing a "not responding"
-    // ghost over the ones that are busy.
+    // `WS_EX_NOACTIVATE`, which left it an ordinary application window: one
+    // Alt-Tab lists, and one a click can bring to the front.
+    //
+    // The order is only half of it. Tao writes the styles again on every show
+    // and hide, long after this ran, so `WS_EX_TOOLWINDOW` is held by the
+    // subclass `set_layer` installs rather than by getting the order right.
 
     // Nobody presses these, and nothing they do should take the focus off what
     // the user is working in. Tao's flag rather than `WS_EX_NOACTIVATE` by
@@ -1008,44 +1030,19 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
 
 /// Shows a window and leaves the foreground where it was.
 ///
-/// Showing one takes the foreground whether it is wanted or not. Tao asks
-/// Windows for `SW_SHOW`, which activates; the flag that would have made it
-/// `SW_SHOWNOACTIVATE` is set from the builder's `focused` and spent on the
-/// window's first show. `WS_EX_NOACTIVATE` does not cover it either — that
-/// refuses activation by a click, not by a program.
+/// `WS_EX_NOACTIVATE` is what keeps it there. Windows activates a window it is
+/// asked to show, and Tao asks with `SW_SHOW`: the flag that would have made it
+/// `SW_SHOWNOACTIVATE` comes from the builder's `focused` and is spent on the
+/// window's first show, so every show after the first one activates. A window
+/// carrying `WS_EX_NOACTIVATE` is not activated that way — only by a program
+/// naming it, through `SetForegroundWindow` or `SetActiveWindow`.
 ///
-/// What that costs is out of all proportion to a toast appearing. The window
-/// holding the foreground is one of these surfaces: off screen, or a strip a
-/// few pixels tall, or transparent — so the user cannot see it, cannot click
-/// it, and has nothing to click to take the foreground back. Every click they
-/// make lands on a window that never becomes active. The pointer still moves,
-/// so it reads as the whole desktop refusing the mouse rather than as anything
-/// to do with a notification.
-///
-/// Handing it straight back is allowed: this process owns the foreground for
-/// the moment between showing and giving it away, and a process that owns it
-/// may pass it on.
-#[cfg(windows)]
-pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
-
-    let previous = unsafe { GetForegroundWindow() };
-    window.show()?;
-
-    let ours = window.hwnd().map(|handle| HWND(handle.0)).ok();
-    if !previous.is_invalid() && ours != Some(previous) {
-        // Best effort: Windows refuses this from a process that has lost the
-        // foreground in between, and there is nothing useful to do about it
-        // here beyond leaving the surface up.
-        unsafe {
-            let _ = SetForegroundWindow(previous);
-        }
-    }
-    Ok(())
-}
-
-#[cfg(not(windows))]
+/// `apply_layer` puts that style on every surface on the overlay layer, through
+/// `set_focusable(false)` so that Tao keeps it. These surfaces are the ones that
+/// most need it: off screen, or a strip a few pixels tall, or transparent, so a
+/// user who lost the foreground to one can neither see it nor click it, and has
+/// nothing to click to take the foreground back. It reads as the whole desktop
+/// refusing the mouse rather than as anything to do with a notification.
 pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
     window.show()
 }
