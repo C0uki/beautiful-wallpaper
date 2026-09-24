@@ -414,10 +414,24 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
                 .position(x + screen.origin.0, y + screen.origin.1)
                 .inner_size(width, height)
                 // The shell's windows do not belong in Alt-Tab or on the taskbar.
-                .skip_taskbar(true);
+                .skip_taskbar(true)
+                // None of them takes the focus off whatever the user is working
+                // in, and all of this from birth rather than once built: the
+                // webview takes seconds to come up, and a window visible and
+                // activatable for that long is one Windows may hand the
+                // foreground to. `focused` also covers the hidden ones — left at
+                // Tauri's default, Wry moves focus into the webview the moment
+                // it exists, handing the keyboard to a window nobody can see.
+                // `set_visible` focuses the ones meant to have it, when opened.
+                //
+                // `focusable` is `WS_EX_NOACTIVATE`, through Tao so it survives
+                // Tao rewriting the styles; `focused` is what makes Tao show
+                // these with `SW_SHOWNOACTIVATE` every time, not just the first.
+                .focused(false)
+                .focusable(false);
 
         builder = match surface.layer {
-            Layer::Background => builder.focused(false).always_on_bottom(true),
+            Layer::Background => builder.always_on_bottom(true),
             // The hot corners are the one surface that is neither
             // click-through nor small: what keeps them out of the way is a
             // window region, and `services::chrome::apply` is what puts it on.
@@ -426,11 +440,11 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             // without applying anything and nothing tries again. Born hidden,
             // there is no such moment: `apply` shows them once they are masked.
             Layer::Chrome if surface.label == HOT_CORNERS.label => {
-                builder.focused(false).always_on_top(true).visible(false)
+                builder.always_on_top(true).visible(false)
             }
             // On screen from the start, and never taking the focus off whatever
             // the user is actually working in.
-            Layer::Bar | Layer::Chrome => builder.focused(false).always_on_top(true),
+            Layer::Bar | Layer::Chrome => builder.always_on_top(true),
             // The dock is layered like an overlay but nobody opens it, so there
             // is no flag to show it and `surface_for_flag` has no entry to give.
             // It is on screen whenever it is enabled, like the bar.
@@ -438,10 +452,9 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             // ponytail: read once, at creation. Turning `dock.enable` on in the
             // settings takes a restart until something re-applies the config to
             // the windows, which nothing does for any surface yet.
-            Layer::Overlay if surface.label == DOCK.label => builder
-                .focused(false)
-                .always_on_top(true)
-                .visible(config.dock.enable),
+            Layer::Overlay if surface.label == DOCK.label => {
+                builder.always_on_top(true).visible(config.dock.enable)
+            }
             // Every other overlay starts hidden and is shown by its
             // `GlobalStates` flag.
             Layer::Overlay => builder.always_on_top(true).visible(false),
@@ -913,22 +926,13 @@ fn apply_layer(
     // Everything that goes through Tao comes first, because Tao owns these
     // windows' styles: each of its calls writes `GWL_EXSTYLE` whole, from its
     // own flags, and erases anything set behind its back. Doing it the other
-    // way round cost `screenChrome` its `WS_EX_TOOLWINDOW` and
-    // `WS_EX_NOACTIVATE`, which left it an ordinary application window: one
-    // Alt-Tab lists, and one a click can bring to the front.
+    // way round cost `screenChrome` its `WS_EX_TOOLWINDOW`, which left it an
+    // ordinary application window: one Alt-Tab lists.
     //
     // The order is only half of it. Tao writes the styles again on every show
     // and hide, long after this ran, so `WS_EX_TOOLWINDOW` is held by the
     // subclass `set_layer` installs rather than by getting the order right.
-
-    // Nobody presses these, and nothing they do should take the focus off what
-    // the user is working in. Tao's flag rather than `WS_EX_NOACTIVATE` by
-    // hand, so that it survives the next time Tao rewrites the styles.
-    if target == WinLayer::Overlay {
-        if let Err(error) = window.set_focusable(false) {
-            tracing::warn!(%error, surface = window.label(), "could not stop a surface taking the focus");
-        }
-    }
+    // `WS_EX_NOACTIVATE` is Tao's own flag, set by the builder in `ensure`.
 
     // The decorations are drawn over everything and pressed by nobody. The hot
     // corners are the exception: they are masked by their window region
@@ -1030,18 +1034,18 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
 
 /// Shows a window and leaves the foreground where it was.
 ///
-/// `WS_EX_NOACTIVATE` is what keeps it there. Windows activates a window it is
-/// asked to show, and Tao asks with `SW_SHOW`: the flag that would have made it
-/// `SW_SHOWNOACTIVATE` comes from the builder's `focused` and is spent on the
-/// window's first show, so every show after the first one activates. A window
-/// carrying `WS_EX_NOACTIVATE` is not activated that way — only by a program
-/// naming it, through `SetForegroundWindow` or `SetActiveWindow`.
+/// `ensure` builds every surface with `focused(false)`, which is what makes Tao
+/// show it with `SW_SHOWNOACTIVATE` — every time: Tao clears its marker on a
+/// copy of the flags, never on the ones it keeps. Left at the default, Tao
+/// shows with `SW_SHOW`, and on any change of flags while the window is
+/// visible, not only on a show. `focusable(false)` adds `WS_EX_NOACTIVATE`,
+/// so a click does not activate it either; only a program naming it, through
+/// `SetForegroundWindow` or `SetActiveWindow`, does.
 ///
-/// `apply_layer` puts that style on every surface on the overlay layer, through
-/// `set_focusable(false)` so that Tao keeps it. These surfaces are the ones that
-/// most need it: off screen, or a strip a few pixels tall, or transparent, so a
-/// user who lost the foreground to one can neither see it nor click it, and has
-/// nothing to click to take the foreground back. It reads as the whole desktop
+/// The surfaces shown through here are the ones that most need it: off screen,
+/// or a strip a few pixels tall, or transparent, so a user who lost the
+/// foreground to one can neither see it nor click it, and has nothing to click
+/// to take the foreground back. It reads as the whole desktop
 /// refusing the mouse rather than as anything to do with a notification.
 pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
     window.show()

@@ -113,7 +113,7 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
         }
         Layer::Normal => {}
         Layer::Overlay => {
-            // `WS_EX_NOACTIVATE` is Tao's to set, through `set_focusable`:
+            // `WS_EX_NOACTIVATE` is Tao's to set, through `focusable`:
             // anything added here is erased the next time Tao writes the
             // styles, and it writes them whole, from its own flags.
             //
