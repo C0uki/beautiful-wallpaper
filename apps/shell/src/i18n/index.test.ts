@@ -4,7 +4,9 @@
 // because the reviewer's machine is already set to the locale being tested.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { configSchema } from "@bw/core";
 import { availableLocales, resolveLocale, setLocale, tr } from ".";
+import ja_JP from "./locales/ja_JP.json";
 
 /** Stands in for the browser's list, which is read-only in a real navigator. */
 function withLanguages(languages: string[]): void {
@@ -65,5 +67,23 @@ describe("tr", () => {
 
   it("substitutes every placeholder, including a repeated one", () => {
     expect(tr("%1 of %2, and %1 again", "a", "b")).toBe("a of b, and a again");
+  });
+});
+
+describe("the settings screen", () => {
+  // Its rows come from the Rust schema, so a config key added anywhere lands
+  // on it in English unless someone remembers this file. Nobody did, for 160
+  // of them.
+  it("has Japanese for every section, group and label the schema gives it", () => {
+    const words = new Set(
+      configSchema.flatMap((field) => [
+        field.section,
+        field.group,
+        field.label,
+      ]),
+    );
+    words.delete("");
+    const missing = [...words].filter((word) => !(word in ja_JP));
+    expect(missing).toEqual([]);
   });
 });
