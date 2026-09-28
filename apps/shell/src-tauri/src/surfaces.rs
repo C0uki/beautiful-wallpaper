@@ -668,11 +668,18 @@ fn overlay_geometry(
         } else {
             0.0
         };
-        let bottom_bar = if config.bar.enable && !config.bar.vertical && config.bar.bottom {
-            bar
-        } else {
-            0.0
-        };
+        // Clear of a bar along the bottom — unless that bar hides itself and
+        // so does the dock. Hidden, the bar is only its own strip, and keeping
+        // clear of the band it is not in left the dock's window over that band:
+        // a 43-pixel strip along the bottom of the screen that took every click
+        // meant for the windows under it, and brought the dock up on the way.
+        let bar_is_gone = config.bar.auto_hide && hidden > 0.0;
+        let bottom_bar =
+            if config.bar.enable && !config.bar.vertical && config.bar.bottom && !bar_is_gone {
+                bar
+            } else {
+                0.0
+            };
         return (
             0.0,
             screen.1 - height - bottom_bar + hidden,
@@ -1166,6 +1173,23 @@ mod tests {
             parked_x >= screen.0 || parked_x + width <= 0.0,
             "a parked toast must be off screen entirely, got x={parked_x} width={width}"
         );
+    }
+
+    #[test]
+    fn a_hidden_dock_leaves_only_its_strip_above_a_hidden_bottom_bar() {
+        let mut config = Config::default();
+        config.bar.bottom = true;
+        config.bar.auto_hide = true;
+        config.dock.auto_hide = true;
+        config.dock.pinned_on_startup = false;
+        let screen = (1920.0, 1280.0);
+
+        let (_, y, _, _) = overlay_geometry(&DOCK, &config, screen, false);
+        assert_eq!(screen.1 - y, f64::from(config.dock.hover_region_height));
+
+        // Shown, it still sits above the bar, which is shown along with it.
+        let (_, y, _, height) = overlay_geometry(&DOCK, &config, screen, true);
+        assert_eq!(y + height, screen.1 - f64::from(config.bar.height));
     }
 
     #[test]
