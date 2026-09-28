@@ -443,8 +443,13 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
                 builder.always_on_top(true).visible(false)
             }
             // On screen from the start, and never taking the focus off whatever
-            // the user is actually working in.
-            Layer::Bar | Layer::Chrome => builder.always_on_top(true),
+            // the user is actually working in — unless it is switched off.
+            // `bar.enable` was only ever read by the surfaces that keep clear of
+            // the bar, so turning it off moved them and left the bar itself up.
+            //
+            // ponytail: read once, at creation, like `dock.enable` below.
+            Layer::Bar => builder.always_on_top(true).visible(config.bar.enable),
+            Layer::Chrome => builder.always_on_top(true),
             // The dock is layered like an overlay but nobody opens it, so there
             // is no flag to show it and `surface_for_flag` has no entry to give.
             // It is on screen whenever it is enabled, like the bar.
@@ -964,8 +969,13 @@ fn apply_layer(
 
     // An auto-hiding bar must not reserve its edge, whatever `reserve_space`
     // says: the reservation would hold a strip open that no window may use and
-    // the bar is not in, which is the opposite of what hiding it is for.
-    if layer != Layer::Bar || !config.bar.reserve_space || config.bar.auto_hide {
+    // the bar is not in, which is the opposite of what hiding it is for. A bar
+    // that is switched off is not in it either.
+    if layer != Layer::Bar
+        || !config.bar.enable
+        || !config.bar.reserve_space
+        || config.bar.auto_hide
+    {
         return;
     }
 
