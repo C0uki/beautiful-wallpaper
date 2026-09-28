@@ -253,6 +253,16 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
     }
 }
 
+/// Whether any flag governing this surface is set.
+fn flagged_open(states: &crate::state::GlobalStates, label: &str) -> bool {
+    let Ok(serde_json::Value::Object(flags)) = serde_json::to_value(states) else {
+        return false;
+    };
+    flags
+        .iter()
+        .any(|(flag, open)| surface_for_flag(flag) == Some(label) && open.as_bool() == Some(true))
+}
+
 /// Applies every flag to its surface.
 pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     let Ok(value) = serde_json::to_value(states) else {
@@ -462,6 +472,14 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
         let window = builder.build()?;
         apply_layer(app, &window, surface.layer, &config, &screen.device);
+
+        // A flag set before this window existed — `bw settings open` sent while
+        // the shell was still starting, say — found nothing to show and was
+        // dropped, and nothing looks at it again: the request vanished, and
+        // left the flag saying the surface was open when it was not.
+        if flagged_open(&app.state::<AppState>().states(), surface.label) {
+            set_visible(app, &label, true)?;
+        }
     }
     Ok(())
 }
@@ -1173,6 +1191,18 @@ mod tests {
             parked_x >= screen.0 || parked_x + width <= 0.0,
             "a parked toast must be off screen entirely, got x={parked_x} width={width}"
         );
+    }
+
+    #[test]
+    fn a_surface_asked_for_before_it_existed_is_opened_when_it_does() {
+        let mut states = crate::state::GlobalStates::default();
+        assert!(!flagged_open(&states, SETTINGS.label));
+
+        states.settings_open = true;
+        assert!(flagged_open(&states, SETTINGS.label));
+        assert!(!flagged_open(&states, WIZARD.label));
+        // The furniture has no flag, so nothing may open it by accident.
+        assert!(!flagged_open(&states, BAR.label));
     }
 
     #[test]
