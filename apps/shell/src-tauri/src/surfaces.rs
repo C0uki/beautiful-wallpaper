@@ -285,6 +285,12 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     // through here — the commands, the hotkey and the CLI alike — so this is
     // the one place its two windows can be kept honest.
     crate::services::overlay::apply(app);
+
+    // For the same reason: a click elsewhere puts a sidebar away, and this is
+    // where one is known to be open.
+    if let Some(dock) = app.try_state::<crate::state::DockHandle>() {
+        dock.watch_clicks(states.sidebar_left_open || states.sidebar_right_open);
+    }
 }
 
 /// Names any surface that is covering a monitor with nothing to let a click
