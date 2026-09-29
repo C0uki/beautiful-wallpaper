@@ -20,21 +20,26 @@ use std::sync::Arc;
 
 use bw_core::dock::WindowInfo;
 use windows::core::GUID;
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
+use windows::Win32::Foundation::{BOOL, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
-use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::Threading::{
+    AttachThreadInput, GetCurrentProcessId, GetCurrentThreadId,
+};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::Shell::PropertiesSystem::{
     IPropertyStore, SHGetPropertyStoreForWindow, PROPERTYKEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, EnumWindows, FlashWindowEx, GetForegroundWindow, GetMessageW, GetWindow,
-    GetWindowLongPtrW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
-    IsWindowVisible, PostThreadMessageW, SetForegroundWindow, ShowWindow, TranslateMessage,
+    CallNextHookEx, DispatchMessageW, EnumWindows, FlashWindowEx, GetAncestor, GetForegroundWindow,
+    GetMessageW, GetWindow, GetWindowLongPtrW, GetWindowTextLengthW, GetWindowTextW,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, PostThreadMessageW, SetForegroundWindow,
+    SetWindowsHookExW, ShowWindow, TranslateMessage, UnhookWindowsHookEx, WindowFromPoint,
     EVENT_OBJECT_DESTROY, EVENT_OBJECT_NAMECHANGE, EVENT_SYSTEM_FOREGROUND, FLASHWINFO, FLASHW_ALL,
-    FLASHW_TIMERNOFG, GWL_EXSTYLE, GW_OWNER, MSG, SW_MINIMIZE, SW_RESTORE, WINEVENT_OUTOFCONTEXT,
-    WINEVENT_SKIPOWNPROCESS, WM_QUIT, WS_EX_TOOLWINDOW,
+    FLASHW_TIMERNOFG, GA_ROOT, GWL_EXSTYLE, GW_OWNER, HHOOK, MSG, MSLLHOOKSTRUCT, SW_MINIMIZE,
+    SW_RESTORE, WH_MOUSE_LL, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_APP,
+    WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_QUIT, WM_RBUTTONDOWN, WS_EX_TOOLWINDOW,
 };
 
 use crate::platform::appicon;
@@ -247,8 +252,27 @@ pub fn is_minimised(window: HWND) -> bool {
     unsafe { IsIconic(window).as_bool() }
 }
 
-/// Calls back whenever the set of windows might have changed, saying whether
-/// it was another program taking the foreground.
+/// What the watcher saw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Change {
+    /// A window opened, closed or was renamed.
+    Windows,
+    /// Another program took the foreground. Never one of ours: the hooks
+    /// skip this process.
+    Foreground,
+    /// A mouse button went down, while clicks are being watched; `on_shell`
+    /// when it was over one of this process's own windows.
+    Click { on_shell: bool },
+}
+
+/// Posted to the watcher's thread: start (`wParam` 1) or stop watching clicks.
+const WATCH_CLICKS: u32 = WM_APP;
+/// Posted by the mouse hook to its own thread, to report a click outside the
+/// hook itself, which has to return at once. `wParam` is `on_shell`.
+const CLICKED: u32 = WM_APP + 1;
+
+/// Calls back whenever the set of windows might have changed, when another
+/// program takes the foreground, and, while asked to, on every click.
 ///
 /// A timer would do, but badly: an icon that lingers for a second after its
 /// application closes is the thing that makes a dock feel broken. `WinEvent`
@@ -263,12 +287,12 @@ pub struct WindowWatcher {
 ///
 /// A `static` rather than a field because the hook signature carries no user
 /// data — the same constraint the tray code works under.
-static CHANGED: std::sync::OnceLock<Box<dyn Fn(bool) + Send + Sync>> = std::sync::OnceLock::new();
+static CHANGED: std::sync::OnceLock<Box<dyn Fn(Change) + Send + Sync>> = std::sync::OnceLock::new();
 
 impl WindowWatcher {
     /// Starts watching. The first caller's `on_change` is the one that is
     /// used; the hook API gives no way to carry per-hook state.
-    pub fn new(on_change: impl Fn(bool) + Send + Sync + 'static) -> Self {
+    pub fn new(on_change: impl Fn(Change) + Send + Sync + 'static) -> Self {
         let _ = CHANGED.set(Box::new(on_change));
 
         let running = Arc::new(AtomicBool::new(true));
@@ -287,6 +311,21 @@ impl WindowWatcher {
             thread,
             thread_id,
             running,
+        }
+    }
+}
+
+impl WindowWatcher {
+    /// Starts or stops reporting clicks.
+    ///
+    /// Only while something wants them (a sidebar open), because a low-level
+    /// mouse hook sees every movement of the mouse, everywhere.
+    pub fn watch_clicks(&self, watch: bool) {
+        let id = self.thread_id.load(Ordering::Relaxed);
+        if id != 0 {
+            unsafe {
+                let _ = PostThreadMessageW(id, WATCH_CLICKS, WPARAM(watch as usize), LPARAM(0));
+            }
         }
     }
 }
@@ -329,7 +368,11 @@ fn pump(running: &AtomicBool, thread_id: &std::sync::atomic::AtomicU32) {
             // Our own windows never get here: the hooks skip this process,
             // so a foreground event is always another program's.
             if let Some(changed) = CHANGED.get() {
-                changed(event == EVENT_SYSTEM_FOREGROUND);
+                changed(if event == EVENT_SYSTEM_FOREGROUND {
+                    Change::Foreground
+                } else {
+                    Change::Windows
+                });
             }
         }
 
@@ -354,6 +397,31 @@ fn pump(running: &AtomicBool, thread_id: &std::sync::atomic::AtomicU32) {
             )
         });
 
+        // Reports where a button went down, and nothing else: it runs inside
+        // every mouse event on the machine, so it hands the rest to the loop
+        // below and returns.
+        unsafe extern "system" fn on_mouse(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+            let button = matches!(
+                wparam.0 as u32,
+                WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN
+            );
+            if code >= 0 && button {
+                let point = (*(lparam.0 as *const MSLLHOOKSTRUCT)).pt;
+                let window = GetAncestor(WindowFromPoint(point), GA_ROOT);
+                let mut process = 0u32;
+                GetWindowThreadProcessId(window, Some(&mut process));
+                let on_shell = process == GetCurrentProcessId();
+                let _ = PostThreadMessageW(
+                    GetCurrentThreadId(),
+                    CLICKED,
+                    WPARAM(on_shell as usize),
+                    LPARAM(0),
+                );
+            }
+            CallNextHookEx(HHOOK::default(), code, wparam, lparam)
+        }
+        let mut mouse: Option<HHOOK> = None;
+
         let mut message = MSG::default();
         while running.load(Ordering::Relaxed) {
             // Hooks are delivered as messages, so this loop is the delivery
@@ -361,8 +429,35 @@ fn pump(running: &AtomicBool, thread_id: &std::sync::atomic::AtomicU32) {
             if !GetMessageW(&mut message, None, 0, 0).as_bool() {
                 break;
             }
-            let _ = TranslateMessage(&message);
-            DispatchMessageW(&message);
+            match message.message {
+                WATCH_CLICKS if message.wParam.0 != 0 => {
+                    if mouse.is_none() {
+                        let module: HINSTANCE =
+                            GetModuleHandleW(None).map(Into::into).unwrap_or_default();
+                        mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(on_mouse), module, 0).ok();
+                    }
+                }
+                WATCH_CLICKS => {
+                    if let Some(hook) = mouse.take() {
+                        let _ = UnhookWindowsHookEx(hook);
+                    }
+                }
+                CLICKED => {
+                    if let Some(changed) = CHANGED.get() {
+                        changed(Change::Click {
+                            on_shell: message.wParam.0 != 0,
+                        });
+                    }
+                }
+                _ => {
+                    let _ = TranslateMessage(&message);
+                    DispatchMessageW(&message);
+                }
+            }
+        }
+
+        if let Some(hook) = mouse {
+            let _ = UnhookWindowsHookEx(hook);
         }
 
         for hook in hooks {

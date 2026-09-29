@@ -285,6 +285,12 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     // through here — the commands, the hotkey and the CLI alike — so this is
     // the one place its two windows can be kept honest.
     crate::services::overlay::apply(app);
+
+    // For the same reason: a click elsewhere puts a sidebar away, and this is
+    // where one is known to be open.
+    if let Some(dock) = app.try_state::<crate::state::DockHandle>() {
+        dock.watch_clicks(states.sidebar_left_open || states.sidebar_right_open);
+    }
 }
 
 /// Names any surface that is covering a monitor with nothing to let a click
@@ -579,6 +585,15 @@ fn geometry(
     }
 }
 
+/// The windows `set_revealed` last brought out, so that re-placing them for a
+/// changed config does not park a toast mid-read or hide a bar under the
+/// pointer.
+static REVEALED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn is_revealed(label: &str) -> bool {
+    REVEALED.lock().iter().any(|each| each == label)
+}
+
 /// Moves an auto-hiding surface between its hidden and revealed positions.
 ///
 /// The window has to move, rather than the page sliding its own content: it is
@@ -617,6 +632,14 @@ pub fn set_revealed(app: &AppHandle, label: &str, revealed: bool) {
         _ => ((0.0, 0.0), primary_screen(app)),
     };
 
+    {
+        let mut shown = REVEALED.lock();
+        shown.retain(|each| each != label);
+        if revealed {
+            shown.push(label.to_owned());
+        }
+    }
+
     let config = app.state::<AppState>().config();
     let (x, y, _, _) = geometry(surface, &config, screen, revealed);
 
@@ -649,7 +672,8 @@ pub fn place_bars(app: &AppHandle) {
         let Some(window) = app.get_webview_window(&bar_label(BAR.label, &screen.device)) else {
             continue;
         };
-        let (x, y, width, height) = bar_geometry(&config, screen.size, false);
+        let revealed = is_revealed(window.label());
+        let (x, y, width, height) = bar_geometry(&config, screen.size, revealed);
         let _ = window.set_position(tauri::LogicalPosition::new(
             x + screen.origin.0,
             y + screen.origin.1,
@@ -670,8 +694,6 @@ pub fn place_bars(app: &AppHandle) {
 
 /// Puts every overlay where the config now says. Most of them keep clear of
 /// the bar, so moving the bar moves them too.
-///
-/// The toasts go back to being parked; the next one brings them out again.
 pub fn place_overlays(app: &AppHandle) {
     let config = app.state::<AppState>().config();
     let screen = primary_screen(app);
@@ -679,7 +701,8 @@ pub fn place_overlays(app: &AppHandle) {
         let Some(window) = app.get_webview_window(surface.label) else {
             continue;
         };
-        let (x, y, width, height) = overlay_geometry(surface, &config, screen, false);
+        let revealed = is_revealed(surface.label);
+        let (x, y, width, height) = overlay_geometry(surface, &config, screen, revealed);
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
         let _ = window.set_size(tauri::LogicalSize::new(width, height));
     }

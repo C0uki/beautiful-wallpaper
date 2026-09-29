@@ -560,7 +560,9 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
     #[cfg(windows)]
     {
         let handle = app.clone();
-        let watcher = bw_shell::platform::windows::WindowWatcher::new(move |elsewhere| {
+        let watcher = bw_shell::platform::windows::WindowWatcher::new(move |change| {
+            use bw_shell::platform::windows::Change;
+
             // `try_state`, not `state`: the first event can arrive between the
             // watcher being built and the handle being managed, and `state`
             // panics on a type nobody has registered yet.
@@ -571,10 +573,18 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
                 return;
             };
 
-            // The user went back to another program, which puts a sidebar away,
-            // as the original's focus grab does. Neither had any other way out
-            // but Escape, and Escape only reaches a sidebar holding the
-            // keyboard — which one opened from a hot corner often never does.
+            // The user went back to another program, or clicked somewhere that
+            // is not the shell, which puts a sidebar away, as the original's
+            // focus grab does. Neither had any other way out but Escape, and
+            // Escape only reaches a sidebar holding the keyboard. The click
+            // matters when the sidebar never took the foreground: clicking the
+            // program that kept it moves nothing, so there is no foreground
+            // change to see. A click on the desktop counts too: the wallpaper
+            // surface lives inside Explorer's window, so it is not the shell's.
+            let elsewhere = matches!(
+                change,
+                Change::Foreground | Change::Click { on_shell: false }
+            );
             let open = state.states();
             if elsewhere && (open.sidebar_left_open || open.sidebar_right_open) {
                 state.set_state("sidebarLeftOpen", false);
@@ -584,6 +594,9 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
                 }
             }
 
+            if matches!(change, Change::Click { .. }) {
+                return;
+            }
             let _ = handle.emit(event::DOCK, dock.items(&state.config()));
         });
 

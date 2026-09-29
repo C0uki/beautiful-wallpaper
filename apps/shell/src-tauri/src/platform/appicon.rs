@@ -98,8 +98,21 @@ pub fn for_executable(executable: &std::path::Path) -> Option<String> {
 /// A shortcut may name an icon by file and index — an installer that packs
 /// several into one resource dll — and taking index zero would give every one
 /// of them the same picture.
+///
+/// Keyed by when the file last changed as well as by its path: Chrome rewrites
+/// a profile's icon in place when its picture changes, and an application
+/// update does the same to its executable, so the path alone kept showing the
+/// picture from the first time it was seen.
 pub fn for_executable_at(executable: &std::path::Path, index: i32) -> Option<String> {
-    let target = cache_path(&format!("{}#{index}", executable.to_string_lossy()))?;
+    let modified = std::fs::metadata(executable)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |since| since.as_secs());
+    let target = cache_path(&format!(
+        "{}#{index}#{modified}",
+        executable.to_string_lossy()
+    ))?;
     if target.exists() {
         return Some(target.to_string_lossy().into_owned());
     }

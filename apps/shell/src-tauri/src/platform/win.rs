@@ -31,12 +31,11 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
-    PostThreadMessageW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG, SMTO_NORMAL,
-    STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE,
-    WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, PostThreadMessageW,
+    SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW,
+    GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG, SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY,
+    WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -648,12 +647,9 @@ pub unsafe fn set_taskbar_visible(visible: bool) {
 ///
 /// It covers a graceful exit, which is not every exit — Windows ends a process
 /// killed from Task Manager without unwinding, and the taskbar would stay
-/// hidden with no shell left to show it. `bw taskbar show` is the way back,
-/// and it works with nothing running.
-///
-/// ponytail: after such a kill the taskbar also stays set to hide itself,
-/// which `bw taskbar show` cannot undo because only this value knew it was
-/// not before. Keep the old state on disk if that turns out to bite.
+/// hidden, and set to hide itself, with no shell left to put either back.
+/// `bw taskbar show` is the way back, and it works with nothing running: the
+/// setting the taskbar had is kept on disk while it is held, for that.
 pub struct HiddenTaskbar {
     /// The `ABS_*` flags it had, to put back.
     state: u32,
@@ -661,10 +657,8 @@ pub struct HiddenTaskbar {
     /// own after the state changes — twice, around 300 and 400ms later, so
     /// hiding it once straight away lasted a third of a second — and a
     /// taskbar left showing while set to hide itself comes up under the
-    /// pointer at the bottom of the screen.
-    ///
-    /// ponytail: follows the Explorer that was running when this was made; a
-    /// restarted Explorer brings its taskbar back until the shell restarts.
+    /// pointer at the bottom of the screen. Every process's, not only the
+    /// Explorer running now: a restarted Explorer makes a new taskbar.
     keeper: Option<(std::thread::JoinHandle<()>, u32)>,
 }
 
@@ -674,7 +668,19 @@ impl HiddenTaskbar {
     /// taskbar should come back.
     pub unsafe fn hide() -> Self {
         let keeper = keep_taskbar_hidden();
-        let state = taskbar_state(ABM_GETSTATE, 0) as u32;
+        // A setting left on disk is from a shell that was killed while holding
+        // the taskbar, and is what it had before that one: the taskbar's own
+        // setting now is the killed shell's doing, and keeping that would make
+        // hiding itself permanent.
+        let state = saved_taskbar_state().unwrap_or_else(|| {
+            let state = taskbar_state(ABM_GETSTATE, 0) as u32;
+            let file = taskbar_state_file();
+            if let Some(directory) = file.parent() {
+                let _ = std::fs::create_dir_all(directory);
+            }
+            let _ = std::fs::write(file, state.to_string());
+            state
+        });
         taskbar_state(ABM_SETSTATE, state | ABS_AUTOHIDE);
         set_taskbar_visible(false);
         Self { state, keeper }
@@ -694,10 +700,35 @@ impl Drop for HiddenTaskbar {
             taskbar_state(ABM_SETSTATE, self.state);
             set_taskbar_visible(true);
         }
+        let _ = std::fs::remove_file(taskbar_state_file());
     }
 }
 
-/// A thread that hides every taskbar Explorer shows, until it is sent
+/// Puts back the taskbar setting a killed shell left behind, if it left one.
+///
+/// # Safety
+/// Changes global desktop state.
+pub unsafe fn restore_saved_taskbar_state() {
+    if let Some(state) = saved_taskbar_state() {
+        taskbar_state(ABM_SETSTATE, state);
+        let _ = std::fs::remove_file(taskbar_state_file());
+    }
+}
+
+/// Where the taskbar's own setting is kept while the shell holds it.
+fn taskbar_state_file() -> std::path::PathBuf {
+    bw_core::paths::state_dir().join("taskbar-state")
+}
+
+fn saved_taskbar_state() -> Option<u32> {
+    std::fs::read_to_string(taskbar_state_file())
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
+/// A thread that hides every taskbar anything shows, until it is sent
 /// `WM_QUIT`. Returns it with its thread id, once the hook is in place.
 fn keep_taskbar_hidden() -> Option<(std::thread::JoinHandle<()>, u32)> {
     unsafe extern "system" fn on_show(
@@ -725,16 +756,12 @@ fn keep_taskbar_hidden() -> Option<(std::thread::JoinHandle<()>, u32)> {
     let thread = std::thread::Builder::new()
         .name("bw-taskbar-keeper".to_owned())
         .spawn(move || unsafe {
-            let mut explorer = 0u32;
-            if let Ok(tray) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) {
-                GetWindowThreadProcessId(tray, Some(&mut explorer));
-            }
             let hook = SetWinEventHook(
                 EVENT_OBJECT_SHOW,
                 EVENT_OBJECT_SHOW,
                 None,
                 Some(on_show),
-                explorer,
+                0,
                 0,
                 WINEVENT_OUTOFCONTEXT,
             );

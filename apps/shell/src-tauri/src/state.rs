@@ -466,6 +466,14 @@ impl DockHandle {
         Self {}
     }
 
+    /// Reports clicks to the watcher's callback while `watch` holds.
+    pub fn watch_clicks(&self, _watch: bool) {
+        #[cfg(windows)]
+        if let Some(watcher) = &self.watcher {
+            watcher.watch_clicks(_watch);
+        }
+    }
+
     /// The dock's icons, grouped and filtered per the config.
     pub fn items(&self, _config: &Config) -> Vec<bw_core::dock::DockApp> {
         #[cfg(windows)]
