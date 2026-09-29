@@ -31,11 +31,13 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, PostThreadMessageW,
-    SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW,
-    GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG, SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY,
-    WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, IsWindowVisible,
+    PostThreadMessageW, RegisterWindowMessageW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG,
+    SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
+    SW_SHOW, WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT,
+    WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
+    WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -176,6 +178,81 @@ unsafe extern "system" fn keep_tool_window(
     // The window outlives nothing, so the subclass comes off with it.
     if msg == WM_NCDESTROY {
         let _ = RemoveWindowSubclass(hwnd, Some(keep_tool_window), KEEP_TOOL_WINDOW);
+    }
+
+    DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
+const EDGE_WINDOW: usize = 0x6277_6577; // "bwew"
+
+/// The hot corners' window, once it exists.
+static HOT_CORNERS: AtomicIsize = AtomicIsize::new(0);
+
+/// What to do when Explorer comes back: see [`watch_edge_window`].
+static TASKBAR_CREATED: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> =
+    std::sync::OnceLock::new();
+
+/// Names the hot corners' window, for [`watch_edge_window`] to keep others under.
+pub fn set_hot_corners(hwnd: HWND) {
+    HOT_CORNERS.store(hwnd.0 as isize, Ordering::Relaxed);
+}
+
+/// Looks after a window that runs along an edge of the screen: the bar or the
+/// dock.
+///
+/// Two things happen to those that nothing else would notice:
+///
+///   * a click raises them — WebView2 brings its window to the front even when
+///     it cannot be activated — over the hot corners, whose strips they cover.
+///     A bar clicked once left the top corners dead until the shell
+///     restarted. Every change of their place in the z-order is redirected to
+///     just under the hot corners, which is the one point all of them pass.
+///   * Explorer restarting forgets every app bar, so the edge the bar held was
+///     given back while the bar went on sitting in it. Explorer announces
+///     itself with `TaskbarCreated`, sent to every top-level window, and
+///     `on_taskbar_created` runs then. The first caller's is the one kept.
+///
+/// # Safety
+/// `hwnd` must be a live top-level window owned by this process.
+pub unsafe fn watch_edge_window(hwnd: HWND, on_taskbar_created: impl Fn() + Send + Sync + 'static) {
+    let _ = TASKBAR_CREATED.set(Box::new(on_taskbar_created));
+    let _ = SetWindowSubclass(hwnd, Some(edge_window), EDGE_WINDOW, 0);
+}
+
+fn taskbar_created() -> u32 {
+    static MESSAGE: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *MESSAGE.get_or_init(|| unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) })
+}
+
+unsafe extern "system" fn edge_window(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> LRESULT {
+    if msg == WM_WINDOWPOSCHANGING {
+        let position = lparam.0 as *mut WINDOWPOS;
+        let corners = HWND(HOT_CORNERS.load(Ordering::Relaxed) as _);
+        if !position.is_null()
+            && (*position).flags.0 & SWP_NOZORDER.0 == 0
+            && !corners.0.is_null()
+            && corners != hwnd
+            && IsWindowVisible(corners).as_bool()
+        {
+            (*position).hwndInsertAfter = corners;
+        }
+    }
+
+    if msg == taskbar_created() {
+        if let Some(callback) = TASKBAR_CREATED.get() {
+            callback();
+        }
+    }
+
+    if msg == WM_NCDESTROY {
+        let _ = RemoveWindowSubclass(hwnd, Some(edge_window), EDGE_WINDOW);
     }
 
     DefSubclassProc(hwnd, msg, wparam, lparam)
