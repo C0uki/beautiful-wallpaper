@@ -74,6 +74,10 @@ pub fn run(action: SessionAction, force: bool) -> Result<(), String> {
         SessionAction::Sleep => suspend(false),
         SessionAction::Hibernate => suspend(true),
 
+        // Nothing for Windows to do: `run_session_action` exits the shell
+        // itself, since only it holds the app.
+        SessionAction::QuitShell => Ok(()),
+
         SessionAction::Restart => shutdown(SHUTDOWN_RESTART, force, "restart"),
         SessionAction::ShutDown => shutdown(SHUTDOWN_POWEROFF, force, "shut down"),
     }

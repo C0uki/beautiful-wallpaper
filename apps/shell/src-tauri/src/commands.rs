@@ -784,6 +784,13 @@ pub fn run_session_action(
             let _ = _app.emit(event::STATE_CHANGED, &states);
         }
 
+        // The shell's own way out rather than Windows': the same exit as
+        // `bw quit`, which gives back the taskbar and the bar's edge.
+        if _action == bw_core::session::SessionAction::QuitShell {
+            _app.exit(0);
+            return Ok(());
+        }
+
         crate::platform::power::run(_action, config.session.force)
     }
     #[cfg(not(windows))]

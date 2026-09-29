@@ -27,6 +27,8 @@ function label(action: SessionAction): string {
       return tr("Sleep");
     case "hibernate":
       return tr("Hibernate");
+    case "quitShell":
+      return tr("Quit shell");
     case "logOut":
       return tr("Log out");
     case "restart":
@@ -45,6 +47,8 @@ function symbol(action: SessionAction): string {
       return "bedtime";
     case "hibernate":
       return "ac_unit";
+    case "quitShell":
+      return "exit_to_app";
     case "logOut":
       return "logout";
     case "restart":

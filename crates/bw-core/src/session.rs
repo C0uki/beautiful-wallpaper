@@ -20,6 +20,9 @@ pub enum SessionAction {
     Lock,
     Sleep,
     Hibernate,
+    /// This shell, and nothing else: the programs, the desktop and the
+    /// session all stay, and the shell starts again whenever it is run.
+    QuitShell,
     LogOut,
     Restart,
     ShutDown,
@@ -31,10 +34,11 @@ impl SessionAction {
     /// The order is fixed rather than configurable, and it is the order the
     /// buttons are drawn in. Somebody reaching for "lock" should never find
     /// "shut down" where they expected it because a config file was edited.
-    pub const ORDER: [Self; 6] = [
+    pub const ORDER: [Self; 7] = [
         Self::Lock,
         Self::Sleep,
         Self::Hibernate,
+        Self::QuitShell,
         Self::LogOut,
         Self::Restart,
         Self::ShutDown,
@@ -46,6 +50,7 @@ impl SessionAction {
             Self::Lock => "lock",
             Self::Sleep => "sleep",
             Self::Hibernate => "hibernate",
+            Self::QuitShell => "quit",
             Self::LogOut => "logout",
             Self::Restart => "restart",
             Self::ShutDown => "shutdown",
@@ -57,6 +62,7 @@ impl SessionAction {
             Self::Lock => "lock",
             Self::Sleep => "bedtime",
             Self::Hibernate => "ac_unit",
+            Self::QuitShell => "exit_to_app",
             Self::LogOut => "logout",
             Self::Restart => "restart_alt",
             Self::ShutDown => "power_settings_new",
@@ -118,6 +124,9 @@ pub fn available(config: &Session, capabilities: PowerCapabilities) -> Vec<Sessi
             SessionAction::Lock => config.lock,
             SessionAction::Sleep => config.sleep && capabilities.can_sleep(),
             SessionAction::Hibernate => config.hibernate && capabilities.can_hibernate(),
+            // Always: it is the only way out of the shell that is not a command
+            // line, and the shell is one run away from coming back.
+            SessionAction::QuitShell => true,
             SessionAction::LogOut => config.log_out,
             SessionAction::Restart => config.restart,
             SessionAction::ShutDown => config.shut_down,
@@ -239,14 +248,30 @@ mod tests {
 
     #[test]
     fn with_nothing_harmless_on_offer_nothing_is_focused() {
+        let actions = [
+            SessionAction::LogOut,
+            SessionAction::Restart,
+            SessionAction::ShutDown,
+        ];
+        assert_eq!(initial_focus(&actions), None);
+    }
+
+    /// The one way out of the shell alone, so it is there whatever else is
+    /// switched off, and it is where the keyboard starts when nothing gentler
+    /// is.
+    #[test]
+    fn quitting_the_shell_is_always_offered_and_ends_nothing() {
         let mut config = everything();
         config.lock = false;
         config.sleep = false;
         config.hibernate = false;
 
-        let actions = available(&config, capable());
-        assert!(!actions.is_empty());
-        assert_eq!(initial_focus(&actions), None);
+        let actions = available(&config, PowerCapabilities::default());
+        assert!(!SessionAction::QuitShell.ends_the_session());
+        assert_eq!(
+            initial_focus(&actions).map(|index| actions[index]),
+            Some(SessionAction::QuitShell)
+        );
     }
 
     #[test]
