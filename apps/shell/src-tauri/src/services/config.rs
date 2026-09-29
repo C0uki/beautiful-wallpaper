@@ -80,6 +80,13 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         || config.appearance != previous.appearance
         || config.bar != previous.bar;
     let windows_changed = config.windows != previous.windows;
+    let bar_moved = config.bar != previous.bar;
+    let overlays_moved = bar_moved
+        || config.dock != previous.dock
+        || config.osd != previous.osd
+        || config.notifications != previous.notifications
+        || config.sidebar != previous.sidebar
+        || config.shelf != previous.shelf;
     let listener_changed =
         config.hacks.read_other_notifications != previous.hacks.read_other_notifications;
     let wallpaper = config.background.wallpaper_path.clone();
@@ -110,6 +117,20 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
 
     if overlay_changed {
         crate::services::overlay::apply(app);
+    }
+
+    // Where each surface sits is worked out when its window is made; without
+    // this, moving the bar to the bottom took a restart, and left the dock and
+    // the sidebars keeping clear of where it used to be. On the main thread,
+    // because a bar for a monitor that did not have one is a window to create.
+    if overlays_moved {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if bar_moved {
+                crate::surfaces::place_bars(&handle);
+            }
+            crate::surfaces::place_overlays(&handle);
+        });
     }
 
     // Hiding the taskbar and starting with Windows both reach out and change
