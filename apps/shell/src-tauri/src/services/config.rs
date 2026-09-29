@@ -5,7 +5,7 @@
 //! any editor and the shell follows, without the shell's own writes bouncing
 //! back as a reload.
 
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -14,12 +14,23 @@ use tauri::{AppHandle, Emitter};
 use crate::commands::event;
 use crate::state::AppState;
 
+/// The config the shell last acted on.
+///
+/// Not `state.config()`: the settings screen and `bw config set` write that
+/// before saving, so by the time the saved file reached `adopt` it already
+/// matched, nothing looked changed, and nothing was re-applied — a bar moved in
+/// the settings stayed where it was, a hotkey changed there was never taken.
+static APPLIED: Mutex<Option<bw_core::Config>> = Mutex::new(None);
+
 /// Starts the watcher. The returned watcher must be kept alive for the life of
 /// the app: dropping it silently stops the notifications.
 pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
     let path = state.config_path().to_path_buf();
     let directory = path.parent()?.to_path_buf();
     let debounce = Duration::from_millis(state.config().hacks.config_reload_delay.into());
+    *APPLIED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(state.config());
 
     let (sender, receiver) = mpsc::channel();
     let mut watcher = notify::recommended_watcher(move |result| {
@@ -69,7 +80,11 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
 /// disk, and the preset path saves before calling. Writing again would bounce
 /// back through the watcher as another reload.
 pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
-    let previous = state.config();
+    let previous = APPLIED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .replace(config.clone())
+        .unwrap_or_else(|| state.config());
 
     let appearance_changed = config.appearance != previous.appearance;
     let keybinds_changed = config.keybinds != previous.keybinds;
