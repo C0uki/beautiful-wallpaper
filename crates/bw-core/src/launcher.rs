@@ -391,6 +391,7 @@ mod tests {
             id: id.to_owned(),
             title: title.to_owned(),
             executable: format!("c:\\{name}.exe"),
+            app_id: String::new(),
             name: name.to_owned(),
             icon: String::new(),
             active: false,

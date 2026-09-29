@@ -16,6 +16,10 @@ export type WindowInfo = {
    */
   executable: string;
   /**
+   * The window's own AppUserModelID, or empty when it set none.
+   */
+  appId: string;
+  /**
    * What to call the application.
    */
   name: string;

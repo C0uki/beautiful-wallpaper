@@ -127,7 +127,7 @@ export function Dock() {
     >
       <div className="bw-dock" data-background={config.showBackground}>
         {pinnedApps.map((app) => (
-          <DockIcon key={app.executable} app={app} />
+          <DockIcon key={`${app.executable}|${app.appId}`} app={app} />
         ))}
 
         {pinnedApps.length > 0 && running.length > 0 ? (
@@ -135,7 +135,7 @@ export function Dock() {
         ) : null}
 
         {running.map((app) => (
-          <DockIcon key={app.executable} app={app} />
+          <DockIcon key={`${app.executable}|${app.appId}`} app={app} />
         ))}
 
         {config.showMedia && media?.title ? (

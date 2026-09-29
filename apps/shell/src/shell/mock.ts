@@ -584,6 +584,7 @@ export function mockBackend(): Backend {
     id: `${exe}:${title}`,
     title,
     executable: exe,
+    appId: "",
     name: exe
       .split("\\")
       .pop()!
@@ -645,6 +646,7 @@ export function mockBackend(): Backend {
   let dock: DockApp[] = [
     {
       executable: "c:\\apps\\editor.exe",
+      appId: "",
       name: "Editor",
       icon: "",
       windows: [],
@@ -653,6 +655,7 @@ export function mockBackend(): Backend {
     },
     {
       executable: "c:\\apps\\firefox.exe",
+      appId: "",
       name: "Firefox",
       icon: "",
       windows: [
@@ -664,6 +667,7 @@ export function mockBackend(): Backend {
     },
     {
       executable: "c:\\windows\\explorer.exe",
+      appId: "",
       name: "Explorer",
       icon: "",
       windows: [dockWindow("c:\\windows\\explorer.exe", "Downloads")],
@@ -672,6 +676,7 @@ export function mockBackend(): Backend {
     },
     {
       executable: "c:\\apps\\terminal.exe",
+      appId: "",
       name: "Terminal",
       icon: "",
       windows: [dockWindow("c:\\apps\\terminal.exe", "pwsh")],

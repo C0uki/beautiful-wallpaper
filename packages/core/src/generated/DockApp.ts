@@ -6,6 +6,10 @@ import type { WindowInfo } from "./WindowInfo";
  */
 export type DockApp = {
   executable: string;
+  /**
+   * Shared by all of its windows; see [`WindowInfo::app_id`].
+   */
+  appId: string;
   name: string;
   icon: string;
   windows: Array<WindowInfo>;
