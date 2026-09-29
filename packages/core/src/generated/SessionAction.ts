@@ -4,4 +4,10 @@
  * One way out.
  */
 export type SessionAction =
-  "lock" | "sleep" | "hibernate" | "logOut" | "restart" | "shutDown";
+  | "lock"
+  | "sleep"
+  | "hibernate"
+  | "quitShell"
+  | "logOut"
+  | "restart"
+  | "shutDown";

@@ -1211,6 +1211,7 @@ export function mockBackend(): Backend {
           const offered: SessionAction[] = [
             "lock",
             "sleep",
+            "quitShell",
             "logOut",
             "restart",
             "shutDown",
@@ -1219,6 +1220,7 @@ export function mockBackend(): Backend {
           return offered.filter((action) => {
             if (action === "lock") return session.lock;
             if (action === "sleep") return session.sleep;
+            if (action === "quitShell") return true;
             if (action === "logOut") return session.logOut;
             if (action === "restart") return session.restart;
             return session.shutDown;
