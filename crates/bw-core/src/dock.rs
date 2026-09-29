@@ -7,6 +7,11 @@
 //! their titles have nothing in common, which is exactly the grouping a dock
 //! wants.
 //!
+//! Unless the window names an application of its own. Chrome gives every
+//! profile's windows their own AppUserModelID, and the taskbar gives each
+//! profile its own button; grouping by path alone put two people's browsers
+//! behind one icon.
+//!
 //! This is all pure data so that it is covered by tests that run on Linux; the
 //! enumeration that produces the input is in the shell crate and cannot be.
 
@@ -25,6 +30,8 @@ pub struct WindowInfo {
     pub title: String,
     /// Full path of the owning process's executable, lowercased for matching.
     pub executable: String,
+    /// The window's own AppUserModelID, or empty when it set none.
+    pub app_id: String,
     /// What to call the application.
     pub name: String,
     /// Cached PNG path for the executable's icon, or empty.
@@ -38,6 +45,8 @@ pub struct WindowInfo {
 #[ts(export)]
 pub struct DockApp {
     pub executable: String,
+    /// Shared by all of its windows; see [`WindowInfo::app_id`].
+    pub app_id: String,
     pub name: String,
     pub icon: String,
     pub windows: Vec<WindowInfo>,
@@ -61,9 +70,19 @@ pub fn group(windows: &[WindowInfo], pinned: &[String], ignored: &[String]) -> V
         if apps.iter().any(|app| app.executable == key) {
             continue;
         }
+        // A pin is a path, and a program that splits into several icons
+        // still has only one. The pin goes to the icon that sorts first, so
+        // it does not jump between them as the windows change places.
+        let app_id = windows
+            .iter()
+            .filter(|window| normalise(&window.executable) == key)
+            .map(|window| window.app_id.clone())
+            .min()
+            .unwrap_or_default();
         apps.push(DockApp {
             name: file_stem(&key),
             executable: key,
+            app_id,
             icon: String::new(),
             windows: Vec::new(),
             pinned: true,
@@ -77,7 +96,10 @@ pub fn group(windows: &[WindowInfo], pinned: &[String], ignored: &[String]) -> V
             continue;
         }
 
-        match apps.iter_mut().find(|app| app.executable == key) {
+        match apps
+            .iter_mut()
+            .find(|app| app.executable == key && app.app_id == window.app_id)
+        {
             Some(app) => {
                 // A pinned entry has no icon or real name until a window
                 // arrives to supply them.
@@ -92,6 +114,7 @@ pub fn group(windows: &[WindowInfo], pinned: &[String], ignored: &[String]) -> V
             }
             None => apps.push(DockApp {
                 executable: key,
+                app_id: window.app_id.clone(),
                 name: if window.name.is_empty() {
                     file_stem(&window.executable)
                 } else {
@@ -192,6 +215,7 @@ mod tests {
             id: format!("{executable}-{title}"),
             title: title.to_owned(),
             executable: executable.to_owned(),
+            app_id: String::new(),
             name: file_stem(executable),
             icon: format!("{executable}.png"),
             active,
@@ -212,6 +236,37 @@ mod tests {
         // One window being foreground makes the whole icon active.
         assert!(apps[0].active);
         assert!(!apps[1].active);
+    }
+
+    #[test]
+    fn windows_that_name_their_own_application_get_their_own_icon() {
+        let chrome = r"C:\Apps\chrome.exe";
+        let profile = |title: &str, id: &str| WindowInfo {
+            app_id: id.to_owned(),
+            ..window(chrome, title, false)
+        };
+        let windows = [
+            profile("Work mail", "Chrome.UserData.Profile2"),
+            profile("Home", "Chrome.UserData.Profile1"),
+            profile("Work docs", "Chrome.UserData.Profile2"),
+        ];
+
+        let apps = group(&windows, &[], &[]);
+        assert_eq!(apps.len(), 2);
+        assert_eq!(apps[0].windows.len(), 2);
+        assert_eq!(apps[1].app_id, "Chrome.UserData.Profile1");
+
+        // Pinned, the path stays one pin, on the same icon however the
+        // windows are ordered — and does not become a third.
+        let pinned = [chrome.to_owned()];
+        let mut reversed = windows.clone();
+        reversed.reverse();
+        for order in [&windows, &reversed] {
+            let apps = group(order, &pinned, &[]);
+            assert_eq!(apps.len(), 2);
+            assert!(apps[0].pinned);
+            assert_eq!(apps[0].app_id, "Chrome.UserData.Profile1");
+        }
     }
 
     #[test]

@@ -19,10 +19,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use bw_core::dock::WindowInfo;
+use windows::core::GUID;
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
+use windows::Win32::UI::Shell::PropertiesSystem::{
+    IPropertyStore, SHGetPropertyStoreForWindow, PROPERTYKEY,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FlashWindowEx, GetForegroundWindow, GetMessageW, GetWindow,
     GetWindowLongPtrW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
@@ -53,11 +58,19 @@ pub fn list() -> Vec<WindowInfo> {
 
     let foreground = unsafe { GetForegroundWindow() };
 
-    found
+    // A window's property store is a COM object, and this is called from
+    // threads nobody initialised COM on. Balanced here, so a thread that
+    // already had it — in either model — is left as it was.
+    let com = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+    let listed = found
         .into_iter()
         .filter(|window| unsafe { is_taskbar_window(*window) })
         .filter_map(|window| unsafe { describe(window, foreground) })
-        .collect()
+        .collect();
+    if com.is_ok() {
+        unsafe { CoUninitialize() };
+    }
+    listed
 }
 
 /// Whether a window is one a taskbar would list.
@@ -116,14 +129,38 @@ unsafe fn describe(window: HWND, foreground: HWND) -> Option<WindowInfo> {
     let (name, icon) = appicon::describe_process(process_id);
     let executable = appicon::executable_for(process_id)?;
 
+    // A window that names its own application usually has its own picture
+    // too — Chrome badges each profile's — as `file,index`.
+    let relaunch_icon = window_property(window, 3);
+    let icon = relaunch_icon
+        .rsplit_once(',')
+        .and_then(|(file, index)| {
+            appicon::for_executable_at(std::path::Path::new(file), index.trim().parse().ok()?)
+        })
+        .unwrap_or(icon);
+
     Some(WindowInfo {
         id: format!("{:#x}", window.0 as usize),
         title: window_title(window),
         executable,
+        app_id: window_property(window, 5),
         name,
         icon,
         active: window == foreground,
     })
+}
+
+/// One of the `PKEY_AppUserModel_*` properties a window can set on itself, or
+/// empty. 5 is the ID, 3 the icon the taskbar shows for it.
+unsafe fn window_property(window: HWND, id: u32) -> String {
+    let key = PROPERTYKEY {
+        fmtid: GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3),
+        pid: id,
+    };
+    SHGetPropertyStoreForWindow::<_, IPropertyStore>(window)
+        .and_then(|store| store.GetValue(&key))
+        .map(|value| value.to_string())
+        .unwrap_or_default()
 }
 
 unsafe fn window_title(window: HWND) -> String {
