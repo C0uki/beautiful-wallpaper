@@ -23,17 +23,17 @@ protocol, not the compositor. So the design carries over and the code does not.
 
 What the original does with a Wayland protocol, this does with Win32:
 
-| end4-pC                                   | here                                                 |
-| ----------------------------------------- | ---------------------------------------------------- |
-| `WlrLayer.Bottom` wallpaper layer         | a window reparented under `WorkerW`                  |
-| `exclusiveZone` on a bar                  | `SHAppBarMessage`                                    |
-| `WlrLayer.Overlay` panels                 | topmost `WS_EX_TOOLWINDOW｜WS_EX_NOACTIVATE` windows |
-| `mask: Region` input passthrough          | `WS_EX_TRANSPARENT`                                  |
-| `switchwall.sh` → matugen → `colors.json` | the `material-colors` crate, in process              |
-| MPRIS                                     | the Windows media session (SMTC)                     |
-| UPower, PipeWire, `/proc`                 | `GetSystemPowerStatus`, WASAPI, `sysinfo`            |
-| Hyprland workspaces                       | GlazeWM / komorebi, when one is running              |
-| `IpcHandler` targets                      | a named pipe; six target names carry over            |
+| end4-pC                                   | here                                                   |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `WlrLayer.Bottom` wallpaper layer         | a window reparented under `WorkerW`                    |
+| `exclusiveZone` on a bar                  | `SHAppBarMessage`                                      |
+| `WlrLayer.Overlay` panels                 | topmost `WS_EX_TOOLWINDOW｜WS_EX_NOACTIVATE` windows   |
+| `mask: Region` input passthrough          | `WS_EX_TRANSPARENT｜WS_EX_LAYERED`, or a window region |
+| `switchwall.sh` → matugen → `colors.json` | the `material-colors` crate, in process                |
+| MPRIS                                     | the Windows media session (SMTC)                       |
+| UPower, PipeWire, `/proc`                 | `GetSystemPowerStatus`, WASAPI, `sysinfo`              |
+| Hyprland workspaces                       | GlazeWM / komorebi, when one is running                |
+| `IpcHandler` targets                      | `bw.exe <target> <function>`; six names carry over     |
 
 The seams the original chose turn out to travel well. Its config key names, its
 `colors.json` shape and most of its state flags are kept, so muscle memory
@@ -60,16 +60,22 @@ and the six IPC targets that still mean the same thing.
 - **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
   keep clear of it. Four styles, horizontal or vertical, with workspaces,
   active window, clock, weather, tray, battery, network, resources, media and
-  utility buttons — laid out by `bar.left/center/right`.
+  utility buttons — laid out by `bar.left/center/right`. It can hide itself until
+  the pointer reaches its edge, run one bar per monitor, or be switched off.
+- **The tray**, drawing each icon as its real image and passing clicks to the
+  application it belongs to.
 - **The two sidebars**: the right one's quick toggles, sliders, night light and
   notification centre; the left one's AI chat, translator, media and image-board
   tabs.
-- **The dock**, with pinned and running applications.
+- **The dock**, with pinned and running applications, hiding itself until the
+  pointer reaches the bottom edge.
 - **The overview and launcher**, searching applications, files, the web and a
   calculator, with `/` actions.
 - **Screenshots**: a region picker, OCR and an on-screen translator.
 - **The session screen, the desktop menu, the drop shelf and a floating
   overlay** with a crosshair.
+- **The screen's own decorations**: rounded corners and a frame drawn over the
+  display, and hot corners that open a panel or run an action.
 - **A settings screen** whose form is generated from the config schema, so a new
   setting has a control the moment it exists.
 - **Presets** — whole configurations saved by name, and a first-run screen that
@@ -80,12 +86,14 @@ and the six IPC targets that still mean the same thing.
   shell follows. Every key is in [docs/config.md](docs/config.md).
 - **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
   hotkeys and scripts.
-- **Fourteen locales' worth of plumbing**, with English and Japanese filled in.
+- **English and Japanese**, chosen from Windows' language unless set, down to
+  every row of the generated settings screen.
 
-What is missing is mostly at the edges: per-monitor surfaces, eight of the
-fourteen wallpaper transitions, drag-to-reorder in the dock, and the audio
-visualiser. [docs/roadmap.md](docs/roadmap.md) has the full list, including what
-is deliberately not built.
+What is missing is mostly at the edges: everything but the bar on monitors other
+than the primary one, eight of the fourteen wallpaper transitions,
+drag-to-reorder in the dock, and the audio visualiser.
+[docs/roadmap.md](docs/roadmap.md) has the full list, including what is
+deliberately not built.
 
 ## Documentation
 

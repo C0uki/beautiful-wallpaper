@@ -2,7 +2,8 @@
 
 end4-pC is 65,000 lines of QML plus 41 shell and Python scripts. Reaching parity
 is not one change, so the work is split into phases that each land on the same
-foundation. Phases 0 and 1 are done; the rest are planned, not promised.
+foundation. Phases 0, 1, 4 and 5 are done, and most of 2 and 3; what is left
+is listed under each phase and in "Known gaps" at the end.
 
 ## Phase 0 — Foundation ✅
 
@@ -25,28 +26,28 @@ four bar styles (`m3`, `hug`, `float`, `islands`), horizontal and vertical
 variants, hover popups, and ten widgets: workspaces (GlazeWM), active window,
 clock, weather, tray, battery, network throughput, resources, media and the
 utility buttons. The layout comes from `bar.left/center/right`, as upstream.
+It can hide itself until the pointer reaches its edge (`bar.autoHide`), run one
+bar per monitor (`bar.perMonitor`), or be switched off (`bar.enable`).
 
 The tray was the awkward one, as expected. Windows has no StatusNotifierItem
 equivalent, so the icons are read out of Explorer's own toolbar across the
 process boundary — `VirtualAllocEx` a `TBBUTTON` inside Explorer, `TB_GETBUTTON`
 into it, `ReadProcessMemory` it back. It is undocumented and unverifiable
-without a real Explorer, so it degrades to "no icons" on any failure.
+without a real Explorer, so it degrades to "no icons" on any failure. The same
+struct carries each icon's `HICON` and callback message, so the icons are drawn
+as their real images, and a click is posted back to the window that registered
+it.
 
 Still to do:
 
-- **Tray icon bitmaps.** Only the presence and owner of each icon is read; the
-  widget shows dots rather than the icons themselves. The `HICON` is in the
-  struct that is already being read, and icon handles are session-wide, so
-  `DrawIconEx` into a bitmap should work — untested.
-- **Tray interaction.** Clicking an icon should forward the owner's registered
-  callback message to its window.
+- **Tray clicks for `NOTIFYICON_VERSION_4` owners.** An owner that registered
+  that version expects the click's two parameters packed the other way round,
+  and Explorer's data does not say which version was asked for, so such an
+  owner may ignore the click.
 - **The audio visualiser**, which needs a WASAPI loopback capture the shell does
   not have yet.
-- **The bar layout editor.** The three slots are configurable, but only by
-  editing `config.json`; the drag-and-drop editor is part of Phase 5's settings
-  UI.
-- **Auto-hide**, and **one bar per monitor** — the config keys exist, the
-  behaviour does not.
+- **The bar layout editor.** The three slots can be edited in the settings
+  screen, but only as lists of names; there is no drag-and-drop editor.
 
 ## Phase 3 — Sidebars, notifications, OSD, dock
 
@@ -100,7 +101,8 @@ over ten thousand lines: the right sidebar alone is 4,611.
 
 ### Done: the dock and the left sidebar's first two tabs
 
-- **The dock**, which is what replaces the taskbar once the shell hides it.
+- **The dock**, which is what replaces the taskbar once the shell hides it,
+  and hides itself below the bottom edge until the pointer reaches it.
   Windows are enumerated with Explorer's own filters — visible, un-owned, not
   a tool window, titled — plus `DWMWA_CLOAKED`, without which every UWP
   application on every other virtual desktop appears, looking entirely
@@ -683,9 +685,10 @@ Four documents, and one of them writes itself.
   implementation does not yet.
 - **Video wallpapers.** The plan is a `<video>` element in the WorkerW surface,
   which needs no `mpvpaper` equivalent. Not started.
-- **Per-monitor surfaces.** Only the primary monitor gets a background surface so
-  far; `Variants { model: Quickshell.screens }` maps to one window per monitor
-  plus `WM_DISPLAYCHANGE` handling.
+- **Per-monitor surfaces.** The bar is the only surface that can be put on
+  every monitor. Everything else, the background surface included, is on the
+  primary monitor only; `Variants { model: Quickshell.screens }` maps to one
+  window per monitor plus `WM_DISPLAYCHANGE` handling.
 - **Capturing across monitors.** The region picker covers the primary monitor
   only. A window has a single scale factor, so an overlay spanning two
   monitors at different scales cannot map what was drawn on it back to pixels
