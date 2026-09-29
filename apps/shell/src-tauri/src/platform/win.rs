@@ -282,8 +282,18 @@ impl AppBar {
         };
 
         // QUERYPOS lets the shell adjust the rectangle around existing bars;
-        // SETPOS commits whatever came back.
+        // SETPOS commits whatever came back. The shell only moves the side
+        // that meets another bar, so the far side has to be put back at
+        // `thickness` from it: against the taskbar along the bottom — which
+        // holds its edge even while hidden — the bottom came up past the top
+        // and the bar was granted a rectangle of no height at all.
         SHAppBarMessage(ABM_QUERYPOS, &mut data);
+        match edge {
+            Edge::Top => data.rc.bottom = data.rc.top + thickness,
+            Edge::Bottom => data.rc.top = data.rc.bottom - thickness,
+            Edge::Left => data.rc.right = data.rc.left + thickness,
+            Edge::Right => data.rc.left = data.rc.right - thickness,
+        }
         SHAppBarMessage(ABM_SETPOS, &mut data);
 
         Some(Self {
