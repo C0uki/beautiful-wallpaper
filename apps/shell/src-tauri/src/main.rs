@@ -560,7 +560,7 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
     #[cfg(windows)]
     {
         let handle = app.clone();
-        let watcher = bw_shell::platform::windows::WindowWatcher::new(move || {
+        let watcher = bw_shell::platform::windows::WindowWatcher::new(move |elsewhere| {
             // `try_state`, not `state`: the first event can arrive between the
             // watcher being built and the handle being managed, and `state`
             // panics on a type nobody has registered yet.
@@ -570,6 +570,20 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             ) else {
                 return;
             };
+
+            // The user went back to another program, which puts a sidebar away,
+            // as the original's focus grab does. Neither had any other way out
+            // but Escape, and Escape only reaches a sidebar holding the
+            // keyboard — which one opened from a hot corner often never does.
+            let open = state.states();
+            if elsewhere && (open.sidebar_left_open || open.sidebar_right_open) {
+                state.set_state("sidebarLeftOpen", false);
+                if let Some(states) = state.set_state("sidebarRightOpen", false) {
+                    surfaces::apply_states(&handle, &states);
+                    let _ = handle.emit(event::STATE_CHANGED, &states);
+                }
+            }
+
             let _ = handle.emit(event::DOCK, dock.items(&state.config()));
         });
 

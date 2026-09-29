@@ -247,7 +247,8 @@ pub fn is_minimised(window: HWND) -> bool {
     unsafe { IsIconic(window).as_bool() }
 }
 
-/// Calls back whenever the set of windows might have changed.
+/// Calls back whenever the set of windows might have changed, saying whether
+/// it was another program taking the foreground.
 ///
 /// A timer would do, but badly: an icon that lingers for a second after its
 /// application closes is the thing that makes a dock feel broken. `WinEvent`
@@ -262,12 +263,12 @@ pub struct WindowWatcher {
 ///
 /// A `static` rather than a field because the hook signature carries no user
 /// data — the same constraint the tray code works under.
-static CHANGED: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> = std::sync::OnceLock::new();
+static CHANGED: std::sync::OnceLock<Box<dyn Fn(bool) + Send + Sync>> = std::sync::OnceLock::new();
 
 impl WindowWatcher {
     /// Starts watching. The first caller's `on_change` is the one that is
     /// used; the hook API gives no way to carry per-hook state.
-    pub fn new(on_change: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn new(on_change: impl Fn(bool) + Send + Sync + 'static) -> Self {
         let _ = CHANGED.set(Box::new(on_change));
 
         let running = Arc::new(AtomicBool::new(true));
@@ -313,7 +314,7 @@ fn pump(running: &AtomicBool, thread_id: &std::sync::atomic::AtomicU32) {
 
         unsafe extern "system" fn on_event(
             _hook: HWINEVENTHOOK,
-            _event: u32,
+            event: u32,
             _window: HWND,
             object: i32,
             child: i32,
@@ -325,8 +326,10 @@ fn pump(running: &AtomicBool, thread_id: &std::sync::atomic::AtomicU32) {
             if object != 0 || child != 0 {
                 return;
             }
+            // Our own windows never get here: the hooks skip this process,
+            // so a foreground event is always another program's.
             if let Some(changed) = CHANGED.get() {
-                changed();
+                changed(event == EVENT_SYSTEM_FOREGROUND);
             }
         }
 

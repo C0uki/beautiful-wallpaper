@@ -1141,6 +1141,10 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
         // The readout and the toasts never do — taking focus from whatever the
         // user is typing into would be worse than the information is worth.
         if takes_focus(label) {
+            // Opened on purpose, so it may be clicked into as well: kept
+            // unactivatable, a click on it left the keyboard where it was, and
+            // Escape — the only way out of a sidebar — never reached it.
+            window.set_focusable(true)?;
             window.show()?;
             window.set_focus()?;
         } else {
@@ -1148,6 +1152,7 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
         }
     } else {
         window.hide()?;
+        window.set_focusable(false)?;
     }
     Ok(())
 }
