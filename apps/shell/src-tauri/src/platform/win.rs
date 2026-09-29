@@ -22,17 +22,21 @@ use windows::Win32::Graphics::Gdi::{
     MonitorFromWindow, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
     MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
+use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::Shell::{
     DefSubclassProc, RemoveWindowSubclass, SHAppBarMessage, SetWindowSubclass, ABE_BOTTOM,
     ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_GETSTATE, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
     ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
-    GetWindowRect, GetWindowTextW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WM_NCDESTROY, WM_STYLECHANGING,
-    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
+    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
+    PostThreadMessageW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG, SMTO_NORMAL,
+    STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE,
+    WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -653,6 +657,15 @@ pub unsafe fn set_taskbar_visible(visible: bool) {
 pub struct HiddenTaskbar {
     /// The `ABS_*` flags it had, to put back.
     state: u32,
+    /// Hides it again whenever Explorer shows it. Explorer does that on its
+    /// own after the state changes — twice, around 300 and 400ms later, so
+    /// hiding it once straight away lasted a third of a second — and a
+    /// taskbar left showing while set to hide itself comes up under the
+    /// pointer at the bottom of the screen.
+    ///
+    /// ponytail: follows the Explorer that was running when this was made; a
+    /// restarted Explorer brings its taskbar back until the shell restarts.
+    keeper: Option<(std::thread::JoinHandle<()>, u32)>,
 }
 
 impl HiddenTaskbar {
@@ -660,20 +673,87 @@ impl HiddenTaskbar {
     /// Changes global desktop state; the returned value must be kept until the
     /// taskbar should come back.
     pub unsafe fn hide() -> Self {
+        let keeper = keep_taskbar_hidden();
         let state = taskbar_state(ABM_GETSTATE, 0) as u32;
         taskbar_state(ABM_SETSTATE, state | ABS_AUTOHIDE);
         set_taskbar_visible(false);
-        Self { state }
+        Self { state, keeper }
     }
 }
 
 impl Drop for HiddenTaskbar {
     fn drop(&mut self) {
+        // The keeper first, or it would hide the taskbar being given back.
+        if let Some((thread, id)) = self.keeper.take() {
+            unsafe {
+                let _ = PostThreadMessageW(id, WM_QUIT, WPARAM(0), LPARAM(0));
+            }
+            let _ = thread.join();
+        }
         unsafe {
             taskbar_state(ABM_SETSTATE, self.state);
             set_taskbar_visible(true);
         }
     }
+}
+
+/// A thread that hides every taskbar Explorer shows, until it is sent
+/// `WM_QUIT`. Returns it with its thread id, once the hook is in place.
+fn keep_taskbar_hidden() -> Option<(std::thread::JoinHandle<()>, u32)> {
+    unsafe extern "system" fn on_show(
+        _hook: HWINEVENTHOOK,
+        _event: u32,
+        window: HWND,
+        object: i32,
+        _child: i32,
+        _thread: u32,
+        _time: u32,
+    ) {
+        // The window itself (`OBJID_WINDOW`), not a part of one.
+        if object != 0 {
+            return;
+        }
+        let mut class = [0u16; 32];
+        let length = GetClassNameW(window, &mut class) as usize;
+        let class = String::from_utf16_lossy(&class[..length]);
+        if class == "Shell_TrayWnd" || class == "Shell_SecondaryTrayWnd" {
+            let _ = ShowWindow(window, SW_HIDE);
+        }
+    }
+
+    let (ready, id) = std::sync::mpsc::channel();
+    let thread = std::thread::Builder::new()
+        .name("bw-taskbar-keeper".to_owned())
+        .spawn(move || unsafe {
+            let mut explorer = 0u32;
+            if let Ok(tray) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) {
+                GetWindowThreadProcessId(tray, Some(&mut explorer));
+            }
+            let hook = SetWinEventHook(
+                EVENT_OBJECT_SHOW,
+                EVENT_OBJECT_SHOW,
+                None,
+                Some(on_show),
+                explorer,
+                0,
+                WINEVENT_OUTOFCONTEXT,
+            );
+            // Only now: the thread has a message queue for `WM_QUIT` to land
+            // in, and a quit posted before it did would be lost and the join
+            // would never return.
+            let _ = ready.send(GetCurrentThreadId());
+
+            let mut message = MSG::default();
+            while GetMessageW(&mut message, None, 0, 0).as_bool() {
+                DispatchMessageW(&message);
+            }
+            if !hook.is_invalid() {
+                let _ = UnhookWinEvent(hook);
+            }
+        })
+        .ok()?;
+    let id = id.recv().ok()?;
+    Some((thread, id))
 }
 
 /// Reads or sets the taskbar's `ABS_*` flags, which are the user's own
