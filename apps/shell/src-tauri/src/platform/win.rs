@@ -24,7 +24,8 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::Shell::{
     DefSubclassProc, RemoveWindowSubclass, SHAppBarMessage, SetWindowSubclass, ABE_BOTTOM,
-    ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS, APPBARDATA,
+    ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_GETSTATE, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
+    ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW,
@@ -636,26 +637,55 @@ pub unsafe fn set_taskbar_visible(visible: bool) {
 /// for every program on it, so giving it back has to be tied to something with
 /// a lifetime rather than to remembering.
 ///
+/// Hidden is not enough on its own: a hidden taskbar still holds its edge of
+/// the screen, so maximised windows stopped short of a strip with nothing in
+/// it and a bar along the bottom sat above it. Set to hide itself, it gives
+/// the edge back — and Explorer shows it on the way, so it is hidden after.
+///
 /// It covers a graceful exit, which is not every exit — Windows ends a process
 /// killed from Task Manager without unwinding, and the taskbar would stay
 /// hidden with no shell left to show it. `bw taskbar show` is the way back,
 /// and it works with nothing running.
-pub struct HiddenTaskbar;
+///
+/// ponytail: after such a kill the taskbar also stays set to hide itself,
+/// which `bw taskbar show` cannot undo because only this value knew it was
+/// not before. Keep the old state on disk if that turns out to bite.
+pub struct HiddenTaskbar {
+    /// The `ABS_*` flags it had, to put back.
+    state: u32,
+}
 
 impl HiddenTaskbar {
     /// # Safety
     /// Changes global desktop state; the returned value must be kept until the
     /// taskbar should come back.
     pub unsafe fn hide() -> Self {
+        let state = taskbar_state(ABM_GETSTATE, 0) as u32;
+        taskbar_state(ABM_SETSTATE, state | ABS_AUTOHIDE);
         set_taskbar_visible(false);
-        Self
+        Self { state }
     }
 }
 
 impl Drop for HiddenTaskbar {
     fn drop(&mut self) {
-        unsafe { set_taskbar_visible(true) }
+        unsafe {
+            taskbar_state(ABM_SETSTATE, self.state);
+            set_taskbar_visible(true);
+        }
     }
+}
+
+/// Reads or sets the taskbar's `ABS_*` flags, which are the user's own
+/// taskbar settings and shared by the taskbars on every monitor.
+unsafe fn taskbar_state(message: u32, state: u32) -> usize {
+    let mut data = APPBARDATA {
+        cbSize: std::mem::size_of::<APPBARDATA>() as u32,
+        hWnd: FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()).unwrap_or_default(),
+        lParam: LPARAM(state as isize),
+        ..Default::default()
+    };
+    SHAppBarMessage(message, &mut data)
 }
 
 /// Bytes sent and received across all interfaces since boot.

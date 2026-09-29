@@ -95,7 +95,8 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         || config.appearance != previous.appearance
         || config.bar != previous.bar;
     let windows_changed = config.windows != previous.windows;
-    let bar_moved = config.bar != previous.bar;
+    // The taskbar setting decides how much of the edge is left for the bar.
+    let bar_moved = config.bar != previous.bar || windows_changed;
     let overlays_moved = bar_moved
         || config.dock != previous.dock
         || config.osd != previous.osd
@@ -134,10 +135,19 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         crate::services::overlay::apply(app);
     }
 
+    // Hiding the taskbar and starting with Windows both reach out and change
+    // the machine, so they follow the config like everything else here rather
+    // than only being read once at startup.
+    if windows_changed {
+        crate::services::integration::apply(app);
+    }
+
     // Where each surface sits is worked out when its window is made; without
     // this, moving the bar to the bottom took a restart, and left the dock and
     // the sidebars keeping clear of where it used to be. On the main thread,
     // because a bar for a monitor that did not have one is a window to create.
+    // After the taskbar, which has to have given up its edge or taken it back
+    // before the bar asks what is left.
     if overlays_moved {
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {
@@ -146,13 +156,6 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
             }
             crate::surfaces::place_overlays(&handle);
         });
-    }
-
-    // Hiding the taskbar and starting with Windows both reach out and change
-    // the machine, so they follow the config like everything else here rather
-    // than only being read once at startup.
-    if windows_changed {
-        crate::services::integration::apply(app);
     }
 
     if listener_changed {
