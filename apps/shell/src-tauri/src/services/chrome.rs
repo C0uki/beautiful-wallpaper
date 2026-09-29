@@ -75,6 +75,22 @@ pub fn apply(app: &AppHandle) {
     {
         tracing::warn!(%error, "could not show the hot corners");
     }
+
+    // Back on top of the other topmost windows. The bar and the dock are kept
+    // under them, but only while they are there to be kept under: one raised
+    // while a full-screen program had these hidden would otherwise still be
+    // over the corners when they came back.
+    #[cfg(windows)]
+    if let Some(window) = app.get_webview_window(crate::surfaces::HOT_CORNERS.label) {
+        if let Ok(handle) = window.hwnd() {
+            unsafe {
+                let _ = crate::platform::win::set_layer(
+                    windows::Win32::Foundation::HWND(handle.0),
+                    crate::platform::win::Layer::Overlay,
+                );
+            }
+        }
+    }
 }
 
 /// Tells every surface what the decorations should look like now.

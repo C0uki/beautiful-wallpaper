@@ -1072,6 +1072,21 @@ fn apply_layer(
         }
     }
 
+    if window.label() == HOT_CORNERS.label {
+        win::set_hot_corners(hwnd);
+    }
+    if layer == Layer::Bar || window.label() == DOCK.label {
+        let app = app.clone();
+        unsafe {
+            win::watch_edge_window(hwnd, move || {
+                // Queued rather than run here: this is inside a window
+                // procedure, and placing the bars can make and close windows.
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || place_bars(&handle));
+            });
+        }
+    }
+
     if layer == Layer::Bar {
         reserve(app, window, config, device);
     }
