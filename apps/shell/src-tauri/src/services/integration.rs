@@ -61,7 +61,10 @@ fn taskbar(app: &AppHandle, hide: bool) {
         // Already in the state that was asked for. Not re-hiding matters: a
         // second `ShowWindow(SW_HIDE)` on an already-hidden taskbar is
         // harmless, but dropping and re-taking the guard would flash it.
-        (true, true) | (false, false) => {}
+        (true, true) => {}
+        // Not hidden, and not asked to be — but a shell killed while it was
+        // may have left the taskbar set to hide itself. A no-op otherwise.
+        (false, false) => unsafe { crate::platform::win::restore_saved_taskbar_state() },
         (true, false) => *guard = Some(unsafe { crate::platform::win::HiddenTaskbar::hide() }),
         (false, true) => drop(guard.take()),
     }
