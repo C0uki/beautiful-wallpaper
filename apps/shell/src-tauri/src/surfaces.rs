@@ -456,17 +456,13 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             // the user is actually working in — unless it is switched off.
             // `bar.enable` was only ever read by the surfaces that keep clear of
             // the bar, so turning it off moved them and left the bar itself up.
-            //
-            // ponytail: read once, at creation, like `dock.enable` below.
+            // A change while running goes through `place_bars`.
             Layer::Bar => builder.always_on_top(true).visible(config.bar.enable),
             Layer::Chrome => builder.always_on_top(true),
             // The dock is layered like an overlay but nobody opens it, so there
             // is no flag to show it and `surface_for_flag` has no entry to give.
-            // It is on screen whenever it is enabled, like the bar.
-            //
-            // ponytail: read once, at creation. Turning `dock.enable` on in the
-            // settings takes a restart until something re-applies the config to
-            // the windows, which nothing does for any surface yet.
+            // It is on screen whenever it is enabled, like the bar. A change
+            // while running goes through `place_overlays`.
             Layer::Overlay if surface.label == DOCK.label => {
                 builder.always_on_top(true).visible(config.dock.enable)
             }
@@ -627,6 +623,74 @@ pub fn set_revealed(app: &AppHandle, label: &str, revealed: bool) {
     let position = tauri::LogicalPosition::new(x + origin.0, y + origin.1);
     if let Err(error) = window.set_position(position) {
         tracing::warn!(%error, surface = label, "could not move a surface to its hover position");
+    }
+}
+
+/// Puts the bar where the config now says: on or off, which edge, how thick,
+/// on which monitors, and with its edge reserved or not.
+///
+/// Every edge is given back first and taken again, because a bar that moved
+/// from the top to the bottom would otherwise go on holding the top open.
+pub fn place_bars(app: &AppHandle) {
+    let config = app.state::<AppState>().config();
+    release_reservations(app);
+
+    // `perMonitor` switched off: the bars on the other monitors go. Switched
+    // on, `ensure` below makes the ones that are missing.
+    if !config.bar.per_monitor {
+        for (label, window) in app.webview_windows() {
+            if surface_of(&label) == BAR.label && label != BAR.label {
+                let _ = window.destroy();
+            }
+        }
+    }
+
+    for screen in screens_for(app, &BAR, &config) {
+        let Some(window) = app.get_webview_window(&bar_label(BAR.label, &screen.device)) else {
+            continue;
+        };
+        let (x, y, width, height) = bar_geometry(&config, screen.size, false);
+        let _ = window.set_position(tauri::LogicalPosition::new(
+            x + screen.origin.0,
+            y + screen.origin.1,
+        ));
+        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        reserve(app, &window, &config, &screen.device);
+        let _ = if config.bar.enable {
+            show_without_taking_the_foreground(&window)
+        } else {
+            window.hide()
+        };
+    }
+
+    if let Err(error) = ensure(app, &BAR) {
+        tracing::warn!(%error, "could not create a bar for a new monitor");
+    }
+}
+
+/// Puts every overlay where the config now says. Most of them keep clear of
+/// the bar, so moving the bar moves them too.
+///
+/// The toasts go back to being parked; the next one brings them out again.
+pub fn place_overlays(app: &AppHandle) {
+    let config = app.state::<AppState>().config();
+    let screen = primary_screen(app);
+    for surface in ALL.iter().filter(|surface| surface.layer == Layer::Overlay) {
+        let Some(window) = app.get_webview_window(surface.label) else {
+            continue;
+        };
+        let (x, y, width, height) = overlay_geometry(surface, &config, screen, false);
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    }
+
+    // The dock is on screen whenever it is enabled; nothing else shows it.
+    if let Some(dock) = app.get_webview_window(DOCK.label) {
+        let _ = if config.dock.enable {
+            show_without_taking_the_foreground(&dock)
+        } else {
+            dock.hide()
+        };
     }
 }
 
@@ -936,7 +1000,7 @@ fn apply_layer(
     config: &bw_core::Config,
     device: &str,
 ) {
-    use crate::platform::win::{self, Edge, Layer as WinLayer};
+    use crate::platform::win::{self, Layer as WinLayer};
     use windows::Win32::Foundation::HWND;
 
     let Ok(handle) = window.hwnd() else {
@@ -985,15 +1049,27 @@ fn apply_layer(
         }
     }
 
+    if layer == Layer::Bar {
+        reserve(app, window, config, device);
+    }
+}
+
+/// Reserves the bar's edge of the screen, and moves the bar to what was granted.
+#[cfg(windows)]
+fn reserve(app: &AppHandle, window: &tauri::WebviewWindow, config: &bw_core::Config, device: &str) {
+    use crate::platform::win::{self, Edge};
+    use windows::Win32::Foundation::HWND;
+
+    let Ok(handle) = window.hwnd() else {
+        return;
+    };
+    let hwnd = HWND(handle.0);
+
     // An auto-hiding bar must not reserve its edge, whatever `reserve_space`
     // says: the reservation would hold a strip open that no window may use and
     // the bar is not in, which is the opposite of what hiding it is for. A bar
     // that is switched off is not in it either.
-    if layer != Layer::Bar
-        || !config.bar.enable
-        || !config.bar.reserve_space
-        || config.bar.auto_hide
-    {
+    if !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
         return;
     }
 
@@ -1041,6 +1117,15 @@ fn apply_layer(
     _app: &AppHandle,
     _window: &tauri::WebviewWindow,
     _layer: Layer,
+    _config: &bw_core::Config,
+    _device: &str,
+) {
+}
+
+#[cfg(not(windows))]
+fn reserve(
+    _app: &AppHandle,
+    _window: &tauri::WebviewWindow,
     _config: &bw_core::Config,
     _device: &str,
 ) {
