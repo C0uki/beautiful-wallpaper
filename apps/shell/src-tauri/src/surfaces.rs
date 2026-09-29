@@ -1079,10 +1079,25 @@ fn apply_layer(
         let app = app.clone();
         unsafe {
             win::watch_edge_window(hwnd, move || {
-                // Queued rather than run here: this is inside a window
-                // procedure, and placing the bars can make and close windows.
-                let handle = app.clone();
-                let _ = app.run_on_main_thread(move || place_bars(&handle));
+                // On a thread of its own, not this one and not queued back
+                // onto it. Explorer sends this to every top-level window in
+                // turn and waits on each; placing the bars asks Explorer for
+                // an edge, and asked from this thread, that waited on an
+                // Explorer still waiting on the shell's next window. Neither
+                // ever answered: the shell hung for good on every restart of
+                // Explorer. The bar and the dock both hear it, so the second
+                // finds the first already at work and leaves it.
+                static PLACING: Mutex<()> = Mutex::new(());
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    let Some(_placing) = PLACING.try_lock() else {
+                        return;
+                    };
+                    // The taskbar first: a new Explorer may have forgotten it
+                    // was hiding itself, and the bar asks for what is left.
+                    crate::services::integration::reassert_taskbar(&app);
+                    place_bars(&app);
+                });
             });
         }
     }

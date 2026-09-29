@@ -762,6 +762,15 @@ impl HiddenTaskbar {
         set_taskbar_visible(false);
         Self { state, keeper }
     }
+
+    /// Hides it again, set to hide itself, after Explorer has made it anew.
+    ///
+    /// # Safety
+    /// Changes global desktop state.
+    pub unsafe fn reassert(&self) {
+        taskbar_state(ABM_SETSTATE, self.state | ABS_AUTOHIDE);
+        set_taskbar_visible(false);
+    }
 }
 
 impl Drop for HiddenTaskbar {
