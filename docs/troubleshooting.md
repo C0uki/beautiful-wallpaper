@@ -19,9 +19,10 @@ Two things worth knowing first:
 ## The taskbar is gone and the shell is not running
 
 `windows.hideSystemTaskbar` hides the stock taskbar while the shell's bar is
-running, and the shell puts it back when it exits. If the shell is killed —
-Task Manager, a crash, a power cut — nothing puts it back, and there is no
-taskbar left to start anything from.
+running — and sets it to hide itself, which is what gives its strip of the
+screen back — and the shell puts both back when it exits. If the shell is
+killed — Task Manager, a crash, a power cut — nothing puts them back, and there
+is no taskbar left to start anything from.
 
 The way back, which works with no shell running:
 
@@ -30,6 +31,11 @@ bw taskbar show
 ```
 
 Task Manager reaches it: **Ctrl+Shift+Esc → Run new task**. `Win+R` also works.
+
+It also switches the taskbar's own "automatically hide" back to what it was
+before the shell touched it; the shell keeps that in
+`%LOCALAPPDATA%\beautiful-wallpaper\taskbar-state` while it runs. Starting the
+shell again does the same.
 
 This is the reason the setting is off by default.
 
