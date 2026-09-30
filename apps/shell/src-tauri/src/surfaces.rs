@@ -692,6 +692,60 @@ pub fn place_bars(app: &AppHandle) {
     }
 }
 
+/// Makes the wallpaper surface again after Explorer has restarted.
+///
+/// It lives inside Explorer's desktop window, so a restart took it down with
+/// that window: the desktop was left showing Windows' own copy of the picture,
+/// with no widgets, until the shell was restarted too.
+///
+/// Called off the main thread, and waits there for the new desktop first:
+/// the taskbar can announce itself before the desktop exists, and a
+/// background given no desktop to go into would be an ordinary full-screen
+/// window, lying over everything that sits on the desktop.
+pub fn restore_background(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        // ponytail: polls for up to ten seconds, then settles for a moment so
+        // the desktop has its icon view; a desktop that takes longer is left
+        // without a background until the shell restarts.
+        for _ in 0..40 {
+            if crate::platform::win::desktop_exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(window) = handle.get_webview_window(BACKGROUND.label) {
+            #[cfg(windows)]
+            let alive = window.hwnd().is_ok_and(|hwnd| unsafe {
+                windows::Win32::UI::WindowsAndMessaging::IsWindow(windows::Win32::Foundation::HWND(
+                    hwnd.0,
+                ))
+                .as_bool()
+            });
+            #[cfg(not(windows))]
+            let alive = true;
+
+            // Still here: it was not inside the Explorer that went. Put it
+            // under the icons of the one that came.
+            if alive {
+                let config = handle.state::<AppState>().config();
+                apply_layer(&handle, &window, Layer::Background, &config, "");
+                return;
+            }
+            // Gone underneath Tauri: let go of it so the label is free.
+            let _ = window.destroy();
+        }
+        if let Err(error) = ensure(&handle, &BACKGROUND) {
+            tracing::warn!(%error, "could not make the wallpaper surface again");
+        }
+    });
+}
+
 /// Puts every overlay where the config now says. Most of them keep clear of
 /// the bar, so moving the bar moves them too.
 pub fn place_overlays(app: &AppHandle) {
@@ -1097,6 +1151,7 @@ fn apply_layer(
                     // was hiding itself, and the bar asks for what is left.
                     crate::services::integration::reassert_taskbar(&app);
                     place_bars(&app);
+                    restore_background(&app);
                 });
             });
         }

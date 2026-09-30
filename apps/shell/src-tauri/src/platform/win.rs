@@ -530,6 +530,12 @@ unsafe fn add_ex_style(hwnd: HWND, style: WINDOW_EX_STYLE) {
     SetWindowLongPtrW(hwnd, GWL_EXSTYLE, current | style.0 as isize);
 }
 
+/// Whether Explorer's desktop window, the one the wallpaper surface goes
+/// into, exists.
+pub fn desktop_exists() -> bool {
+    unsafe { FindWindowW(w!("Progman"), PCWSTR::null()).is_ok() }
+}
+
 /// The window the user is currently working in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
