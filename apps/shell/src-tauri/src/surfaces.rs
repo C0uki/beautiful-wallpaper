@@ -737,35 +737,49 @@ pub fn restore_background(app: &AppHandle) {
 
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
+        // Still here: it was not inside the Explorer that went. Put it under
+        // the icons of the one that came. A dead one was let go of already.
         if let Some(window) = handle.get_webview_window(&background_label()) {
-            #[cfg(windows)]
-            let alive = window.hwnd().is_ok_and(|hwnd| unsafe {
-                windows::Win32::UI::WindowsAndMessaging::IsWindow(windows::Win32::Foundation::HWND(
-                    hwnd.0,
-                ))
-                .as_bool()
-            });
-            #[cfg(not(windows))]
-            let alive = true;
-
-            // Still here: it was not inside the Explorer that went. Put it
-            // under the icons of the one that came.
-            if alive {
-                let config = handle.state::<AppState>().config();
-                apply_layer(&handle, &window, Layer::Background, &config, "");
-                return;
-            }
-            // Gone underneath Tauri. Letting go of it drops its webview, which
-            // otherwise goes on failing every call made on it; the label stays
-            // taken all the same, so the new one needs one of its own.
-            let _ = window.destroy();
-            static REMADE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-            let made = REMADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-            *BACKGROUND_LABEL.lock() = Some(format!("{}-{made}", BACKGROUND.label));
+            let config = handle.state::<AppState>().config();
+            apply_layer(&handle, &window, Layer::Background, &config, "");
+            return;
         }
         if let Err(error) = ensure(&handle, &BACKGROUND) {
             tracing::warn!(%error, "could not make the wallpaper surface again");
         }
+    });
+}
+
+/// Lets go of a wallpaper surface that went down with Explorer.
+///
+/// As soon as Explorer is back rather than when the surface is made again,
+/// which waits on Explorer for tens of seconds: until it is let go of, every
+/// call Tauri makes on its webview fails, and each failure is a line in the
+/// log — hundreds of them, for as long as the wait lasted.
+pub fn forget_dead_background(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some(window) = handle.get_webview_window(&background_label()) else {
+            return;
+        };
+        #[cfg(windows)]
+        let alive = window.hwnd().is_ok_and(|hwnd| unsafe {
+            windows::Win32::UI::WindowsAndMessaging::IsWindow(windows::Win32::Foundation::HWND(
+                hwnd.0,
+            ))
+            .as_bool()
+        });
+        #[cfg(not(windows))]
+        let alive = true;
+        if alive {
+            return;
+        }
+        // Gone underneath Tauri. Letting go of it drops its webview; the
+        // label stays taken all the same, so the next one needs its own.
+        let _ = window.destroy();
+        static REMADE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let made = REMADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        *BACKGROUND_LABEL.lock() = Some(format!("{}-{made}", BACKGROUND.label));
     });
 }
 
@@ -1172,6 +1186,7 @@ fn apply_layer(
                     };
                     // The taskbar first: a new Explorer may have forgotten it
                     // was hiding itself, and the bar asks for what is left.
+                    forget_dead_background(&app);
                     crate::services::integration::reassert_taskbar(&app);
                     place_bars(&app);
                     restore_background(&app);

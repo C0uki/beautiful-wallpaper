@@ -14,6 +14,7 @@
 //! config file; a notification naming the binding gives them both.
 
 use std::str::FromStr;
+use std::sync::Mutex;
 
 use bw_core::NewNotification;
 use tauri::{AppHandle, Emitter, Manager};
@@ -42,6 +43,9 @@ pub fn apply(app: &AppHandle) {
     // Binding names rather than a sentence, so the first-run screen can line
     // each refusal up with the key it belongs to and offer a way out.
     let mut refused: Vec<String> = Vec::new();
+    // With the chord each was refused for, to tell a new refusal from one
+    // already reported.
+    let mut refused_chords: Vec<(String, String)> = Vec::new();
 
     for (binding, chord) in bindings(&config.keybinds) {
         let Some(bound) = action_for(&binding) else {
@@ -52,6 +56,7 @@ pub fn apply(app: &AppHandle) {
 
         let Ok(shortcut) = Shortcut::from_str(&chord) else {
             refused.push(binding.clone());
+            refused_chords.push((binding.clone(), chord.clone()));
             tracing::warn!(%chord, %binding, "not a key combination");
             continue;
         };
@@ -68,6 +73,7 @@ pub fn apply(app: &AppHandle) {
 
         if let Err(error) = registered {
             refused.push(binding.clone());
+            refused_chords.push((binding.clone(), chord.clone()));
             tracing::warn!(%error, %chord, %binding, "Windows would not give up this combination");
         }
     }
@@ -78,7 +84,34 @@ pub fn apply(app: &AppHandle) {
     if let Some(held) = app.try_state::<KeyReport>() {
         held.hold(refused.clone());
     }
-    report(app, &config.keybinds, &refused);
+
+    // Every key is registered again whenever any one changes, and the toast
+    // used to list every refusal each time — on a machine where Windows keeps
+    // a few of the defaults, changing one unrelated key repeated all of them.
+    // Only what was not refused last time is news.
+    let fresh = {
+        let mut said = REPORTED
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let fresh = newly_refused(&said, &refused_chords);
+        *said = refused_chords;
+        fresh
+    };
+    report(app, &config.keybinds, &fresh);
+}
+
+/// The refusals the last `apply` found, as binding and chord.
+static REPORTED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+/// The bindings refused now that were not refused, for the same chord, before.
+///
+/// A binding given a different chord that is refused too is news: it is a
+/// different key that does not work.
+fn newly_refused(before: &[(String, String)], now: &[(String, String)]) -> Vec<String> {
+    now.iter()
+        .filter(|refusal| !before.contains(refusal))
+        .map(|(binding, _)| binding.clone())
+        .collect()
 }
 
 /// Each configured binding as a name and a chord, skipping the unassigned.
@@ -206,4 +239,34 @@ fn report(app: &AppHandle, keybinds: &bw_core::config::Keybinds, refused: &[Stri
     let _ = app.emit(event::NOTIFICATIONS, store.0.list());
     let _ = notification;
     let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Changing one key re-registers them all; only what is newly refused is news.
+    #[test]
+    fn only_new_refusals_are_reported() {
+        let pair = |binding: &str, chord: &str| (binding.to_owned(), chord.to_owned());
+        let before = [
+            pair("sidebarLeft", "Super+Shift+A"),
+            pair("captureRegion", "Print"),
+        ];
+
+        // The same refusals again: nothing to say.
+        assert!(newly_refused(&before, &before).is_empty());
+
+        // One more key refused, and one refused key moved to another refused
+        // chord: both are news; the unchanged one is not.
+        let now = [
+            pair("sidebarLeft", "Super+Shift+A"),
+            pair("captureRegion", "Ctrl+Print"),
+            pair("shelf", "Super+L"),
+        ];
+        assert_eq!(newly_refused(&before, &now), ["captureRegion", "shelf"]);
+
+        // The first time, everything is news.
+        assert_eq!(newly_refused(&[], &before).len(), 2);
+    }
 }
