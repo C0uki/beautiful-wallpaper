@@ -7,6 +7,7 @@
     "background-*",
     "wallpaperSelector",
     "bar",
+    "bar-*",
     "settings",
     "wizard",
     "osd",
