@@ -12,14 +12,14 @@
 use std::sync::atomic::{AtomicIsize, Ordering};
 
 use windows::core::{w, Result, PCWSTR};
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE,
     DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
 };
 use windows::Win32::Graphics::Gdi::{
     CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, GetWindowRgn,
-    MonitorFromWindow, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
+    MonitorFromWindow, ScreenToClient, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
     MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
 use windows::Win32::System::Threading::GetCurrentThreadId;
@@ -103,18 +103,31 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
     match layer {
         Layer::Wallpaper => {
             let worker = worker_w()?;
+            // Where it is on screen now, before it becomes a child and its
+            // position starts counting from the desktop window's corner.
+            let mut bounds = RECT::default();
+            GetWindowRect(hwnd, &mut bounds)?;
             // Reparenting is what puts the window *under* the icons: WorkerW is
             // the window the shell paints the wallpaper into, and it sits below
             // the icon list view.
             SetParent(hwnd, worker)?;
+            // That window spans every monitor, so its corner is only the
+            // primary monitor's when nothing sits above or left of it. With a
+            // second monitor above, the wallpaper went to the top of that one
+            // and left the primary monitor all but uncovered.
+            let mut corner = POINT {
+                x: bounds.left,
+                y: bounds.top,
+            };
+            let _ = ScreenToClient(worker, &mut corner);
             SetWindowPos(
                 hwnd,
                 HWND_BOTTOM,
+                corner.x,
+                corner.y,
                 0,
                 0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                SWP_NOSIZE | SWP_NOACTIVATE,
             )?;
         }
         Layer::Normal => {}

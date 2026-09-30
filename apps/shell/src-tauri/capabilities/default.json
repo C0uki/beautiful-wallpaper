@@ -4,6 +4,7 @@
   "description": "What the shell's surfaces are allowed to do. Kept to the minimum each one needs: read the wallpaper folder, show and hide sibling surfaces, and open a link in the browser.",
   "windows": [
     "background",
+    "background-*",
     "wallpaperSelector",
     "bar",
     "settings",

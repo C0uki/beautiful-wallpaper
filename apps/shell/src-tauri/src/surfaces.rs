@@ -406,7 +406,11 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let config = app.state::<AppState>().config();
 
     for screen in screens_for(app, surface, &config) {
-        let label = bar_label(surface.label, &screen.device);
+        let label = if surface.label == BACKGROUND.label {
+            background_label()
+        } else {
+            bar_label(surface.label, &screen.device)
+        };
         if app.get_webview_window(&label).is_some() {
             continue;
         }
@@ -692,6 +696,20 @@ pub fn place_bars(app: &AppHandle) {
     }
 }
 
+/// The wallpaper surface's window label: `background`, until Explorer takes
+/// that window down with it. Tauri never hears it go — the window is
+/// destroyed along with Explorer's, from Explorer's side — so it goes on
+/// holding the label, and a window by the same name cannot be made again.
+/// Each one made after that is `background-1`, `background-2` and so on.
+static BACKGROUND_LABEL: Mutex<Option<String>> = Mutex::new(None);
+
+fn background_label() -> String {
+    BACKGROUND_LABEL
+        .lock()
+        .clone()
+        .unwrap_or_else(|| BACKGROUND.label.to_owned())
+}
+
 /// Makes the wallpaper surface again after Explorer has restarted.
 ///
 /// It lives inside Explorer's desktop window, so a restart took it down with
@@ -719,7 +737,7 @@ pub fn restore_background(app: &AppHandle) {
 
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Some(window) = handle.get_webview_window(BACKGROUND.label) {
+        if let Some(window) = handle.get_webview_window(&background_label()) {
             #[cfg(windows)]
             let alive = window.hwnd().is_ok_and(|hwnd| unsafe {
                 windows::Win32::UI::WindowsAndMessaging::IsWindow(windows::Win32::Foundation::HWND(
@@ -737,8 +755,13 @@ pub fn restore_background(app: &AppHandle) {
                 apply_layer(&handle, &window, Layer::Background, &config, "");
                 return;
             }
-            // Gone underneath Tauri: let go of it so the label is free.
+            // Gone underneath Tauri. Letting go of it drops its webview, which
+            // otherwise goes on failing every call made on it; the label stays
+            // taken all the same, so the new one needs one of its own.
             let _ = window.destroy();
+            static REMADE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            let made = REMADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            *BACKGROUND_LABEL.lock() = Some(format!("{}-{made}", BACKGROUND.label));
         }
         if let Err(error) = ensure(&handle, &BACKGROUND) {
             tracing::warn!(%error, "could not make the wallpaper surface again");
