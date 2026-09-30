@@ -383,6 +383,13 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             #[cfg(windows)]
             surfaces::warn_about_surfaces_that_swallow_a_monitor(&app);
 
+            // Explorer takes the wallpaper surface down with it the moment it
+            // goes, and only announces its return once its taskbar is ready —
+            // forty seconds later, on the machine. Waiting for that meant a
+            // WebView2 error in the log for every call made on the dead
+            // surface in between; looking every second keeps it to a second's.
+            surfaces::forget_dead_background(&app);
+
             std::thread::sleep(Duration::from_secs(1));
         });
     }

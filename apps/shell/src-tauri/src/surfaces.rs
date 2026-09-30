@@ -752,10 +752,9 @@ pub fn restore_background(app: &AppHandle) {
 
 /// Lets go of a wallpaper surface that went down with Explorer.
 ///
-/// As soon as Explorer is back rather than when the surface is made again,
-/// which waits on Explorer for tens of seconds: until it is let go of, every
-/// call Tauri makes on its webview fails, and each failure is a line in the
-/// log — hundreds of them, for as long as the wait lasted.
+/// Until it is let go of, every call Tauri makes on its webview fails, and
+/// each failure is a line in the log. Checked every second, and again when
+/// Explorer announces itself; a live surface is left alone.
 pub fn forget_dead_background(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
