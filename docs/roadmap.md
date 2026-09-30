@@ -109,7 +109,12 @@ over ten thousand lines: the right sidebar alone is 4,611.
   legitimate. Clicking raises, clicking again minimises, and a refused
   activation flashes the window the way Explorer does rather than leaving the
   icon inert. The watcher is event-driven: an icon that lingers a second after
-  its application closes is what makes a dock feel broken.
+  its application closes is what makes a dock feel broken. Windows are grouped
+  by executable _and_ by the AppUserModelID a window may set on itself, as the
+  taskbar groups them: Chrome marks each profile's windows as a separate
+  application, and grouping by path alone put two people's browsers behind one
+  icon. Such a window's own icon is used too — Chrome's profile-badged one —
+  cached by the file's modification time, so a changed picture shows.
 - **The left sidebar**, with the translator and media tabs. The original
   shells out to `trans` (translate-shell) for translation, which is a Bash
   script and does not exist on Windows, so the translator goes through the
@@ -237,7 +242,11 @@ three are `/screenshot`, `/ocr` and `/translate` in the launcher.
 
 ### Done: the session screen
 
-Six ways out, of which a given machine can rarely do all six.
+Six ways out of the session, of which a given machine can rarely do all six,
+and a seventh out of the shell alone: **Quit shell**, always offered, which
+takes the same exit as `bw quit` and gives back the taskbar and the bar's
+edge. Before it, the only other ways to stop the shell were a command line and
+Task Manager.
 
 - **What the machine cannot do is not offered.** Hibernation needs a
   hibernation file, and sleep is not just S3 — most machines built in the last
@@ -555,11 +564,28 @@ The bundle already built; what was missing was everything either side of it.
   unwinds nothing, so neither guard was ever dropped. The work area stayed
   shrunk and the taskbar stayed hidden after the shell was gone. Both are
   released on `RunEvent::Exit` now.
+- **Hidden was not enough.** A hidden taskbar still holds its edge of the
+  screen, so maximised windows stopped short of an empty strip and a bar along
+  the bottom sat above it. While hidden it is also set to hide itself, which
+  gives the edge back, and Explorer's habit of showing it again after that
+  change — twice, a few hundred milliseconds apart — is answered by a
+  `WinEvent` hook that hides any taskbar that is shown while the shell holds it.
+- **Explorer restarting forgets all of it**: every app bar's edge, and the
+  wallpaper surface, which lives inside Explorer's desktop window and goes with
+  it. Explorer announces itself with `TaskbarCreated`, and the shell then hides
+  the taskbar again, re-reserves the bar's edge and makes the wallpaper surface
+  anew — off the main thread, because Explorer sends that message to every
+  top-level window in turn and waits on each, and asking it for an edge from
+  the main thread left both waiting on each other for good. Tauri never hears
+  that the old surface is gone, and keeps its label, so a remade one is
+  `background-1`, `background-2` and so on.
 - That still leaves the process being killed outright, which no guard survives,
   so **`bw taskbar show` works with nothing running** — Task Manager's "Run new
   task" reaches it, which is the one thing still on screen when the taskbar is
   not. It deliberately does not write the config: somebody who wants it back
-  for good is changing the setting, not running a rescue.
+  for good is changing the setting, not running a rescue. The taskbar's own
+  auto-hide setting is kept on disk while the shell holds it, and this — or the
+  next start of the shell — puts it back too.
 - **The Run key value is quoted.** `C:\Program Files\...\bw.exe` unquoted is
   read as `C:\Program.exe` with an argument, which is the classic way an
   auto-start entry fails — at login, where nothing of this shell is up to
@@ -688,7 +714,9 @@ Four documents, and one of them writes itself.
 - **Per-monitor surfaces.** The bar is the only surface that can be put on
   every monitor. Everything else, the background surface included, is on the
   primary monitor only; `Variants { model: Quickshell.screens }` maps to one
-  window per monitor plus `WM_DISPLAYCHANGE` handling.
+  window per monitor plus `WM_DISPLAYCHANGE` handling. Until then, a monitor
+  plugged in or moved while the shell runs is not noticed: the bars are made
+  and the background is placed at startup and when the config changes.
 - **Capturing across monitors.** The region picker covers the primary monitor
   only. A window has a single scale factor, so an overlay spanning two
   monitors at different scales cannot map what was drawn on it back to pixels

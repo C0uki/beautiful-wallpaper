@@ -66,20 +66,27 @@ and the six IPC targets that still mean the same thing.
   application it belongs to.
 - **The two sidebars**: the right one's quick toggles, sliders, night light and
   notification centre; the left one's AI chat, translator, media and image-board
-  tabs.
+  tabs. A click anywhere else puts them away.
 - **The dock**, with pinned and running applications, hiding itself until the
-  pointer reaches the bottom edge.
+  pointer reaches the bottom edge. Applications that mark their windows as
+  separate apps get an icon each, as on the taskbar — one per Chrome profile,
+  with its picture.
 - **The overview and launcher**, searching applications, files, the web and a
   calculator, with `/` actions.
 - **Screenshots**: a region picker, OCR and an on-screen translator.
-- **The session screen, the desktop menu, the drop shelf and a floating
-  overlay** with a crosshair.
+- **The session screen** — lock, sleep, hibernate, sign out, restart, shut
+  down, or quit just the shell — **the desktop menu, the drop shelf and a
+  floating overlay** with a crosshair.
 - **The screen's own decorations**: rounded corners and a frame drawn over the
   display, and hot corners that open a panel or run an action.
 - **A settings screen** whose form is generated from the config schema, so a new
   setting has a control the moment it exists.
 - **Presets** — whole configurations saved by name, and a first-run screen that
   reports which of your keys Windows refused to register.
+- **Hiding the stock taskbar** (`windows.hideSystemTaskbar`), along with the
+  strip of screen it keeps, and giving both back: when the shell exits, when
+  Explorer restarts, and — through `bw taskbar show` or the next start — after
+  the shell was killed.
 - **An installer** that puts the machine back on uninstall: the taskbar, the
   autostart entry, the App Paths key.
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
