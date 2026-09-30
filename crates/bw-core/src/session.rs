@@ -62,7 +62,7 @@ impl SessionAction {
             Self::Lock => "lock",
             Self::Sleep => "bedtime",
             Self::Hibernate => "ac_unit",
-            Self::QuitShell => "exit_to_app",
+            Self::QuitShell => "close",
             Self::LogOut => "logout",
             Self::Restart => "restart_alt",
             Self::ShutDown => "power_settings_new",
@@ -272,6 +272,21 @@ mod tests {
             initial_focus(&actions).map(|index| actions[index]),
             Some(SessionAction::QuitShell)
         );
+    }
+
+    /// The icon font is a subset of the names the shell draws, and a name
+    /// missing from it is painted as the word itself: `exit_to_app` came out
+    /// as "EXIT_TO_" across two buttons.
+    #[test]
+    fn every_symbol_is_in_the_bundled_icon_font() {
+        let subset = include_str!("../../../apps/shell/scripts/icons.json");
+        for action in SessionAction::ORDER {
+            let symbol = action.symbol();
+            assert!(
+                subset.contains(&format!("\"{symbol}\"")),
+                "{action:?} draws `{symbol}`, which the font subset does not have"
+            );
+        }
     }
 
     #[test]

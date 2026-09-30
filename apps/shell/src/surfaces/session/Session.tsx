@@ -48,7 +48,7 @@ function symbol(action: SessionAction): string {
     case "hibernate":
       return "ac_unit";
     case "quitShell":
-      return "exit_to_app";
+      return "close";
     case "logOut":
       return "logout";
     case "restart":
