@@ -37,6 +37,21 @@ pub fn apply(app: &AppHandle) {
     autostart(app, config.windows.start_with_windows);
 }
 
+/// Hides the taskbar again, if the shell is holding it hidden.
+///
+/// For a restarted Explorer, whose new taskbar can come up showing and set to
+/// hold its edge again, having forgotten both.
+pub fn reassert_taskbar(app: &AppHandle) {
+    #[cfg(windows)]
+    if let Some(held) = app.try_state::<Integration>() {
+        if let Some(hidden) = held.taskbar.lock().as_ref() {
+            unsafe { hidden.reassert() };
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
 /// Puts the taskbar back, whatever the config says.
 ///
 /// Called when the shell is on its way out. The guard's own `Drop` does this
