@@ -11,6 +11,7 @@ import { actions, useShell } from "../../shell/store";
 import { backend } from "../../shell/backend";
 import { HoverPopup } from "./HoverPopup";
 import { formatBytes, formatRate } from "../../lib/format";
+import { Visualizer } from "../../widgets/Visualizer";
 
 export function ClockWidget() {
   const format = useShell((state) => state.config.time.format);
@@ -431,6 +432,15 @@ export function UtilButtonsWidget() {
 }
 
 /** Everything the bar layout can name. */
+/** A small spectrum, while something is playing. Unmounted otherwise, which
+ *  is what stops the shell listening to the output. */
+export function VisualizerWidget() {
+  const playing = useShell((state) => state.media?.playing ?? false);
+  return playing ? (
+    <Visualizer bars={12} className="bw-bar-visualizer" />
+  ) : null;
+}
+
 export const BAR_WIDGETS: Record<string, () => ReactElement | null> = {
   clock: ClockWidget,
   workspaces: WorkspacesWidget,
@@ -440,6 +450,7 @@ export const BAR_WIDGETS: Record<string, () => ReactElement | null> = {
   battery: BatteryWidget,
   weather: WeatherWidget,
   media: MediaWidget,
+  visualizer: VisualizerWidget,
   tray: TrayWidget,
   utilButtons: UtilButtonsWidget,
 };

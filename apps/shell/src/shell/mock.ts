@@ -1194,6 +1194,8 @@ export function mockBackend(): Backend {
         case Command.GetSystemInfo:
           return systemInfo as T;
 
+        case Command.WatchVisualizer:
+          return undefined as T;
         case Command.GetPowerMode:
           return powerMode as T;
 
@@ -1990,6 +1992,15 @@ export function mockBackend(): Backend {
         if (event === Event.Resources) handler(resources() as T);
         if (event === Event.Media) handler(media() as T);
         if (event === Event.Battery) handler(battery as T);
+        // A frozen frame of music: low end up, falling off towards the top.
+        if (event === Event.Visualizer)
+          handler(
+            Array.from(
+              { length: 32 },
+              (_, i) =>
+                0.25 + 0.6 * Math.exp(-i / 9) * (0.7 + 0.3 * Math.sin(i * 1.7)),
+            ) as T,
+          );
         if (event === Event.Weather) handler(weather as T);
         if (event === Event.Workspaces) handler(workspaces as T);
         if (event === Event.ActiveWindow) handler(activeWindow as T);

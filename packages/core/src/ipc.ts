@@ -50,6 +50,8 @@ export const Event = {
   Chat: "bw://chat",
   /** A Bluetooth pairing needs the person; carries a `PairingPrompt`. */
   BluetoothPairing: "bw://bluetooth-pairing",
+  /** The visualiser's bars, 0–1 each, while anything is drawing them. */
+  Visualizer: "bw://visualizer",
   /** One piece of a reply as it streams. */
   ChatEvent: "bw://chat-event",
   /** Asks the readout to appear, carrying what to show. */
@@ -154,6 +156,7 @@ export const Command = {
   ConnectBluetooth: "connect_bluetooth",
   GetIdleInhibit: "get_idle_inhibit",
   SetIdleInhibit: "set_idle_inhibit",
+  WatchVisualizer: "watch_visualizer",
   GetPowerMode: "get_power_mode",
   SetPowerMode: "set_power_mode",
   GetSystemInfo: "get_system_info",

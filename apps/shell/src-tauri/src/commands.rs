@@ -63,6 +63,9 @@ pub mod event {
     pub const CHAT_EVENT: &str = "bw://chat-event";
     /// A Bluetooth pairing needs the person: a PIN to show, confirm or type.
     pub const BLUETOOTH_PAIRING: &str = "bw://bluetooth-pairing";
+    /// The visualiser's bars, about thirty times a second while any window
+    /// is drawing them.
+    pub const VISUALIZER: &str = "bw://visualizer";
     pub const VOLUME: &str = "bw://volume";
     pub const MIC: &str = "bw://mic";
     /// The per-application mixer changed: a session appeared, went away, or
@@ -712,6 +715,46 @@ pub fn get_idle_inhibit(idle: State<'_, IdleHandle>) -> bool {
 pub fn set_idle_inhibit(idle: State<'_, IdleHandle>, on: bool) -> bool {
     idle.set(on);
     idle.is_on()
+}
+
+/// The windows drawing the visualiser, and the capture feeding them while
+/// there are any. The capture is held as anything droppable, since there is
+/// only one to hold where there is a Windows to capture from.
+#[derive(Default)]
+pub struct VisualizerWatch(parking_lot::Mutex<(Vec<String>, Option<Capture>)>);
+
+/// The running capture, dropped to stop it.
+type Capture = Box<dyn Send>;
+
+/// Starts or stops the visualiser for the window asking.
+///
+/// Kept per window rather than counted, so a window that asks twice, or
+/// reloads without saying goodbye, cannot leave the capture running forever.
+#[tauri::command]
+pub fn watch_visualizer(
+    app: AppHandle,
+    window: tauri::Window,
+    watch: State<'_, VisualizerWatch>,
+    on: bool,
+) {
+    let mut held = watch.0.lock();
+    let (watchers, capture) = &mut *held;
+    watchers.retain(|label| label != window.label());
+    if on {
+        watchers.push(window.label().to_owned());
+    }
+    if watchers.is_empty() {
+        *capture = None;
+        return;
+    }
+    #[cfg(windows)]
+    if capture.is_none() {
+        *capture = Some(Box::new(crate::platform::loopback::start(move |bars| {
+            let _ = app.emit(event::VISUALIZER, bars);
+        })));
+    }
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 /// Windows 11's power mode, or `None` where it has none.

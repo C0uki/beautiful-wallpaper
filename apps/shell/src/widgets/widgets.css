@@ -485,3 +485,31 @@
   text-align: center;
   font-size: 0.9em;
 }
+
+/* The visualiser: bars that grow from the bottom, scaled rather than resized
+   so a frame is a compositor change and not a layout. */
+.bw-visualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bw-visualizer span {
+  flex: 1;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--primary);
+  transform-origin: bottom;
+  transition: transform 60ms linear;
+}
+
+.bw-bar-visualizer {
+  width: 54px;
+  height: 18px;
+  padding: 0 4px;
+}
+
+.bw-media-tab-visualizer {
+  width: 100%;
+  height: 56px;
+}

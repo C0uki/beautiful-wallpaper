@@ -25,6 +25,8 @@ pub mod identity;
 #[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
+pub mod loopback;
+#[cfg(windows)]
 pub mod mixer;
 #[cfg(windows)]
 pub mod notifylisten;
