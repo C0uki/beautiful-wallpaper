@@ -113,6 +113,7 @@ export const Command = {
   SetMode: "set_mode",
   ToggleState: "toggle_state",
   SetSurfaceRevealed: "set_surface_revealed",
+  SetDockShape: "set_dock_shape",
   ClickTrayIcon: "click_tray_icon",
   SetState: "set_state",
   GetStates: "get_states",
