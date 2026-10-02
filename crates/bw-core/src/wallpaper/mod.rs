@@ -64,6 +64,21 @@ pub fn list_directory(dir: &Path, extensions: &[String]) -> std::io::Result<Vec<
     Ok(directories)
 }
 
+/// Files the background plays as video rather than draws as a picture: the
+/// two containers WebView2 plays without anything installed.
+pub const VIDEO_EXTENSIONS: [&str; 2] = ["mp4", "webm"];
+
+/// Whether a wallpaper is a video.
+pub fn is_video(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|found| {
+            VIDEO_EXTENSIONS
+                .iter()
+                .any(|video| video.eq_ignore_ascii_case(found))
+        })
+}
+
 fn has_extension(path: &Path, extensions: &[String]) -> bool {
     let Some(found) = path.extension().and_then(|e| e.to_str()) else {
         return false;
@@ -140,6 +155,14 @@ mod tests {
         assert!(!entries[1].is_directory);
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn videos_are_known_by_extension_whatever_the_case() {
+        assert!(is_video(Path::new(r"C:\Videos\waves.MP4")));
+        assert!(is_video(Path::new("loop.webm")));
+        assert!(!is_video(Path::new("still.png")));
+        assert!(!is_video(Path::new("mp4")));
     }
 
     #[test]
