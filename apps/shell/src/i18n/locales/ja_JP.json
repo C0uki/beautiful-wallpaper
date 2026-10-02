@@ -19,6 +19,7 @@
   "AI": "AI/*keep*/",
   "Accent color": "アクセントカラー",
   "Add": "追加",
+  "Add a widget": "ウィジェットを追加",
   "Add a task": "タスクを追加",
   "Add an Anthropic API key in settings to use the chat.": "チャットを使うには、設定で Anthropic の API キーを追加してください。",
   "Add an Anthropic API key in settings to use the translator.": "翻訳を使うには、設定で Anthropic の API キーを追加してください。",
