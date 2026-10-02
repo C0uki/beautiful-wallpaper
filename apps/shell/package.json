@@ -10,6 +10,7 @@
     "preview": "vite preview --port 4173 --strictPort",
     "test": "vitest run",
     "screenshots": "node scripts/screenshots.mjs",
+    "check:transitions": "node scripts/transitions.mjs",
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build"
