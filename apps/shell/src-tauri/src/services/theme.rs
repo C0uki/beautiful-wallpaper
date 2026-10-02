@@ -24,8 +24,14 @@ pub fn regenerate(state: &AppState) -> Result<GeneratedTheme, String> {
     let generated = match palette.accent_color.as_deref() {
         Some(accent) if !accent.is_empty() => theme::from_accent(accent, mode, variant),
         _ => {
-            let path = Path::new(&config.background.wallpaper_path);
-            if config.background.wallpaper_path.is_empty() {
+            // A video's colours are its still frame's.
+            let path = if bw_core::wallpaper::is_video(Path::new(&config.background.wallpaper_path))
+            {
+                Path::new(&config.background.thumbnail_path)
+            } else {
+                Path::new(&config.background.wallpaper_path)
+            };
+            if path.as_os_str().is_empty() {
                 theme::from_accent(DEFAULT_ACCENT, mode, variant)
             } else {
                 theme::from_wallpaper(path, mode, variant).or_else(|error| {

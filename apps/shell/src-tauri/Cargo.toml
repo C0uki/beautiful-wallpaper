@@ -63,6 +63,8 @@ windows = { version = "0.58", features = [
   "Media_Ocr",
   "Networking_Connectivity",
   "Security_Credentials",
+  "Storage",
+  "Storage_FileProperties",
   "Media_Control",
   "UI_Notifications",
   "UI_Notifications_Management",

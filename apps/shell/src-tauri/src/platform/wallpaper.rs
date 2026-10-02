@@ -63,6 +63,43 @@ pub fn set(path: &str, monitor: Option<&str>, fit: Fit) -> Result<()> {
     Ok(())
 }
 
+/// A frame of a video, as Explorer's own thumbnail of it, still encoded.
+///
+/// Explorer already decodes every format Windows can play to draw its
+/// thumbnails, so this needs no decoder of its own.
+///
+/// On a thread of its own: these calls block until they finish, and a caller
+/// on the main thread would be waiting in the apartment they finish in.
+pub fn video_frame(path: &str) -> Result<Vec<u8>> {
+    use windows::Storage::FileProperties::{ThumbnailMode, ThumbnailOptions};
+    use windows::Storage::StorageFile;
+    use windows::Storage::Streams::DataReader;
+    use windows::Win32::System::Com::COINIT_MULTITHREADED;
+
+    let path = HSTRING::from(path);
+    std::thread::spawn(move || -> Result<Vec<u8>> {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        let file = StorageFile::GetFileFromPathAsync(&path)?.get()?;
+        let frame = file
+            .GetThumbnailWithSizeAndOptionsAsync(
+                ThumbnailMode::SingleItem,
+                1920,
+                ThumbnailOptions::ResizeThumbnail,
+            )?
+            .get()?;
+        let size = u32::try_from(frame.Size()?).unwrap_or(u32::MAX);
+        let reader = DataReader::CreateDataReader(&frame)?;
+        reader.LoadAsync(size)?.get()?;
+        let mut bytes = vec![0u8; size as usize];
+        reader.ReadBytes(&mut bytes)?;
+        Ok(bytes)
+    })
+    .join()
+    .unwrap_or_else(|_| Err(windows::Win32::Foundation::E_FAIL.into()))
+}
+
 /// Reads back the wallpaper Windows currently has for a monitor.
 pub fn current(monitor: Option<&str>) -> Result<String> {
     ensure_com();
