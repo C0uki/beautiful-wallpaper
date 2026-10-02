@@ -2,7 +2,7 @@
 
 end4-pC is 65,000 lines of QML plus 41 shell and Python scripts. Reaching parity
 is not one change, so the work is split into phases that each land on the same
-foundation. Phases 0, 1, 4 and 5 are done, and most of 2 and 3; what is left
+foundation. Phases 0, 1, 2, 4 and 5 are done, and most of 3; what is left
 is listed under each phase and in "Known gaps" at the end.
 
 ## Phase 0 — Foundation ✅
@@ -18,36 +18,31 @@ The background surface, wallpaper transitions, the drag-and-snap widget canvas
 with six widgets, and the wallpaper picker with local browsing and three online
 providers.
 
-## Phase 2 — The bar (mostly done)
+## Phase 2 — The bar ✅
 
 Done: screen-space reservation through `SHAppBarMessage` — held in a value whose
 `Drop` gives the edge back, so exiting never leaves the work area shrunk — the
 four bar styles (`m3`, `hug`, `float`, `islands`), horizontal and vertical
 variants, hover popups, and ten widgets: workspaces (GlazeWM), active window,
 clock, weather, tray, battery, network throughput, resources, media and the
-utility buttons. The layout comes from `bar.left/center/right`, as upstream.
+utility buttons, plus a spectrum visualiser. The layout comes from
+`bar.left/center/right`, as upstream, and the settings screen edits it by
+dragging widgets between the three slots.
 It can hide itself until the pointer reaches its edge (`bar.autoHide`), run one
 bar per monitor (`bar.perMonitor`), or be switched off (`bar.enable`).
 
 The tray was the awkward one, as expected. Windows has no StatusNotifierItem
-equivalent, so the icons are read out of Explorer's own toolbar across the
-process boundary — `VirtualAllocEx` a `TBBUTTON` inside Explorer, `TB_GETBUTTON`
-into it, `ReadProcessMemory` it back. It is undocumented and unverifiable
-without a real Explorer, so it degrades to "no icons" on any failure. The same
-struct carries each icon's `HICON` and callback message, so the icons are drawn
-as their real images, and a click is posted back to the window that registered
-it.
+equivalent. The first version read the icons out of Explorer's own toolbar
+across the process boundary, which the Windows 11 taskbar no longer has, so
+the tray came up empty. The shell now hosts the notification area itself: it
+makes a `Shell_TrayWnd` of its own in front of Explorer's, so
+`Shell_NotifyIcon` sends every icon to it first, keeps what it is told, and
+passes every message on to Explorer unchanged. Being first is also what tells
+it which `NOTIFYICON_VERSION` each icon asked for, so clicks are packed the way
+the owner expects.
 
-Still to do:
-
-- **Tray clicks for `NOTIFYICON_VERSION_4` owners.** An owner that registered
-  that version expects the click's two parameters packed the other way round,
-  and Explorer's data does not say which version was asked for, so such an
-  owner may ignore the click.
-- **The audio visualiser**, which needs a WASAPI loopback capture the shell does
-  not have yet.
-- **The bar layout editor.** The three slots can be edited in the settings
-  screen, but only as lists of names; there is no drag-and-drop editor.
+The visualiser records the default output's mix through WASAPI loopback and
+draws 32 log-spaced bands, only while something on screen is drawing them.
 
 ## Phase 3 — Sidebars, notifications, OSD, dock
 
@@ -156,17 +151,17 @@ but safe-rated work, and the tab itself is hidden entirely until
 
 ### Still to do
 
-- **The dock's drag-to-reorder and drop targets.** Pinning works; rearranging
-  pinned icons by dragging does not.
-- **The media tab's visualiser and lyrics.** The visualiser needs a WASAPI
-  loopback capture the shell does not have; the lyrics came from an external
-  script.
-- **Power plans.** The documented API reaches only the classic schemes, and
-  Windows 11's power mode sits behind an undocumented overlay call, so the
-  quick toggle for it is not built.
-- **Bluetooth pairing and connecting.** Only paired devices are listed;
-  pairing needs a PIN exchange with a UI of its own, and connecting is largely
-  the stack's decision, so the dialog opens Windows' own settings for both.
+- **Dropping files on a dock icon** to open them with that application.
+  Pinned icons can be dragged to rearrange them; nothing can be dropped on one.
+- **The media tab's lyrics**, which came from an external script. The
+  visualiser is there.
+
+Done since the first pass: a quick toggle for Windows 11's power mode, read
+and written through the overlay calls `powrprof.dll` exports without a
+header; and Bluetooth pairing — with the PIN shown, confirmed or typed in the
+dialog — forgetting, and connecting or disconnecting audio devices the way
+Settings does, through the Bluetooth audio driver's one-shot properties.
+
 - **Reading other applications' notifications** is built, behind
   `hacks.readOtherNotifications` and the MSIX sparse package that gives the
   shell the package identity Windows requires for it — see the Phase 5 entry
@@ -686,6 +681,13 @@ Four documents, and one of them writes itself.
   favour of a link** to the generated reference: a second copy of the defaults
   is a second copy to go stale, which is the thing this whole entry is about.
 
+### Done: updating itself
+
+Releases carry a signed `latest.json`; the shell checks it a minute after
+starting and every six hours, says which version it is moving to, gives the
+taskbar and the bar's edge back, and lets the installer restart it into the
+new one. `windows.autoUpdate` turns it off.
+
 ## Deliberately not built
 
 - **The lock screen.** Windows owns the lock screen, and a third-party
@@ -700,23 +702,17 @@ Four documents, and one of them writes itself.
 
 ## Known gaps in what exists
 
-- **Transitions.** The original ships fourteen wallpaper transitions as
-  precompiled Qt `.qsb` bundles with no GLSL source in the repository. Six are
-  re-authored here as WebGL shaders (`fade`, `circle`, `dissolve`, `pixelate`,
-  `ripple`, `stripes`); the rest — `glitch`, `crt`, `shatter`, `Doom`, `magic`,
-  `Peel`, `circlePit`, `circleSelect` — are still to write, and will be
-  approximations rather than reproductions.
-- **`leastBusy` widget placement.** The original uses a 399-line OpenCV script to
-  find the calmest region of a wallpaper. The config key exists; the
-  implementation does not yet.
-- **Video wallpapers.** The plan is a `<video>` element in the WorkerW surface,
-  which needs no `mpvpaper` equivalent. Not started.
+- **Transitions are approximations.** The original ships its fourteen
+  wallpaper transitions as precompiled Qt `.qsb` bundles with no GLSL source.
+  All fourteen exist here as WebGL shaders under the same names, written from
+  what they do on screen, and a check holds each to showing exactly the old
+  picture at the start and the new one at the end.
 - **Per-monitor surfaces.** The bar is the only surface that can be put on
   every monitor. Everything else, the background surface included, is on the
   primary monitor only; `Variants { model: Quickshell.screens }` maps to one
-  window per monitor plus `WM_DISPLAYCHANGE` handling. Until then, a monitor
-  plugged in or moved while the shell runs is not noticed: the bars are made
-  and the background is placed at startup and when the config changes.
+  window per monitor. A monitor plugged in, unplugged or rearranged is noticed
+  (`WM_DISPLAYCHANGE`), and the bars, the overlays and the background are put
+  back against the screens as they now are.
 - **Capturing across monitors.** The region picker covers the primary monitor
   only. A window has a single scale factor, so an overlay spanning two
   monitors at different scales cannot map what was drawn on it back to pixels
