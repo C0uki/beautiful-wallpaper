@@ -10,7 +10,7 @@
 //!
 //! So the shell makes a `Shell_TrayWnd` of its own, above Explorer's, and is
 //! sent every icon first. It keeps what it learns and passes every message on
-//! to Explorer unchanged, so Explorer's copy stays whole — the icons are still
+//! to Explorer, so Explorer's copy stays whole — the icons are still
 //! there when the shell quits — and everything else that talks to the taskbar
 //! through that window (app bars, `WM_COMMAND`s, Explorer's own private
 //! messages) still reaches it. Icons registered before the shell started are
@@ -26,9 +26,10 @@ use std::sync::OnceLock;
 use parking_lot::Mutex;
 use serde::Serialize;
 use windows::core::{w, GUID, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows::Win32::Foundation::{HANDLE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::System::DataExchange::COPYDATASTRUCT;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::Shell::{SHAllocShared, SHFreeShared, SHLockShared, SHUnlockShared};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetMessageW, GetWindowRect,
     GetWindowThreadProcessId, InSendMessage, IsWindow, KillTimer, PostMessageW, RegisterClassExW,
@@ -114,6 +115,8 @@ struct NotifyIconData32 {
 const SIGNATURE: u32 = 0x3475_3423;
 /// `COPYDATASTRUCT::dwData` for a notification-icon message.
 const TRAY_DATA: usize = 1;
+/// `COPYDATASTRUCT::dwData` for an app bar's `SHAppBarMessage`.
+const APP_BAR_DATA: usize = 0;
 
 const NIM_ADD: u32 = 0;
 const NIM_MODIFY: u32 = 1;
@@ -212,6 +215,11 @@ unsafe extern "system" fn window_proc(
             // told its icon failed may try again or give up.
             return LRESULT(1);
         }
+        if copy.dwData == APP_BAR_DATA {
+            if let Some(result) = forward_own_app_bar(copy, wparam) {
+                return result;
+            }
+        }
         return forward(msg, wparam, lparam);
     }
 
@@ -256,6 +264,61 @@ unsafe extern "system" fn window_proc(
 }
 
 /// Passes a message on to Explorer's taskbar, the way it arrived.
+/// The shell's own `SHAppBarMessage`, the bar reserving its edge. It finds
+/// this host first like everyone's does, but seeing a window of its own
+/// process it hands over the bar's position as memory only it can read,
+/// where it would otherwise share it with the taskbar's process. Passed on
+/// as it is, Explorer cannot read it and the call does nothing while
+/// reporting success: no edge reserved. So the position is copied into
+/// memory shared with Explorer, and Explorer's answer copied back.
+unsafe fn forward_own_app_bar(copy: &COPYDATASTRUCT, wparam: WPARAM) -> Option<LRESULT> {
+    // The 64-bit layout: the 40-byte `APPBARDATA` in its 32/64-bit-neutral
+    // form, the message, then at 48 the shared memory and at 56 the
+    // process it was made for.
+    if copy.cbData != 64 {
+        return None;
+    }
+    let mut block = [0u8; 64];
+    std::ptr::copy_nonoverlapping(copy.lpData as *const u8, block.as_mut_ptr(), 64);
+    let shared = u64::from_le_bytes(block[48..56].try_into().ok()?) as usize;
+    let process = u32::from_le_bytes(block[56..60].try_into().ok()?);
+    let ours = std::process::id();
+    if shared == 0 || process != ours {
+        return None;
+    }
+    let mut explorer = 0u32;
+    GetWindowThreadProcessId(win::explorer_tray()?, Some(&mut explorer));
+    let own = SHLockShared(HANDLE(shared as _), ours);
+    if own.is_null() {
+        return None;
+    }
+    let theirs = SHAllocShared(Some(own), 40, explorer);
+    if theirs.is_invalid() {
+        let _ = SHUnlockShared(own);
+        return None;
+    }
+    block[48..56].copy_from_slice(&(theirs.0 as u64).to_le_bytes());
+    block[56..60].copy_from_slice(&explorer.to_le_bytes());
+    let repacked = COPYDATASTRUCT {
+        dwData: APP_BAR_DATA,
+        cbData: 64,
+        lpData: block.as_mut_ptr().cast(),
+    };
+    let result = forward(
+        WM_COPYDATA,
+        wparam,
+        LPARAM(std::ptr::addr_of!(repacked) as isize),
+    );
+    let answer = SHLockShared(theirs, explorer);
+    if !answer.is_null() {
+        std::ptr::copy_nonoverlapping(answer as *const u8, own as *mut u8, 40);
+        let _ = SHUnlockShared(answer);
+    }
+    let _ = SHFreeShared(theirs, explorer);
+    let _ = SHUnlockShared(own);
+    Some(result)
+}
+
 unsafe fn forward(msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let Some(explorer) = win::explorer_tray() else {
         return LRESULT(0);
