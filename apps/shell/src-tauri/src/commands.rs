@@ -652,7 +652,10 @@ pub fn set_idle_inhibit(idle: State<'_, IdleHandle>, on: bool) -> bool {
 /// there are any. The capture is held as anything droppable, since there is
 /// only one to hold where there is a Windows to capture from.
 #[derive(Default)]
-pub struct VisualizerWatch(parking_lot::Mutex<(Vec<String>, Option<Box<dyn Send>>)>);
+pub struct VisualizerWatch(parking_lot::Mutex<(Vec<String>, Option<Capture>)>);
+
+/// The running capture, dropped to stop it.
+type Capture = Box<dyn Send>;
 
 /// Starts or stops the visualiser for the window asking.
 ///
