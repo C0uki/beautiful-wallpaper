@@ -83,7 +83,7 @@ pub fn video_frame(path: &str) -> Result<Vec<u8>> {
         }
         let file = StorageFile::GetFileFromPathAsync(&path)?.get()?;
         let frame = file
-            .GetThumbnailWithSizeAndOptionsAsync(
+            .GetThumbnailAsync(
                 ThumbnailMode::SingleItem,
                 1920,
                 ThumbnailOptions::ResizeThumbnail,
