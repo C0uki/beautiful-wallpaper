@@ -504,7 +504,7 @@ pub fn active_window() -> ActiveWindow {
     ActiveWindow::default()
 }
 
-/// The notification area's icons.
+/// The notification area's icons, as the shell's own host has been told them.
 #[cfg(windows)]
 pub fn tray_icons() -> Vec<crate::platform::tray::TrayIcon> {
     crate::platform::tray::icons()

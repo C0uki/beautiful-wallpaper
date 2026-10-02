@@ -9,7 +9,7 @@
 //! * an overlay layer     → a topmost tool window that never takes focus
 //! * click-through        → `WS_EX_TRANSPARENT`
 
-use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use windows::core::{w, Result, PCWSTR};
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
@@ -31,13 +31,13 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, IsWindowVisible,
-    PostThreadMessageW, RegisterWindowMessageW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW,
-    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG,
-    SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
-    SW_SHOW, WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT,
-    WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT,
+    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
+    IsWindowVisible, PostThreadMessageW, RegisterWindowMessageW, SendMessageTimeoutW,
+    SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW,
+    GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG, SMTO_NORMAL, STYLESTRUCT,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOWPOS,
+    WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING,
+    WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -232,9 +232,67 @@ pub unsafe fn watch_edge_window(hwnd: HWND, on_taskbar_created: impl Fn() + Send
     let _ = SetWindowSubclass(hwnd, Some(edge_window), EDGE_WINDOW, 0);
 }
 
-fn taskbar_created() -> u32 {
+pub fn taskbar_created() -> u32 {
     static MESSAGE: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
     *MESSAGE.get_or_init(|| unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) })
+}
+
+/// When the shell last sent `TaskbarCreated` itself, in milliseconds since it
+/// first asked; zero for never.
+static ANNOUNCED: AtomicU64 = AtomicU64::new(0);
+
+fn milliseconds() -> u64 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START
+        .get_or_init(std::time::Instant::now)
+        .elapsed()
+        .as_millis() as u64
+        + 1
+}
+
+/// Asks every application to add its notification-area icons again, the
+/// way Explorer does when it starts: the shell hosts them, and the ones
+/// added before it did went only to Explorer.
+pub fn announce_taskbar() {
+    ANNOUNCED.store(milliseconds(), Ordering::Relaxed);
+    unsafe {
+        let _ = SendNotifyMessageW(HWND_BROADCAST, taskbar_created(), WPARAM(0), LPARAM(0));
+    }
+}
+
+/// Whether a `TaskbarCreated` just heard is the shell's own rather than a
+/// new Explorer's. Its own reaches every window it has, the bar's and the
+/// dock's included, and is no reason to put them back in their places.
+pub fn announced_by_us() -> bool {
+    let at = ANNOUNCED.load(Ordering::Relaxed);
+    at != 0 && milliseconds().saturating_sub(at) < 3000
+}
+
+/// Explorer's taskbar: the first `Shell_TrayWnd` that is not the shell's own
+/// notification-area host, which sits in front of it on purpose.
+pub fn explorer_tray() -> Option<HWND> {
+    let ours = std::process::id();
+    let mut previous = HWND::default();
+    unsafe {
+        loop {
+            let found = FindWindowExW(
+                HWND::default(),
+                previous,
+                w!("Shell_TrayWnd"),
+                PCWSTR::null(),
+            )
+            .ok()?;
+            if found.0.is_null() {
+                return None;
+            }
+            let mut process = 0u32;
+            GetWindowThreadProcessId(found, Some(&mut process));
+            if process != ours {
+                return Some(found);
+            }
+            previous = found;
+        }
+    }
 }
 
 unsafe extern "system" fn edge_window(
@@ -245,6 +303,12 @@ unsafe extern "system" fn edge_window(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    // The shell's own `TaskbarCreated` asks applications for their icons; it
+    // says nothing about Explorer, and nothing here needs redoing.
+    if msg == taskbar_created() && announced_by_us() {
+        return DefSubclassProc(hwnd, msg, wparam, lparam);
+    }
+
     if msg == WM_WINDOWPOSCHANGING {
         let position = lparam.0 as *mut WINDOWPOS;
         let corners = HWND(HOT_CORNERS.load(Ordering::Relaxed) as _);
@@ -710,7 +774,7 @@ pub unsafe fn swallows_its_monitor(hwnd: HWND) -> bool {
 pub unsafe fn set_taskbar_visible(visible: bool) {
     let command = if visible { SW_SHOW } else { SW_HIDE };
 
-    if let Ok(primary) = FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()) {
+    if let Some(primary) = explorer_tray() {
         let _ = ShowWindow(primary, command);
     }
 
@@ -893,7 +957,7 @@ fn keep_taskbar_hidden() -> Option<(std::thread::JoinHandle<()>, u32)> {
 unsafe fn taskbar_state(message: u32, state: u32) -> usize {
     let mut data = APPBARDATA {
         cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-        hWnd: FindWindowW(w!("Shell_TrayWnd"), PCWSTR::null()).unwrap_or_default(),
+        hWnd: explorer_tray().unwrap_or_default(),
         lParam: LPARAM(state as isize),
         ..Default::default()
     };

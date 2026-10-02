@@ -395,9 +395,18 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
         });
     }
 
-    // Reading the notification area means poking at Explorer across a process
-    // boundary, which is far too expensive to do every second.
+    // The notification area is hosted by the shell, which hears of every
+    // change as it happens. Sent again every few seconds as well: a surface
+    // that has just loaded has to be told what is already there, and an
+    // application that exited without taking its icon away is noticed then.
     {
+        #[cfg(windows)]
+        {
+            let app = app.clone();
+            bw_shell::platform::tray::host(move || {
+                let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+            });
+        }
         let app = app.clone();
         std::thread::spawn(move || loop {
             let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());

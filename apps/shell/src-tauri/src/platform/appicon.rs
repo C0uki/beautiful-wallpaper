@@ -123,19 +123,25 @@ pub fn for_executable_at(executable: &std::path::Path, index: i32) -> Option<Str
     Some(target.to_string_lossy().into_owned())
 }
 
-/// The PNG for an icon we already hold a handle to, under `key`.
+/// The PNG for an icon we hold a handle to, named after its pixels.
 ///
-/// The notification area hands over `HICON`s rather than paths: they come out
-/// of Explorer's own button data, so there is no file to extract from.
-///
-/// ponytail: the handle is not an identity, so `key` has to be the owner and
-/// id and the PNG is rewritten on every refresh. Hash the pixels instead if
-/// that ever shows up in a profile.
-pub fn for_hicon(icon: HICON, key: &str) -> Option<String> {
-    let target = cache_path(key)?;
+/// The notification area hands over `HICON`s rather than paths, and a handle
+/// is not an identity: an application changes its icon by sending a new one.
+/// Named after what it looks like, a changed icon is a new file the bar
+/// cannot show a stale copy of, and an animation's frames are each written
+/// once rather than on every turn.
+pub fn for_hicon(icon: HICON) -> Option<String> {
     let pixels = unsafe { icon_pixels(icon)? };
-    let image: image::RgbaImage = image::ImageBuffer::from_raw(ICON_SIZE, ICON_SIZE, pixels)?;
-    image.save(&target).ok()?;
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in &pixels {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x1000_0000_01b3);
+    }
+    let target = cache_path(&format!("hicon#{hash:016x}"))?;
+    if !target.exists() {
+        let image: image::RgbaImage = image::ImageBuffer::from_raw(ICON_SIZE, ICON_SIZE, pixels)?;
+        image.save(&target).ok()?;
+    }
     Some(target.to_string_lossy().into_owned())
 }
 
