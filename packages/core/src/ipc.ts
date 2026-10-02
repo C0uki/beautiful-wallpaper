@@ -154,6 +154,8 @@ export const Command = {
   ConnectBluetooth: "connect_bluetooth",
   GetIdleInhibit: "get_idle_inhibit",
   SetIdleInhibit: "set_idle_inhibit",
+  GetPowerMode: "get_power_mode",
+  SetPowerMode: "set_power_mode",
   GetSystemInfo: "get_system_info",
   GetTodos: "get_todos",
   AddTodo: "add_todo",

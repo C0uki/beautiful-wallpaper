@@ -34,6 +34,9 @@ function BlankedWallpaper() {
   );
 }
 
+/** Wallpapers played rather than drawn: `bw_core::wallpaper::VIDEO_EXTENSIONS`. */
+const VIDEO = /\.(mp4|webm)$/i;
+
 export function Background() {
   const config = useShell((state) => state.config);
   const wallpaper = useShell((state) => state.wallpaper);
@@ -44,7 +47,20 @@ export function Background() {
   const widgets = background.widgets;
 
   const path = wallpaper.path || background.wallpaperPath;
-  const src = useMemo(() => (path ? backend().assetUrl(path) : ""), [path]);
+  // A video plays over a still frame of itself. The still is what the
+  // transition runs to, what the widgets are placed against, and what is
+  // left showing if the video cannot play.
+  const video = VIDEO.test(path);
+  const picture = video ? background.thumbnailPath : path;
+  const src = useMemo(
+    () => (picture ? backend().assetUrl(picture) : ""),
+    [picture],
+  );
+  const videoSrc = useMemo(
+    () => (video ? backend().assetUrl(path) : ""),
+    [video, path],
+  );
+  const [playing, setPlaying] = useState("");
 
   // Parallax: nudge the wallpaper as the pointer moves, within the headroom the
   // configured zoom provides.
@@ -105,8 +121,40 @@ export function Background() {
         />
       )}
 
+      {/* ponytail: plays on behind full-screen programs too. Pause it there
+          if the decoding ever shows up in a battery report. */}
+      {videoSrc && !wallpaper.blanked ? (
+        <video
+          key={videoSrc}
+          src={videoSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          onPlaying={() => setPlaying(videoSrc)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            // Faded in once it is moving, so the still underneath carries the
+            // change and the first decoded frame does not pop in.
+            opacity: playing === videoSrc ? 1 : 0,
+            transform: `scale(${background.parallax.enable ? background.parallax.zoom : 1}) translate(${pan.x}%, ${pan.y}%)`,
+            transition:
+              "opacity var(--duration-slow) var(--ease-effects-default), transform var(--duration-slower) var(--ease-spatial-default)",
+          }}
+        />
+      ) : null}
+
       {widgets.enable ? (
-        <WidgetCanvas items={items} editing={editing} grid={widgets.grid} />
+        <WidgetCanvas
+          items={items}
+          editing={editing}
+          grid={widgets.grid}
+          wallpaper={wallpaper.blanked ? "" : src}
+        />
       ) : null}
 
       {/* The desktop's own controls: wallpaper picker, shuffle, edit mode.

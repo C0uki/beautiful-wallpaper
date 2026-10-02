@@ -31,13 +31,13 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
-    GetMessageW, GetWindowLongPtrW, GetWindowRect, GetWindowTextW, IsWindowVisible,
-    PostThreadMessageW, RegisterWindowMessageW, SendMessageTimeoutW, SetParent, SetWindowLongPtrW,
-    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_TOPMOST, MSG,
-    SMTO_NORMAL, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
-    SW_SHOW, WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_NCDESTROY, WM_QUIT,
-    WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-    WS_EX_TRANSPARENT,
+    GetMessageW, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
+    IsWindowVisible, PostThreadMessageW, RegisterWindowMessageW, SendMessageTimeoutW, SetParent,
+    SetWindowLongPtrW, SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM,
+    HWND_TOPMOST, MSG, SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOWPOS, WINDOW_EX_STYLE,
+    WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING,
+    WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -103,10 +103,6 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
     match layer {
         Layer::Wallpaper => {
             let worker = worker_w()?;
-            // Where it is on screen now, before it becomes a child and its
-            // position starts counting from the desktop window's corner.
-            let mut bounds = RECT::default();
-            GetWindowRect(hwnd, &mut bounds)?;
             // Reparenting is what puts the window *under* the icons: WorkerW is
             // the window the shell paints the wallpaper into, and it sits below
             // the icon list view.
@@ -114,20 +110,20 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
             // That window spans every monitor, so its corner is only the
             // primary monitor's when nothing sits above or left of it. With a
             // second monitor above, the wallpaper went to the top of that one
-            // and left the primary monitor all but uncovered.
-            let mut corner = POINT {
-                x: bounds.left,
-                y: bounds.top,
-            };
+            // and left the primary monitor all but uncovered. So the surface
+            // is put over the primary monitor outright — its corner is the
+            // screen's origin, whatever else is plugged in — and sized to it,
+            // which is also what moves it when a monitor comes or goes.
+            let mut corner = POINT { x: 0, y: 0 };
             let _ = ScreenToClient(worker, &mut corner);
             SetWindowPos(
                 hwnd,
                 HWND_BOTTOM,
                 corner.x,
                 corner.y,
-                0,
-                0,
-                SWP_NOSIZE | SWP_NOACTIVATE,
+                GetSystemMetrics(SM_CXSCREEN),
+                GetSystemMetrics(SM_CYSCREEN),
+                SWP_NOACTIVATE,
             )?;
         }
         Layer::Normal => {}
@@ -224,6 +220,10 @@ pub fn set_hot_corners(hwnd: HWND) {
 ///     given back while the bar went on sitting in it. Explorer announces
 ///     itself with `TaskbarCreated`, sent to every top-level window, and
 ///     `on_taskbar_created` runs then. The first caller's is the one kept.
+///   * A monitor plugged in, unplugged or rearranged moves every screen the
+///     surfaces were placed against. Windows says so with `WM_DISPLAYCHANGE`,
+///     also sent to every top-level window, and the same callback runs: it is
+///     the same work, putting everything back where the screens now are.
 ///
 /// # Safety
 /// `hwnd` must be a live top-level window owned by this process.
@@ -258,7 +258,7 @@ unsafe extern "system" fn edge_window(
         }
     }
 
-    if msg == taskbar_created() {
+    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE {
         if let Some(callback) = TASKBAR_CREATED.get() {
             callback();
         }
