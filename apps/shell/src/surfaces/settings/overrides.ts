@@ -86,6 +86,22 @@ export const OVERRIDES: Record<string, Override> = {
   "background.wallpaperAnimation": {
     choices: plain([...TRANSITION_NAMES, "random"]),
   },
+  // Every desktop widget's: kept where it was put, or moved to wherever
+  // the wallpaper is calmest.
+  ...Object.fromEntries(
+    [
+      "clock",
+      "media",
+      "weather",
+      "resources",
+      "calendar",
+      "userCard",
+      "notes",
+    ].map((id) => [
+      `background.widgets.${id}.placementStrategy`,
+      { choices: plain(["free", "leastBusy"]) },
+    ]),
+  ),
   "background.centeredWallpaperSize": {
     range: { min: 0.1, max: 1, step: 0.05 },
   },
