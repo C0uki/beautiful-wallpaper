@@ -721,6 +721,42 @@
   padding: 8px 10px 12px;
 }
 
+/* What a Bluetooth pairing asks of the person, above the lists. */
+.bw-bluetooth-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--rounding-normal);
+  background: var(--layer2);
+}
+
+.bw-bluetooth-prompt p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.bw-bluetooth-prompt input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--layer1);
+  color: inherit;
+  font: inherit;
+}
+
+.bw-dialog-subheading {
+  margin: 12px 4px 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+
 .bw-wifi-error {
   font-size: 0.78em;
   color: var(--error);

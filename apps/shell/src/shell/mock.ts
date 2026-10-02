@@ -753,10 +753,44 @@ export function mockBackend(): Backend {
     { ssid: "far-away-ap", bars: 0, secured: true },
   ];
 
-  const bluetoothDevices: BluetoothDeviceInfo[] = [
-    { id: "bt-1", name: "WH-1000XM4", connected: true },
-    { id: "bt-2", name: "MX Master 3", connected: true },
-    { id: "bt-3", name: "Kitchen Speaker", connected: false },
+  let bluetoothDevices: BluetoothDeviceInfo[] = [
+    {
+      id: "bt-1",
+      name: "WH-1000XM4",
+      connected: true,
+      paired: true,
+      audio: true,
+    },
+    {
+      id: "bt-2",
+      name: "MX Master 3",
+      connected: true,
+      paired: true,
+      audio: false,
+    },
+    {
+      id: "bt-3",
+      name: "Kitchen Speaker",
+      connected: false,
+      paired: true,
+      audio: true,
+    },
+  ];
+  let bluetoothNearby: BluetoothDeviceInfo[] = [
+    {
+      id: "bt-4",
+      name: "Pixel Buds",
+      connected: false,
+      paired: false,
+      audio: true,
+    },
+    {
+      id: "bt-5",
+      name: "Keychron K2",
+      connected: false,
+      paired: false,
+      audio: false,
+    },
   ];
 
   const systemInfo: SystemInfo = {
@@ -1127,6 +1161,34 @@ export function mockBackend(): Backend {
 
         case Command.GetBluetoothDevices:
           return bluetoothDevices as T;
+
+        case Command.ScanBluetooth:
+          return bluetoothNearby as T;
+
+        case Command.PairBluetooth: {
+          const found = bluetoothNearby.find((each) => each.id === args["id"]);
+          if (!found) return false as T;
+          bluetoothNearby = bluetoothNearby.filter((each) => each !== found);
+          bluetoothDevices = [...bluetoothDevices, { ...found, paired: true }];
+          return true as T;
+        }
+
+        case Command.AnswerBluetoothPairing:
+          return undefined as T;
+
+        case Command.UnpairBluetooth:
+          bluetoothDevices = bluetoothDevices.filter(
+            (each) => each.id !== args["id"],
+          );
+          return true as T;
+
+        case Command.ConnectBluetooth:
+          bluetoothDevices = bluetoothDevices.map((each) =>
+            each.id === args["id"]
+              ? { ...each, connected: Boolean(args["connect"]) }
+              : each,
+          );
+          return true as T;
 
         case Command.GetSystemInfo:
           return systemInfo as T;

@@ -578,7 +578,7 @@ pub enum ConnectOutcome {
     Failed,
 }
 
-/// One Bluetooth device the machine is paired with.
+/// One Bluetooth device, paired or in range.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BluetoothDeviceInfo {
@@ -586,4 +586,8 @@ pub struct BluetoothDeviceInfo {
     pub name: String,
     /// Whether it is currently in range and talking.
     pub connected: bool,
+    pub paired: bool,
+    /// Headphones, speakers and the like: the ones the shell can connect
+    /// and disconnect itself.
+    pub audio: bool,
 }

@@ -61,6 +61,8 @@ pub mod event {
     /// One piece of a reply as it streams. Separate from `CHAT` so a token
     /// does not redraw every message in the window.
     pub const CHAT_EVENT: &str = "bw://chat-event";
+    /// A Bluetooth pairing needs the person: a PIN to show, confirm or type.
+    pub const BLUETOOTH_PAIRING: &str = "bw://bluetooth-pairing";
     pub const VOLUME: &str = "bw://volume";
     pub const MIC: &str = "bw://mic";
     /// The per-application mixer changed: a session appeared, went away, or
@@ -628,10 +630,77 @@ pub async fn disconnect_wifi() {
 pub async fn get_bluetooth_devices() -> Vec<providers::BluetoothDeviceInfo> {
     #[cfg(windows)]
     {
-        off_runtime(crate::platform::radios::paired_devices).await
+        off_runtime(|| crate::platform::radios::devices(true)).await
     }
     #[cfg(not(windows))]
     Vec::new()
+}
+
+/// Unpaired Bluetooth devices in range. Looking takes the radio a few seconds.
+#[tauri::command]
+pub async fn scan_bluetooth() -> Vec<providers::BluetoothDeviceInfo> {
+    #[cfg(windows)]
+    {
+        off_runtime(|| crate::platform::radios::devices(false)).await
+    }
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+/// Pairs with a device. A PIN to show, confirm or type arrives as
+/// `bw://bluetooth-pairing`, and is answered with `answer_bluetooth_pairing`.
+#[tauri::command]
+pub async fn pair_bluetooth(app: AppHandle, id: String) -> bool {
+    #[cfg(windows)]
+    {
+        off_runtime(move || {
+            crate::platform::radios::pair(&id, move |prompt| {
+                let _ = app.emit(event::BLUETOOTH_PAIRING, prompt);
+            })
+        })
+        .await
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, id);
+        false
+    }
+}
+
+/// The answer to a pairing prompt: the PIN or a yes, or nothing for a no.
+#[tauri::command]
+pub fn answer_bluetooth_pairing(answer: Option<String>) {
+    #[cfg(windows)]
+    crate::platform::radios::answer_pairing(answer);
+    #[cfg(not(windows))]
+    let _ = answer;
+}
+
+#[tauri::command]
+pub async fn unpair_bluetooth(id: String) -> bool {
+    #[cfg(windows)]
+    {
+        off_runtime(move || crate::platform::radios::unpair(&id)).await
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = id;
+        false
+    }
+}
+
+/// Connects or disconnects a paired audio device.
+#[tauri::command]
+pub async fn connect_bluetooth(id: String, connect: bool) -> bool {
+    #[cfg(windows)]
+    {
+        off_runtime(move || crate::platform::radios::connect_audio(&id, connect)).await
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (id, connect);
+        false
+    }
 }
 
 #[tauri::command]

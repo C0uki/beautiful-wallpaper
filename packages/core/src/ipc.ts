@@ -48,6 +48,8 @@ export const Event = {
   Dock: "bw://dock",
   /** The whole conversation, after a turn starts or finishes. */
   Chat: "bw://chat",
+  /** A Bluetooth pairing needs the person; carries a `PairingPrompt`. */
+  BluetoothPairing: "bw://bluetooth-pairing",
   /** One piece of a reply as it streams. */
   ChatEvent: "bw://chat-event",
   /** Asks the readout to appear, carrying what to show. */
@@ -145,6 +147,11 @@ export const Command = {
   ConnectWifi: "connect_wifi",
   DisconnectWifi: "disconnect_wifi",
   GetBluetoothDevices: "get_bluetooth_devices",
+  ScanBluetooth: "scan_bluetooth",
+  PairBluetooth: "pair_bluetooth",
+  AnswerBluetoothPairing: "answer_bluetooth_pairing",
+  UnpairBluetooth: "unpair_bluetooth",
+  ConnectBluetooth: "connect_bluetooth",
   GetIdleInhibit: "get_idle_inhibit",
   SetIdleInhibit: "set_idle_inhibit",
   GetSystemInfo: "get_system_info",
@@ -351,6 +358,16 @@ export interface BluetoothDeviceInfo {
   id: string;
   name: string;
   connected: boolean;
+  paired: boolean;
+  /** Headphones, speakers and the like: the ones the shell can connect. */
+  audio: boolean;
+}
+
+/** What a pairing needs from the person: show this PIN to type on the
+ *  device, confirm the device shows it, or type the device's own. */
+export interface PairingPrompt {
+  kind: "displayPin" | "confirmPin" | "providePin";
+  pin: string;
 }
 
 /** What the sidebar banner shows about the machine. */
