@@ -31,6 +31,69 @@ use windows::Win32::System::Shutdown::{
 };
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
+/// Windows 11's power mode: the three settings under Settings > Power.
+///
+/// They are not power plans. They are an *overlay* on the active plan, and the
+/// only way to read or change one is a pair of functions `powrprof.dll`
+/// exports and no header declares, so they are looked up by name at run time.
+/// A Windows without them, or a plan that refuses an overlay (a desktop on
+/// High performance), has no power mode, and the toggle is not offered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PowerMode {
+    Efficiency,
+    Balanced,
+    Performance,
+}
+
+const EFFICIENCY: windows::core::GUID =
+    windows::core::GUID::from_u128(0x961cc777_2547_4f9d_8174_7d86181b8a7a);
+const PERFORMANCE: windows::core::GUID =
+    windows::core::GUID::from_u128(0xded574b5_45a0_4f42_8737_46345c09c238);
+
+type GetOverlay = unsafe extern "system" fn(*mut windows::core::GUID) -> u32;
+type SetOverlay = unsafe extern "system" fn(windows::core::GUID) -> u32;
+
+/// One of `powrprof.dll`'s overlay functions, if this Windows has it.
+fn overlay_function<T: Copy>(name: windows::core::PCSTR) -> Option<T> {
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    unsafe {
+        // Already loaded by the shell's other power calls; this only finds it.
+        let module = LoadLibraryW(windows::core::w!("powrprof.dll")).ok()?;
+        let found = GetProcAddress(module, name)?;
+        Some(std::mem::transmute_copy(&found))
+    }
+}
+
+/// The power mode in effect, or `None` where there is none to be had.
+pub fn power_mode() -> Option<PowerMode> {
+    let get: GetOverlay = overlay_function(windows::core::s!("PowerGetEffectiveOverlayScheme"))?;
+    let mut scheme = windows::core::GUID::zeroed();
+    if unsafe { get(&mut scheme) } != 0 {
+        return None;
+    }
+    Some(match scheme {
+        EFFICIENCY => PowerMode::Efficiency,
+        PERFORMANCE => PowerMode::Performance,
+        // Balanced is the empty overlay; Windows 10's in-between steps are
+        // nearest to it as well.
+        _ => PowerMode::Balanced,
+    })
+}
+
+/// Switches the power mode, and reads back the one that took.
+pub fn set_power_mode(mode: PowerMode) -> Option<PowerMode> {
+    let set: SetOverlay = overlay_function(windows::core::s!("PowerSetActiveOverlayScheme"))?;
+    let scheme = match mode {
+        PowerMode::Efficiency => EFFICIENCY,
+        PowerMode::Balanced => windows::core::GUID::zeroed(),
+        PowerMode::Performance => PERFORMANCE,
+    };
+    if unsafe { set(scheme) } != 0 {
+        tracing::warn!(?mode, "Windows refused the power mode");
+    }
+    power_mode()
+}
+
 /// What the event log records: a person asked for this, nothing crashed.
 const REASON_PLANNED_BY_USER: SHUTDOWN_REASON = SHUTDOWN_REASON(
     SHTDN_REASON_MAJOR_OTHER.0 | SHTDN_REASON_MINOR_OTHER.0 | SHTDN_REASON_FLAG_PLANNED.0,

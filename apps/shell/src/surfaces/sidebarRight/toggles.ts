@@ -5,7 +5,19 @@
 // styles from drifting into offering different things.
 
 import { tr } from "../../i18n";
-import { actions, useShell, type ShellState } from "../../shell/store";
+import {
+  actions,
+  useShell,
+  type PowerMode,
+  type ShellState,
+} from "../../shell/store";
+
+/** The power modes in the order a press steps through them. */
+const POWER_MODES: { mode: PowerMode; label: () => string }[] = [
+  { mode: "efficiency", label: () => tr("Best power efficiency") },
+  { mode: "balanced", label: () => tr("Balanced") },
+  { mode: "performance", label: () => tr("Best performance") },
+];
 
 export interface ToggleDefinition {
   id: string;
@@ -88,6 +100,22 @@ export const TOGGLES: ToggleDefinition[] = [
       void actions.setIdleInhibit(next);
       void actions.setPersistentValue("idle.inhibit", next);
     },
+  },
+  {
+    id: "powerMode",
+    label: () => tr("Power mode"),
+    icon: "speed",
+    // On whenever it is off the default, so a machine left on full power or
+    // on saving shows it at a glance.
+    state: (shell) =>
+      shell.powerMode === null ? null : shell.powerMode !== "balanced",
+    toggle: (shell) => {
+      const at = POWER_MODES.findIndex(({ mode }) => mode === shell.powerMode);
+      const next = POWER_MODES[(at + 1) % POWER_MODES.length]!;
+      void actions.setPowerMode(next.mode);
+    },
+    detailText: (shell) =>
+      POWER_MODES.find(({ mode }) => mode === shell.powerMode)?.label(),
   },
   {
     id: "mic",
