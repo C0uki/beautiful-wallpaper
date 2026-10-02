@@ -106,7 +106,12 @@ export function Background() {
       )}
 
       {widgets.enable ? (
-        <WidgetCanvas items={items} editing={editing} grid={widgets.grid} />
+        <WidgetCanvas
+          items={items}
+          editing={editing}
+          grid={widgets.grid}
+          wallpaper={wallpaper.blanked ? "" : src}
+        />
       ) : null}
 
       {/* The desktop's own controls: wallpaper picker, shuffle, edit mode.
