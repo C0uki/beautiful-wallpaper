@@ -34,6 +34,7 @@ pub mod search;
 pub mod session;
 pub mod settings;
 pub mod shelf;
+pub mod spectrum;
 pub mod sysinfo;
 pub mod theme;
 pub mod todo;

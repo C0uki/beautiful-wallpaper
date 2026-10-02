@@ -79,6 +79,7 @@ fn main() {
         .manage(state.clone())
         .manage(surfaces::Reservations::default())
         .manage(NotificationStore::default())
+        .manage(commands::VisualizerWatch::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::set_config_value,
@@ -126,6 +127,7 @@ fn main() {
             commands::get_bluetooth_devices,
             commands::get_idle_inhibit,
             commands::set_idle_inhibit,
+            commands::watch_visualizer,
             commands::get_power_mode,
             commands::set_power_mode,
             commands::get_system_info,
