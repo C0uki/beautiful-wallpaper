@@ -10,6 +10,7 @@
 // improvement on the default rather than a list that has to be kept complete.
 
 import { tr } from "../../i18n";
+import { TRANSITION_NAMES } from "../../gl/transitions";
 
 export interface Choice {
   value: string;
@@ -23,6 +24,8 @@ export interface Override {
   range?: { min: number; max: number; step: number };
   /** A sentence under the label, where the setting needs one. */
   hint?: () => string;
+  /** One of the bar's three slots: chips dragged between the three rows. */
+  barSlot?: true;
 }
 
 /** Values that are really a choice, keyed by config path. */
@@ -77,17 +80,28 @@ export const OVERRIDES: Record<string, Override> = {
     ],
   },
   "bar.style": { choices: plain(["m3", "hug", "float", "islands"]) },
+  "bar.left": { barSlot: true },
+  "bar.center": { barSlot: true },
+  "bar.right": { barSlot: true },
   "background.wallpaperAnimation": {
-    choices: plain([
-      "fade",
-      "circle",
-      "dissolve",
-      "pixelate",
-      "ripple",
-      "stripes",
-      "random",
-    ]),
+    choices: plain([...TRANSITION_NAMES, "random"]),
   },
+  // Every desktop widget's: kept where it was put, or moved to wherever
+  // the wallpaper is calmest.
+  ...Object.fromEntries(
+    [
+      "clock",
+      "media",
+      "weather",
+      "resources",
+      "calendar",
+      "userCard",
+      "notes",
+    ].map((id) => [
+      `background.widgets.${id}.placementStrategy`,
+      { choices: plain(["free", "leastBusy"]) },
+    ]),
+  ),
   "background.centeredWallpaperSize": {
     range: { min: 0.1, max: 1, step: 0.05 },
   },

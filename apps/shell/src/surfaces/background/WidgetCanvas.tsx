@@ -6,6 +6,10 @@
 // Positions are stored as fractions of the monitor, not pixels, so a resolution
 // change or a move to a different monitor keeps the layout recognisable instead
 // of pushing widgets off-screen.
+//
+// A widget whose `placementStrategy` is `"leastBusy"` ignores its stored
+// position and goes wherever the wallpaper is calmest, clear of the others.
+// Dragging one is choosing a place for it, so it becomes `"free"` there.
 
 import {
   useCallback,
@@ -17,6 +21,7 @@ import {
 import type { WidgetPlacement } from "@bw/core";
 import { actions } from "../../shell/store";
 import { Symbol } from "../../widgets";
+import { busyness, calmestSpot, type Box } from "./calm";
 
 export interface CanvasItem {
   id: string;
@@ -31,6 +36,107 @@ export interface WidgetCanvasProps {
   editing: boolean;
   /** Snap step in pixels; 0 disables snapping. */
   grid: number;
+  /** The wallpaper on screen, for the widgets placed where it is calmest. */
+  wallpaper?: string;
+}
+
+type Spot = { x: number; y: number };
+
+const isCalm = (item: CanvasItem) =>
+  item.placement.enable && item.placement.placementStrategy === "leastBusy";
+
+/**
+ * Where each `leastBusy` widget goes on `image`, as fractions of the screen.
+ *
+ * The wallpaper is read at 160 pixels across, framed the way it is drawn
+ * ("cover"), and each widget takes the calmest free place in turn, around
+ * the ones that stay where they were put.
+ *
+ * ponytail: the parallax zoom is ignored — a few percent at the edges, which
+ * the margin keeps widgets out of anyway.
+ */
+function placeCalmly(
+  image: HTMLImageElement,
+  root: HTMLElement,
+  items: CanvasItem[],
+  elements: Map<string, HTMLElement>,
+): Record<string, Spot> {
+  const bounds = root.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) return {};
+  const width = 160;
+  const height = Math.max(
+    1,
+    Math.round((width * bounds.height) / bounds.width),
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return {};
+  const scale = Math.max(
+    width / (image.naturalWidth || 1),
+    height / (image.naturalHeight || 1),
+  );
+  const drawnWidth = image.naturalWidth * scale;
+  const drawnHeight = image.naturalHeight * scale;
+  context.drawImage(
+    image,
+    (width - drawnWidth) / 2,
+    (height - drawnHeight) / 2,
+    drawnWidth,
+    drawnHeight,
+  );
+  const { data } = context.getImageData(0, 0, width, height);
+  const luma = new Float32Array(width * height);
+  for (let i = 0; i < luma.length; i++) {
+    luma[i] =
+      0.299 * data[i * 4]! +
+      0.587 * data[i * 4 + 1]! +
+      0.114 * data[i * 4 + 2]!;
+  }
+  const busy = busyness(luma, width, height);
+
+  const toMap = width / bounds.width;
+  const sizeOf = (id: string) => {
+    const box = elements.get(id)?.getBoundingClientRect();
+    return box
+      ? {
+          width: Math.ceil(box.width * toMap),
+          height: Math.ceil(box.height * toMap),
+        }
+      : null;
+  };
+
+  const taken: Box[] = [];
+  for (const item of items) {
+    if (!item.placement.enable || isCalm(item)) continue;
+    const size = sizeOf(item.id);
+    if (size) {
+      taken.push({
+        x: item.placement.x * width,
+        y: item.placement.y * height,
+        ...size,
+      });
+    }
+  }
+
+  const placed: Record<string, Spot> = {};
+  for (const item of items.filter(isCalm)) {
+    const size = sizeOf(item.id);
+    if (!size) continue;
+    const spot = calmestSpot(
+      busy,
+      width,
+      height,
+      size.width,
+      size.height,
+      taken,
+      4,
+    );
+    taken.push({ ...spot, ...size });
+    placed[item.id] = { x: spot.x / width, y: spot.y / height };
+  }
+  return placed;
 }
 
 interface DragState {
@@ -40,9 +146,16 @@ interface DragState {
   /** Offset from the widget's top-left to the pointer, in pixels. */
   offsetX: number;
   offsetY: number;
+  /** Placed by the wallpaper until now; the drop makes it `"free"`. */
+  calm: boolean;
 }
 
-export function WidgetCanvas({ items, editing, grid }: WidgetCanvasProps) {
+export function WidgetCanvas({
+  items,
+  editing,
+  grid,
+  wallpaper,
+}: WidgetCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   // Position overrides while dragging, so the widget tracks the pointer without
@@ -50,6 +163,39 @@ export function WidgetCanvas({ items, editing, grid }: WidgetCanvasProps) {
   const [live, setLive] = useState<Record<string, { x: number; y: number }>>(
     {},
   );
+  const elements = useRef(new Map<string, HTMLElement>());
+  const [calm, setCalm] = useState<Record<string, Spot>>({});
+
+  // Everything the calm places depend on, as one value the effect can watch:
+  // which widgets are placed by the wallpaper, and where the others stand.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const layout = items
+    .map(
+      ({ id, placement }) =>
+        `${id}:${placement.enable}:${placement.placementStrategy}:${placement.x}:${placement.y}`,
+    )
+    .join("|");
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!wallpaper || !root || !itemsRef.current.some(isCalm)) {
+      setCalm({});
+      return;
+    }
+    let cancelled = false;
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      if (!cancelled) {
+        setCalm(placeCalmly(image, root, itemsRef.current, elements.current));
+      }
+    };
+    image.src = wallpaper;
+    return () => {
+      cancelled = true;
+    };
+  }, [wallpaper, layout]);
 
   const snap = useCallback(
     (pixels: number) => (grid > 0 ? Math.round(pixels / grid) * grid : pixels),
@@ -68,6 +214,7 @@ export function WidgetCanvas({ items, editing, grid }: WidgetCanvasProps) {
         pointerId: event.pointerId,
         offsetX: event.clientX - box.left,
         offsetY: event.clientY - box.top,
+        calm: isCalm(item),
       };
       event.preventDefault();
     },
@@ -115,6 +262,12 @@ export function WidgetCanvas({ items, editing, grid }: WidgetCanvasProps) {
         // Persist once, on release — not on every pointer move.
         void actions.setConfigValue(`${drag.configPath}.x`, position.x);
         void actions.setConfigValue(`${drag.configPath}.y`, position.y);
+        if (drag.calm) {
+          void actions.setConfigValue(
+            `${drag.configPath}.placementStrategy`,
+            "free",
+          );
+        }
       }
       return current;
     });
@@ -137,13 +290,18 @@ export function WidgetCanvas({ items, editing, grid }: WidgetCanvasProps) {
       {items
         .filter((item) => item.placement.enable)
         .map((item) => {
-          const position = live[item.id] ?? {
-            x: item.placement.x,
-            y: item.placement.y,
-          };
+          const position = live[item.id] ??
+            (isCalm(item) ? calm[item.id] : undefined) ?? {
+              x: item.placement.x,
+              y: item.placement.y,
+            };
           return (
             <div
               key={item.id}
+              ref={(element) => {
+                if (element) elements.current.set(item.id, element);
+                else elements.current.delete(item.id);
+              }}
               onPointerDown={(event) => onPointerDown(event, item)}
               onPointerMove={onPointerMove}
               onPointerUp={endDrag}

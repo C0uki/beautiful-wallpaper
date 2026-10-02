@@ -688,6 +688,46 @@ pub fn watch_visualizer(
     let _ = app;
 }
 
+/// Windows 11's power mode, or `None` where it has none.
+#[tauri::command]
+pub fn get_power_mode() -> Option<String> {
+    #[cfg(windows)]
+    return crate::platform::power::power_mode().map(power_mode_name);
+    #[cfg(not(windows))]
+    None
+}
+
+/// Switches the power mode, returning the one in effect afterwards.
+#[tauri::command]
+pub fn set_power_mode(mode: String) -> Option<String> {
+    #[cfg(windows)]
+    {
+        use crate::platform::power::PowerMode;
+        let wanted = match mode.as_str() {
+            "efficiency" => PowerMode::Efficiency,
+            "performance" => PowerMode::Performance,
+            _ => PowerMode::Balanced,
+        };
+        crate::platform::power::set_power_mode(wanted).map(power_mode_name)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = mode;
+        None
+    }
+}
+
+#[cfg(windows)]
+fn power_mode_name(mode: crate::platform::power::PowerMode) -> String {
+    use crate::platform::power::PowerMode;
+    match mode {
+        PowerMode::Efficiency => "efficiency",
+        PowerMode::Balanced => "balanced",
+        PowerMode::Performance => "performance",
+    }
+    .to_owned()
+}
+
 /// What the sidebar's banner shows about the machine.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -65,6 +65,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(
             |app, arguments, _cwd| {
@@ -127,6 +128,8 @@ fn main() {
             commands::get_idle_inhibit,
             commands::set_idle_inhibit,
             commands::watch_visualizer,
+            commands::get_power_mode,
+            commands::set_power_mode,
             commands::get_system_info,
             commands::get_todos,
             commands::add_todo,
@@ -337,6 +340,7 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
             }
         }
 
+        services::updater::start(&handle);
         spawn_providers(handle, state);
     });
 }

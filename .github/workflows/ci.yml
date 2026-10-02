@@ -82,6 +82,11 @@ jobs:
           # script falls back to the copy installed just above.
           BW_CHROMIUM: /nonexistent
 
+      - name: Check that every wallpaper transition starts and ends clean
+        run: pnpm --filter @bw/shell check:transitions
+        env:
+          BW_CHROMIUM: /nonexistent
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

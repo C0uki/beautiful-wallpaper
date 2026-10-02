@@ -13,8 +13,32 @@ use image::imageops::FilterType;
 use crate::state::{AppState, WallpaperState};
 
 /// Applies a wallpaper: tells Windows about it, records it, and re-themes.
+///
+/// A video is played by the background surface, but nothing else can use
+/// one: not Windows' own wallpaper, not the palette, not the thumbnail grid.
+/// Each gets a still frame of it instead, recorded as the thumbnail first so
+/// the surface never sees the video without its still.
 pub fn apply(state: &AppState, path: &str) -> Result<(), String> {
     let config = state.config();
+
+    let video = bw_core::wallpaper::is_video(Path::new(path));
+    let picture = if video {
+        still(path)?.to_string_lossy().into_owned()
+    } else {
+        path.to_owned()
+    };
+    if video || !config.background.thumbnail_path.is_empty() {
+        state
+            .set_config_value(
+                "background.thumbnailPath",
+                serde_json::Value::String(if video {
+                    picture.clone()
+                } else {
+                    String::new()
+                }),
+            )
+            .map_err(|error| error.to_string())?;
+    }
 
     let blanked = bw_core::wallpaper::is_work_unsafe(Path::new(path), &config.work_safety.keywords)
         && config.work_safety.blank_wallpaper;
@@ -34,8 +58,42 @@ pub fn apply(state: &AppState, path: &str) -> Result<(), String> {
         blanked,
     });
 
-    set_desktop_wallpaper(path)?;
+    set_desktop_wallpaper(&picture)?;
     Ok(())
+}
+
+/// A still frame of a video wallpaper, made on first use; a picture is its
+/// own still.
+pub fn still(path: &str) -> Result<PathBuf, String> {
+    if !bw_core::wallpaper::is_video(Path::new(path)) {
+        return Ok(PathBuf::from(path));
+    }
+    let cache = bw_core::paths::thumbnail_dir();
+    std::fs::create_dir_all(&cache)
+        .map_err(|error| format!("could not create the thumbnail cache: {error}"))?;
+    let target = cache.join(format!("{}-still.jpg", hash_path(path)));
+    if target.exists() {
+        return Ok(target);
+    }
+
+    let bytes = video_frame(path)?;
+    image::load_from_memory(&bytes)
+        .map_err(|error| format!("could not read a frame of {path}: {error}"))?
+        .into_rgb8()
+        .save(&target)
+        .map_err(|error| format!("could not write a frame of {path}: {error}"))?;
+    Ok(target)
+}
+
+#[cfg(windows)]
+fn video_frame(path: &str) -> Result<Vec<u8>, String> {
+    crate::platform::wallpaper::video_frame(path)
+        .map_err(|error| format!("could not take a frame of {path}: {error}"))
+}
+
+#[cfg(not(windows))]
+fn video_frame(path: &str) -> Result<Vec<u8>, String> {
+    Err(format!("cannot take a frame of {path} here"))
 }
 
 #[cfg(windows)]
@@ -63,7 +121,11 @@ pub fn list(
         _ => bw_core::paths::default_wallpaper_dir(),
     };
 
-    bw_core::wallpaper::list_directory(&directory, &config.wallpaper_selector.extensions)
+    // Videos whatever the list says: the configured list predates them, and a
+    // config written before would otherwise never show one.
+    let mut extensions = config.wallpaper_selector.extensions;
+    extensions.extend(bw_core::wallpaper::VIDEO_EXTENSIONS.map(str::to_owned));
+    bw_core::wallpaper::list_directory(&directory, &extensions)
         .map_err(|error| format!("could not list {}: {error}", directory.display()))
 }
 
@@ -102,7 +164,8 @@ pub fn thumbnail(path: &str, size: u32) -> Result<PathBuf, String> {
         return Ok(target);
     }
 
-    let image = image::open(path).map_err(|error| format!("could not read {path}: {error}"))?;
+    let image =
+        image::open(still(path)?).map_err(|error| format!("could not read {path}: {error}"))?;
     // Thumbnails are for a grid, so filling the tile matters more than showing
     // the whole image.
     image

@@ -808,6 +808,10 @@ config_struct! {
         /// Hide the stock Windows taskbar while the shell's own bar is running.
         pub hide_system_taskbar: bool = false,
         pub start_with_windows: bool = false,
+        /// Install new releases on its own. Checked a minute after starting
+        /// and every six hours after that; the shell says which version it is
+        /// moving to, then restarts into it.
+        pub auto_update: bool = true,
         /// Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on
         /// Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
         pub backdrop: String = s("auto"),
