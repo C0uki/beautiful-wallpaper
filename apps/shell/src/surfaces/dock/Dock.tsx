@@ -8,9 +8,11 @@
 // Hiding is done by moving the whole window off the bottom of the screen and
 // leaving a few pixels behind for the pointer to find. The original masks an
 // input region instead, which Win32 cannot do per-region: WS_EX_TRANSPARENT is
-// all-or-nothing, and a click-through window cannot notice a hover either.
+// all-or-nothing, and a click-through window cannot notice a hover either. The
+// window is cut down to the band the icons sit in instead, so the rest of the
+// bottom edge belongs to the windows under it.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Symbol, useRipple } from "../../widgets";
 import { tr } from "../../i18n";
 import { backend } from "../../shell/backend";
@@ -95,6 +97,7 @@ export function Dock() {
 
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(config.pinnedOnStartup);
+  const dock = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void connectDock();
@@ -111,6 +114,28 @@ export function Dock() {
     void actions.setSurfaceRevealed("dock", hovered);
   }, [config.autoHide, pinned, hovered]);
 
+  // The window spans the screen; only the band the icons sit in should take
+  // the pointer. Measured across only: the slide moves the dock up and down,
+  // never sideways, and the band keeps the window's full height either way.
+  useEffect(() => {
+    const element = dock.current;
+    if (!element) return;
+    const send = () => {
+      // Room either side for the dock's shadow, which a hard edge would cut.
+      const shadow = 24;
+      const box = element.getBoundingClientRect();
+      void actions.setDockShape(box.left - shadow, box.width + shadow * 2);
+    };
+    send();
+    const observer = new ResizeObserver(send);
+    observer.observe(element);
+    window.addEventListener("resize", send);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", send);
+    };
+  }, [ready]);
+
   if (!ready) return null;
 
   const [pinnedApps, running] = [
@@ -125,7 +150,11 @@ export function Dock() {
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
     >
-      <div className="bw-dock" data-background={config.showBackground}>
+      <div
+        ref={dock}
+        className="bw-dock"
+        data-background={config.showBackground}
+      >
         {pinnedApps.map((app) => (
           <DockIcon key={`${app.executable}|${app.appId}`} app={app} />
         ))}

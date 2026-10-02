@@ -87,6 +87,7 @@ fn main() {
             commands::toggle_state,
             commands::set_state,
             commands::set_surface_revealed,
+            commands::set_dock_shape,
             commands::click_tray_icon,
             commands::list_wallpapers,
             commands::apply_wallpaper,

@@ -410,6 +410,11 @@ export const actions = {
       revealed,
     });
   },
+  /** Cuts the dock's window down to the band its icons sit in, so the rest
+   *  of the bottom edge lets clicks through to the windows under it. */
+  setDockShape(left: number, width: number) {
+    return backend().invoke<void>(Command.SetDockShape, { left, width });
+  },
   /** Forwards a click to the application that owns a tray icon. */
   clickTrayIcon(icon: TrayIcon, secondary: boolean) {
     return backend().invoke<void>(Command.ClickTrayIcon, {

@@ -918,6 +918,7 @@ export function mockBackend(): Backend {
         // dock asks to be revealed the moment it mounts, and a mock that threw
         // would take down every surface on the harness page with it.
         case Command.SetSurfaceRevealed:
+        case Command.SetDockShape:
         case Command.ClickTrayIcon:
           return undefined as T;
 

@@ -151,6 +151,46 @@ pub fn set_surface_revealed(app: AppHandle, label: String, revealed: bool) {
     crate::surfaces::set_revealed(&app, &label, revealed);
 }
 
+/// Cuts the dock's window down to the band its icons sit in.
+///
+/// The window spans the screen so the dock can be centred in it, and it is
+/// not click-through — it has to notice the pointer to come back — so every
+/// pixel of it took clicks: the strip left on screen while hidden ran along
+/// the whole bottom edge, and once revealed, a band the full width of the
+/// screen swallowed every click meant for the windows under it. With the
+/// taskbar's strip given back, maximised windows reach that band, and their
+/// buttons stopped working there. Only the page knows where the icons are;
+/// `left` and `width` are its CSS pixels across, and the band keeps the
+/// window's full height so the strip the pointer finds stays in it.
+#[tauri::command]
+pub fn set_dock_shape(app: AppHandle, left: f64, width: f64) {
+    #[cfg(windows)]
+    {
+        let Some(window) = app.get_webview_window(crate::surfaces::DOCK.label) else {
+            return;
+        };
+        let (Ok(handle), Ok(scale), Ok(size)) =
+            (window.hwnd(), window.scale_factor(), window.outer_size())
+        else {
+            return;
+        };
+        let band = bw_core::capture::Rect {
+            x: (left * scale).floor() as i32,
+            y: 0,
+            width: (width * scale).ceil() as i32,
+            height: size.height as i32,
+        };
+        if let Err(error) = crate::platform::region::set_window_region(
+            windows::Win32::Foundation::HWND(handle.0),
+            &[band],
+        ) {
+            tracing::warn!(%error, "could not cut the dock down to its icons");
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = (app, left, width);
+}
+
 #[tauri::command]
 pub fn toggle_state(
     app: AppHandle,
