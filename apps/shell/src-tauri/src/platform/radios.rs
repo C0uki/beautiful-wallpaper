@@ -267,46 +267,260 @@ fn first_adapter() -> Option<WiFiAdapter> {
     adapters.into_iter().next()
 }
 
-/// Paired Bluetooth devices.
+/// Bluetooth devices: the paired ones, or with `paired` false, the unpaired
+/// ones in range — asking for those is what makes the radio look for them.
 ///
-/// Only paired ones: pairing a new device needs a PIN exchange with a UI of
-/// its own, and Windows already has one. Connecting an already-paired device
-/// is largely the stack's decision rather than ours, so the sidebar shows
-/// state and offers Windows' own settings for the rest.
-pub fn paired_devices() -> Vec<BluetoothDeviceInfo> {
+/// Connection state and whether a device is audio come from the stack's own
+/// record of it; opening that record does not page the device.
+pub fn devices(paired: bool) -> Vec<BluetoothDeviceInfo> {
+    use windows::Devices::Bluetooth::{
+        BluetoothConnectionStatus, BluetoothDevice, BluetoothMajorClass,
+    };
     ensure_apartment();
 
-    let selector =
-        match windows::Devices::Bluetooth::BluetoothDevice::GetDeviceSelectorFromPairingState(true)
-        {
-            Ok(selector) => selector,
-            Err(_) => return Vec::new(),
-        };
-
-    let Ok(operation) = DeviceInformation::FindAllAsyncAqsFilter(&selector) else {
+    let Ok(selector) = BluetoothDevice::GetDeviceSelectorFromPairingState(paired) else {
         return Vec::new();
     };
-    let Ok(found) = operation.get() else {
+    let Ok(found) =
+        DeviceInformation::FindAllAsyncAqsFilter(&selector).and_then(|operation| operation.get())
+    else {
         return Vec::new();
     };
 
     found
         .into_iter()
         .filter_map(|information| {
-            let id = information.Id().ok()?.to_string();
+            let id = information.Id().ok()?;
             let name = information.Name().ok()?.to_string();
             if name.is_empty() {
                 return None;
             }
-            // `IsEnabled` is the closest thing DeviceInformation offers to
-            // "connected" without opening the device itself, which would wake
-            // it up just to draw a list.
-            let connected = information.IsEnabled().unwrap_or(false);
+            let device = BluetoothDevice::FromIdAsync(&id)
+                .and_then(|operation| operation.get())
+                .ok();
+            let connected = device
+                .as_ref()
+                .and_then(|device| device.ConnectionStatus().ok())
+                == Some(BluetoothConnectionStatus::Connected);
+            let audio = device
+                .as_ref()
+                .and_then(|device| device.ClassOfDevice().ok())
+                .and_then(|class| class.MajorClass().ok())
+                == Some(BluetoothMajorClass::AudioVideo);
             Some(BluetoothDeviceInfo {
-                id,
+                id: id.to_string(),
                 name,
                 connected,
+                paired,
+                audio,
             })
         })
         .collect()
+}
+
+/// What pairing needs the person to see or answer. `kind` is `displayPin`
+/// (type this on the device), `confirmPin` (does the device show this?) or
+/// `providePin` (type the device's PIN here).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairingPrompt {
+    pub kind: &'static str,
+    pub pin: String,
+}
+
+/// Where a pairing that is waiting on the person hears back: `Some` with the
+/// PIN typed (or anything, for a yes), `None` for a no.
+static ANSWER: parking_lot::Mutex<Option<std::sync::mpsc::Sender<Option<String>>>> =
+    parking_lot::Mutex::new(None);
+
+/// Pairs with a device, asking the person through `ask` when the device wants
+/// a PIN shown, confirmed or typed. Blocks until it is done.
+pub fn pair(id: &str, ask: impl Fn(PairingPrompt) + Send + Sync + 'static) -> bool {
+    use windows::Devices::Enumeration::{
+        DeviceInformationCustomPairing, DevicePairingKinds, DevicePairingRequestedEventArgs,
+        DevicePairingResultStatus,
+    };
+    use windows::Foundation::TypedEventHandler;
+    ensure_apartment();
+
+    let attempt = || -> windows::core::Result<bool> {
+        let information =
+            DeviceInformation::CreateFromIdAsync(&windows::core::HSTRING::from(id))?.get()?;
+        let custom = information.Pairing()?.Custom()?;
+        let handler = TypedEventHandler::<
+            DeviceInformationCustomPairing,
+            DevicePairingRequestedEventArgs,
+        >::new(move |_, args| {
+            let Some(args) = args.as_ref() else {
+                return Ok(());
+            };
+            let kind = args.PairingKind()?;
+            if kind == DevicePairingKinds::ConfirmOnly {
+                return args.Accept();
+            }
+            let pin = args.Pin()?.to_string();
+            if kind == DevicePairingKinds::DisplayPin {
+                ask(PairingPrompt {
+                    kind: "displayPin",
+                    pin,
+                });
+                return args.Accept();
+            }
+            let (send, receive) = std::sync::mpsc::channel();
+            *ANSWER.lock() = Some(send);
+            let providing = kind == DevicePairingKinds::ProvidePin;
+            ask(PairingPrompt {
+                kind: if providing {
+                    "providePin"
+                } else {
+                    "confirmPin"
+                },
+                pin,
+            });
+            // A minute to answer. Not accepting is how pairing is refused.
+            match receive.recv_timeout(std::time::Duration::from_secs(60)) {
+                Ok(Some(typed)) if providing => {
+                    args.AcceptWithPin(&windows::core::HSTRING::from(typed))
+                }
+                Ok(Some(_)) => args.Accept(),
+                _ => Ok(()),
+            }
+        });
+        let token = custom.PairingRequested(&handler)?;
+        let kinds = DevicePairingKinds::ConfirmOnly
+            | DevicePairingKinds::DisplayPin
+            | DevicePairingKinds::ProvidePin
+            | DevicePairingKinds::ConfirmPinMatch;
+        let result = custom
+            .PairAsync(kinds)
+            .and_then(|operation| operation.get());
+        let _ = custom.RemovePairingRequested(token);
+        let status = result?.Status()?;
+        Ok(status == DevicePairingResultStatus::Paired
+            || status == DevicePairingResultStatus::AlreadyPaired)
+    };
+    let paired = attempt().unwrap_or_else(|error| {
+        tracing::warn!(%error, "could not pair a Bluetooth device");
+        false
+    });
+    ANSWER.lock().take();
+    paired
+}
+
+/// The person's answer to the pairing waiting on them, if one is.
+pub fn answer_pairing(answer: Option<String>) {
+    if let Some(send) = ANSWER.lock().take() {
+        let _ = send.send(answer);
+    }
+}
+
+/// Forgets a paired device.
+pub fn unpair(id: &str) -> bool {
+    use windows::Devices::Enumeration::DeviceUnpairingResultStatus;
+    ensure_apartment();
+    DeviceInformation::CreateFromIdAsync(&windows::core::HSTRING::from(id))
+        .and_then(|operation| operation.get())
+        .and_then(|information| information.Pairing())
+        .and_then(|pairing| pairing.UnpairAsync())
+        .and_then(|operation| operation.get())
+        .and_then(|result| result.Status())
+        .is_ok_and(|status| {
+            status == DeviceUnpairingResultStatus::Unpaired
+                || status == DeviceUnpairingResultStatus::AlreadyUnpaired
+        })
+}
+
+/// Connects or disconnects a paired audio device.
+///
+/// There is no API for this: whether a headset is connected is the stack's
+/// decision. What Windows' own Settings does is ask the device's audio
+/// driver, through a kernel-streaming property its Bluetooth audio filters
+/// answer, to reconnect or let go once. The filters are found among the audio
+/// device interfaces by the device's address in their paths.
+pub fn connect_audio(id: &str, connect: bool) -> bool {
+    use windows::Devices::Bluetooth::BluetoothDevice;
+    ensure_apartment();
+
+    let Ok(address) = BluetoothDevice::FromIdAsync(&windows::core::HSTRING::from(id))
+        .and_then(|operation| operation.get())
+        .and_then(|device| device.BluetoothAddress())
+    else {
+        return false;
+    };
+    let address = format!("{address:012x}");
+
+    // `KSCATEGORY_AUDIO` interfaces, present and enabled.
+    let selector = "System.Devices.InterfaceClassGuid:=\"{6994AD04-93EF-11D0-A3CC-00A0C9223196}\" \
+                    AND System.Devices.InterfaceEnabled:=System.StructuredQueryType.Boolean#True";
+    let Ok(interfaces) =
+        DeviceInformation::FindAllAsyncAqsFilter(&windows::core::HSTRING::from(selector))
+            .and_then(|operation| operation.get())
+    else {
+        return false;
+    };
+
+    let mut answered = false;
+    for interface in interfaces {
+        let Ok(path) = interface.Id().map(|id| id.to_string()) else {
+            continue;
+        };
+        if path.to_lowercase().contains(&address) {
+            answered |= unsafe { ks_one_shot(&path, if connect { 0 } else { 1 }) };
+        }
+    }
+    answered
+}
+
+/// Sends `KSPROPERTY_ONESHOT_RECONNECT` (0) or `_DISCONNECT` (1) of
+/// `KSPROPSETID_BtAudio` to one kernel-streaming filter.
+unsafe fn ks_one_shot(path: &str, property: u32) -> bool {
+    use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, HANDLE};
+    use windows::Win32::Storage::FileSystem::{
+        CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+    };
+    use windows::Win32::System::IO::DeviceIoControl;
+
+    /// `KSPROPERTY`: which set, which property, and that this is a get.
+    #[repr(C)]
+    struct KsProperty {
+        set: windows::core::GUID,
+        id: u32,
+        flags: u32,
+    }
+    const BT_AUDIO: windows::core::GUID =
+        windows::core::GUID::from_u128(0x7fa06c40_b8f6_4c7e_8556_e8c33a12e54d);
+    const KSPROPERTY_TYPE_GET: u32 = 1;
+    // CTL_CODE(FILE_DEVICE_KS, 0, METHOD_NEITHER, FILE_ANY_ACCESS)
+    const IOCTL_KS_PROPERTY: u32 = 0x002f_0003;
+
+    let Ok(handle) = CreateFileW(
+        &windows::core::HSTRING::from(path),
+        GENERIC_READ.0 | GENERIC_WRITE.0,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        None,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        HANDLE::default(),
+    ) else {
+        return false;
+    };
+    let request = KsProperty {
+        set: BT_AUDIO,
+        id: property,
+        flags: KSPROPERTY_TYPE_GET,
+    };
+    let mut returned = 0u32;
+    let sent = DeviceIoControl(
+        handle,
+        IOCTL_KS_PROPERTY,
+        Some(std::ptr::addr_of!(request).cast()),
+        std::mem::size_of::<KsProperty>() as u32,
+        None,
+        0,
+        Some(std::ptr::addr_of_mut!(returned)),
+        None,
+    )
+    .is_ok();
+    let _ = CloseHandle(handle);
+    sent
 }

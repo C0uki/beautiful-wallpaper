@@ -499,6 +499,24 @@ export const actions = {
   bluetoothDevices() {
     return backend().invoke<BluetoothDeviceInfo[]>(Command.GetBluetoothDevices);
   },
+  scanBluetooth() {
+    return backend().invoke<BluetoothDeviceInfo[]>(Command.ScanBluetooth);
+  },
+  pairBluetooth(id: string) {
+    return backend().invoke<boolean>(Command.PairBluetooth, { id });
+  },
+  answerBluetoothPairing(answer: string | null) {
+    return backend().invoke<void>(Command.AnswerBluetoothPairing, { answer });
+  },
+  unpairBluetooth(id: string) {
+    return backend().invoke<boolean>(Command.UnpairBluetooth, { id });
+  },
+  connectBluetooth(id: string, connect: boolean) {
+    return backend().invoke<boolean>(Command.ConnectBluetooth, {
+      id,
+      connect,
+    });
+  },
   setIdleInhibit(on: boolean) {
     return backend().invoke<boolean>(Command.SetIdleInhibit, { on });
   },
