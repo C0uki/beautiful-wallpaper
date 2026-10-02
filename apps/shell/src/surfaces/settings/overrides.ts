@@ -10,6 +10,7 @@
 // improvement on the default rather than a list that has to be kept complete.
 
 import { tr } from "../../i18n";
+import { TRANSITION_NAMES } from "../../gl/transitions";
 
 export interface Choice {
   value: string;
@@ -78,15 +79,7 @@ export const OVERRIDES: Record<string, Override> = {
   },
   "bar.style": { choices: plain(["m3", "hug", "float", "islands"]) },
   "background.wallpaperAnimation": {
-    choices: plain([
-      "fade",
-      "circle",
-      "dissolve",
-      "pixelate",
-      "ripple",
-      "stripes",
-      "random",
-    ]),
+    choices: plain([...TRANSITION_NAMES, "random"]),
   },
   "background.centeredWallpaperSize": {
     range: { min: 0.1, max: 1, step: 0.05 },
