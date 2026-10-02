@@ -19,6 +19,12 @@ export type WindowsIntegration = {
   hideSystemTaskbar: boolean;
   startWithWindows: boolean;
   /**
+   * Install new releases on its own. Checked a minute after starting
+   * and every six hours after that; the shell says which version it is
+   * moving to, then restarts into it.
+   */
+  autoUpdate: boolean;
+  /**
    * Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on
    * Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
    */

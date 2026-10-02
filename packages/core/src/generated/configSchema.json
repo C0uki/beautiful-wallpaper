@@ -1659,6 +1659,13 @@
     "kind": "toggle"
   },
   {
+    "path": "windows.autoUpdate",
+    "section": "windows",
+    "label": "Auto update",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
     "path": "windows.backdrop",
     "section": "windows",
     "label": "Backdrop",

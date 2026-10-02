@@ -71,8 +71,19 @@ jobs:
       # to have been checked earlier.
       - run: cargo test --all
 
+      # Signed here and only here: the signature is what a running shell
+      # checks before it lets an update install itself (`windows.autoUpdate`),
+      # and the key that makes it lives in this repository's secrets. Pull
+      # requests build without it, so `ci.yml` leaves the updater files out.
       - name: Build
-        run: pnpm exec tauri build
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          $updater = "$env:RUNNER_TEMP/updater.conf.json"
+          '{"bundle":{"createUpdaterArtifacts":true}}' | Set-Content -Path $updater -Encoding utf8NoBOM
+          pnpm exec tauri build --config $updater
         working-directory: apps/shell
 
       - uses: actions/upload-artifact@v4
@@ -102,6 +113,23 @@ jobs:
           }
           $installers | ForEach-Object { Write-Output "attaching $($_.Name)" }
 
+          # What an installed shell reads to decide whether to update: the
+          # newest version, and the installer's signature. Only the NSIS one
+          # is offered; it installs where the shell already is.
+          $setup = Get-Item target/release/bundle/nsis/*-setup.exe
+          $latest = @{
+            version   = "${{ github.ref_name }}" -replace '^v', ''
+            pub_date  = (Get-Date).ToUniversalTime().ToString("o")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = (Get-Content "$($setup.FullName).sig" -Raw).Trim()
+                url       = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$($setup.Name)"
+              }
+            }
+          }
+          $latestPath = "$env:RUNNER_TEMP/latest.json"
+          $latest | ConvertTo-Json -Depth 5 | Set-Content -Path $latestPath -Encoding utf8NoBOM
+
           # Two files, not one with both languages inline, so each reads the
           # way its own README does rather than as a translation bolted onto
           # the other. Combined here into the one body a release actually has.
@@ -112,4 +140,4 @@ jobs:
           $notesPath = "$env:RUNNER_TEMP/release-notes-combined.md"
           Set-Content -Path $notesPath -Value $notes -Encoding utf8NoBOM
 
-          gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --notes-file $notesPath $installers.FullName
+          gh release create "${{ github.ref_name }}" --draft --title "${{ github.ref_name }}" --notes-file $notesPath $installers.FullName $latestPath
