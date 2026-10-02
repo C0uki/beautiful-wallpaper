@@ -439,7 +439,14 @@ fn expand_known_folder(path: &str) -> String {
     let Some((folder, rest)) = path.strip_prefix('{').and_then(|tail| tail.split_once('}')) else {
         return path.to_owned();
     };
-    let Ok(folder) = GUID::try_from(folder) else {
+    // Parsed by hand: `GUID::from` panics on text it cannot read, and this
+    // text is whatever the registry holds.
+    let digits: String = folder.chars().filter(|&c| c != '-').collect();
+    let Some(folder) = (digits.len() == 32)
+        .then(|| u128::from_str_radix(&digits, 16).ok())
+        .flatten()
+        .map(GUID::from_u128)
+    else {
         return path.to_owned();
     };
     unsafe {
