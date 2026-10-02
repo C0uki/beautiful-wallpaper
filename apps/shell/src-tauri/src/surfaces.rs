@@ -662,17 +662,20 @@ pub fn place_bars(app: &AppHandle) {
     let config = app.state::<AppState>().config();
     release_reservations(app);
 
-    // `perMonitor` switched off: the bars on the other monitors go. Switched
-    // on, `ensure` below makes the ones that are missing.
-    if !config.bar.per_monitor {
-        for (label, window) in app.webview_windows() {
-            if surface_of(&label) == BAR.label && label != BAR.label {
-                let _ = window.destroy();
-            }
+    // A bar whose monitor is no longer wanted goes: `perMonitor` switched
+    // off, or the monitor unplugged. `ensure` below makes the ones missing.
+    let screens = screens_for(app, &BAR, &config);
+    for (label, window) in app.webview_windows() {
+        if surface_of(&label) == BAR.label
+            && !screens
+                .iter()
+                .any(|screen| bar_label(BAR.label, &screen.device) == label)
+        {
+            let _ = window.destroy();
         }
     }
 
-    for screen in screens_for(app, &BAR, &config) {
+    for screen in screens {
         let Some(window) = app.get_webview_window(&bar_label(BAR.label, &screen.device)) else {
             continue;
         };
@@ -795,6 +798,15 @@ pub fn place_overlays(app: &AppHandle) {
         let (x, y, width, height) = overlay_geometry(surface, &config, screen, revealed);
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
         let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    }
+
+    // The decorations cover the primary monitor, which a monitor change can
+    // resize or replace.
+    for surface in ALL.iter().filter(|surface| surface.layer == Layer::Chrome) {
+        if let Some(window) = app.get_webview_window(surface.label) {
+            let _ = window.set_position(tauri::LogicalPosition::new(0.0, 0.0));
+            let _ = window.set_size(tauri::LogicalSize::new(screen.0, screen.1));
+        }
     }
 
     // The dock is on screen whenever it is enabled; nothing else shows it.
@@ -1177,18 +1189,37 @@ fn apply_layer(
                 // ever answered: the shell hung for good on every restart of
                 // Explorer. The bar and the dock both hear it, so the second
                 // finds the first already at work and leaves it.
+                //
+                // A monitor change arrives as a burst, one message per step
+                // Windows takes, so a pass that is already running is told to
+                // go round once more rather than ignoring the news.
+                //
+                // ponytail: a change landing between the last check and the
+                // lock's release is missed; the next change of any kind
+                // catches up.
                 static PLACING: Mutex<()> = Mutex::new(());
+                static AGAIN: std::sync::atomic::AtomicBool =
+                    std::sync::atomic::AtomicBool::new(false);
+                AGAIN.store(true, std::sync::atomic::Ordering::Relaxed);
                 let app = app.clone();
                 std::thread::spawn(move || {
                     let Some(_placing) = PLACING.try_lock() else {
                         return;
                     };
-                    // The taskbar first: a new Explorer may have forgotten it
-                    // was hiding itself, and the bar asks for what is left.
-                    forget_dead_background(&app);
-                    crate::services::integration::reassert_taskbar(&app);
-                    place_bars(&app);
-                    restore_background(&app);
+                    // Half a second for the burst to settle into one pass.
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    while AGAIN.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                        // The taskbar first: a new Explorer may have
+                        // forgotten it was hiding itself, and the bar asks
+                        // for what is left.
+                        forget_dead_background(&app);
+                        crate::services::integration::reassert_taskbar(&app);
+                        place_bars(&app);
+                        place_overlays(&app);
+                        crate::services::chrome::apply(&app);
+                        crate::services::chrome::emit(&app);
+                        restore_background(&app);
+                    }
                 });
             });
         }
