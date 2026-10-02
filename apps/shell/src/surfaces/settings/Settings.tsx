@@ -19,6 +19,8 @@ import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
 import { PAGES, pageFor } from "./pages";
 import { Presets } from "./Presets";
+import { BarSlotEditor } from "./BarSlotEditor";
+import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
 import "./settings.css";
 
 /** Reads a dotted path out of the config. */
@@ -263,12 +265,24 @@ function Row({
         <code>{field.path}</code>
       </div>
       <div className="bw-settings-control">
-        <Control
-          field={field}
-          value={value}
-          override={override}
-          onSet={onSet}
-        />
+        {override?.barSlot ? (
+          <BarSlotEditor
+            slot={field.path as BarSlot}
+            layout={
+              Object.fromEntries(
+                BAR_SLOTS.map((slot) => [slot, valueAt(config, slot) ?? []]),
+              ) as BarLayout
+            }
+            onSet={onSet}
+          />
+        ) : (
+          <Control
+            field={field}
+            value={value}
+            override={override}
+            onSet={onSet}
+          />
+        )}
       </div>
     </div>
   );

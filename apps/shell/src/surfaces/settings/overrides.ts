@@ -23,6 +23,8 @@ export interface Override {
   range?: { min: number; max: number; step: number };
   /** A sentence under the label, where the setting needs one. */
   hint?: () => string;
+  /** One of the bar's three slots: chips dragged between the three rows. */
+  barSlot?: true;
 }
 
 /** Values that are really a choice, keyed by config path. */
@@ -77,6 +79,9 @@ export const OVERRIDES: Record<string, Override> = {
     ],
   },
   "bar.style": { choices: plain(["m3", "hug", "float", "islands"]) },
+  "bar.left": { barSlot: true },
+  "bar.center": { barSlot: true },
+  "bar.right": { barSlot: true },
   "background.wallpaperAnimation": {
     choices: plain([
       "fade",

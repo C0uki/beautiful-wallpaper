@@ -177,6 +177,58 @@
   justify-content: flex-end;
 }
 
+/* The bar's slots: widgets as chips, dragged between the three rows. */
+.bw-bar-slot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px;
+  border: 1px dashed transparent;
+  border-radius: var(--rounding-small);
+}
+
+.bw-bar-slot[data-over="true"] {
+  border-color: var(--primary);
+}
+
+.bw-bar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--rounding-full);
+  background: var(--layer2);
+  color: var(--on-surface);
+  font-size: 12px;
+  cursor: grab;
+}
+
+.bw-bar-chip[data-over="true"] {
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.bw-bar-chip button {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border: none;
+  border-radius: var(--rounding-full);
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+}
+
+.bw-bar-chip button:hover {
+  background: var(--layer2-hover);
+}
+
+.bw-bar-slot select {
+  width: auto;
+}
+
 .bw-settings-control input[type="text"],
 .bw-settings-control input[type="number"],
 .bw-settings-control select,
