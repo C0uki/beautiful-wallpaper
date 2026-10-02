@@ -125,6 +125,8 @@ fn main() {
             commands::get_bluetooth_devices,
             commands::get_idle_inhibit,
             commands::set_idle_inhibit,
+            commands::get_power_mode,
+            commands::set_power_mode,
             commands::get_system_info,
             commands::get_todos,
             commands::add_todo,

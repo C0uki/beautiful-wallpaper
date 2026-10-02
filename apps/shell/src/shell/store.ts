@@ -62,6 +62,9 @@ import {
 import { create } from "zustand";
 import { backend } from "./backend";
 
+/** Windows 11's power mode, as Settings > Power names its three steps. */
+export type PowerMode = "efficiency" | "balanced" | "performance";
+
 export interface ShellState {
   ready: boolean;
   config: Config;
@@ -81,6 +84,8 @@ export interface ShellState {
   brightness: BrightnessReading;
   sessions: AudioSession[];
   radios: RadiosState;
+  /** Windows 11's power mode; `null` where the machine has none. */
+  powerMode: PowerMode | null;
   todos: TodoItem[];
   persistent: Persistent;
   systemInfo: SystemInfo | null;
@@ -123,6 +128,7 @@ const initial: ShellState = {
   brightness: { percent: null, supported: false },
   sessions: [],
   radios: { wifi: null, bluetooth: null, canControl: false },
+  powerMode: null,
   todos: [],
   persistent: {
     sidebar: { bottomGroup: { tab: 0, collapsed: false }, quickToggles: [] },
@@ -295,6 +301,10 @@ export function connectSidebar(): Promise<void> {
       .invoke<RadiosState>(Command.GetRadios)
       .then((radios) => set({ radios }))
       .catch(() => {});
+    void api
+      .invoke<PowerMode | null>(Command.GetPowerMode)
+      .then((powerMode) => set({ powerMode }))
+      .catch(() => {});
   })();
 
   return sidebarConnected;
@@ -464,6 +474,15 @@ export const actions = {
     // worse than one that lags by a round trip.
     const radios = await backend().invoke<RadiosState>(Command.GetRadios);
     set({ radios });
+  },
+  async setPowerMode(mode: PowerMode) {
+    // What took, not what was asked for: a plan can refuse the overlay.
+    set({
+      powerMode: await backend().invoke<PowerMode | null>(
+        Command.SetPowerMode,
+        { mode },
+      ),
+    });
   },
   scanWifi() {
     return backend().invoke<WifiNetwork[]>(Command.ScanWifi);

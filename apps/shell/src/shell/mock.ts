@@ -766,6 +766,7 @@ export function mockBackend(): Backend {
   };
 
   let idleInhibit = false;
+  let powerMode = "balanced";
 
   let todos: TodoItem[] = [
     { id: 1, content: "Reply to the shell review", done: false },
@@ -1130,6 +1131,13 @@ export function mockBackend(): Backend {
 
         case Command.GetSystemInfo:
           return systemInfo as T;
+
+        case Command.GetPowerMode:
+          return powerMode as T;
+
+        case Command.SetPowerMode:
+          powerMode = String(args["mode"]);
+          return powerMode as T;
 
         case Command.GetIdleInhibit:
           return idleInhibit as T;
