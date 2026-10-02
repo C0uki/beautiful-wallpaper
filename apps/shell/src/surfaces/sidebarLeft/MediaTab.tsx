@@ -1,15 +1,15 @@
 // The media tab.
 //
 // The right sidebar has a compact card; here there is a whole panel, so the
-// artwork gets room and the position bar is seekable-looking. The original
-// also draws a spectrum visualiser and fetched lyrics — neither is built:
-// the visualiser needs a WASAPI loopback capture the shell does not have, and
-// the lyrics came from an external script.
+// artwork gets room and the position bar is seekable-looking, with a
+// spectrum of the output under it while something plays. The original also
+// shows fetched lyrics, which came from an external script.
 
 import { IconButton, Placeholder, Symbol } from "../../widgets";
 import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
+import { Visualizer } from "../../widgets/Visualizer";
 
 export function MediaTab() {
   const media = useShell((state) => state.media);
@@ -40,6 +40,10 @@ export function MediaTab() {
           <span className="bw-media-tab-album">{media.album}</span>
         ) : null}
       </div>
+
+      {media.playing ? (
+        <Visualizer bars={48} className="bw-media-tab-visualizer" />
+      ) : null}
 
       {media.duration > 0 ? (
         <div className="bw-media-tab-progress">
