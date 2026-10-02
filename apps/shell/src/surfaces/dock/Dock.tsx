@@ -2,8 +2,8 @@
 //
 // Windows already has a taskbar; this is what replaces it once the shell hides
 // it (`windows.hideTaskbar`). So it behaves like one — click to raise, click
-// again to minimise, right-click to pin — rather than like a launcher that
-// happens to show running programs.
+// again to minimise, right-click to pin, drag a pinned icon to move it —
+// rather than like a launcher that happens to show running programs.
 //
 // Hiding is done by moving the whole window off the bottom of the screen and
 // leaving a few pixels behind for the pointer to find. The original masks an
@@ -18,10 +18,21 @@ import { tr } from "../../i18n";
 import { backend } from "../../shell/backend";
 import { actions, connectDock, useShell } from "../../shell/store";
 import type { DockApp } from "@bw/core";
+import { reorder } from "./order";
 import "./dock.css";
 
+/** What a pinned icon needs to be dragged along the others. */
+interface Drag {
+  dragged: boolean;
+  over: boolean;
+  start: () => void;
+  enter: () => void;
+  drop: () => void;
+  end: () => void;
+}
+
 /** One application: an icon, plus a dot per open window. */
-function DockIcon({ app }: { app: DockApp }) {
+function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
   const ripple = useRipple();
   const size = useShell((state) => state.config.dock.iconSize);
   const [flashed, setFlashed] = useState(false);
@@ -57,6 +68,22 @@ function DockIcon({ app }: { app: DockApp }) {
       data-active={app.active}
       data-running={running}
       data-flashed={flashed}
+      data-dragged={drag?.dragged}
+      data-drop-target={drag?.over}
+      draggable={drag !== undefined}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        drag?.start();
+      }}
+      onDragEnter={drag?.enter}
+      onDragOver={(event) => {
+        if (drag) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        drag?.drop();
+      }}
+      onDragEnd={drag?.end}
       style={{ width: size, height: size }}
       aria-label={app.name}
       title={
@@ -98,6 +125,8 @@ export function Dock() {
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(config.pinnedOnStartup);
   const dock = useRef<HTMLDivElement>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
   useEffect(() => {
     void connectDock();
@@ -156,7 +185,30 @@ export function Dock() {
         data-background={config.showBackground}
       >
         {pinnedApps.map((app) => (
-          <DockIcon key={`${app.executable}|${app.appId}`} app={app} />
+          <DockIcon
+            key={`${app.executable}|${app.appId}`}
+            app={app}
+            drag={{
+              dragged: dragged === app.executable,
+              over: over === app.executable && dragged !== app.executable,
+              start: () => setDragged(app.executable),
+              enter: () => setOver(app.executable),
+              drop: () => {
+                if (!dragged) return;
+                const next = reorder(
+                  config.pinnedApps,
+                  dragged,
+                  app.executable,
+                );
+                if (next !== config.pinnedApps)
+                  void actions.setConfigValue("dock.pinnedApps", next);
+              },
+              end: () => {
+                setDragged(null);
+                setOver(null);
+              },
+            }}
+          />
         ))}
 
         {pinnedApps.length > 0 && running.length > 0 ? (
