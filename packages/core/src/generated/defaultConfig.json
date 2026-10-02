@@ -344,6 +344,7 @@
     },
     "hideSystemTaskbar": false,
     "startWithWindows": false,
+    "autoUpdate": true,
     "backdrop": "auto"
   },
   "workSafety": {

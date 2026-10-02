@@ -10,4 +10,5 @@ pub mod listener;
 pub mod overlay;
 pub mod preset;
 pub mod theme;
+pub mod updater;
 pub mod wallpaper;
