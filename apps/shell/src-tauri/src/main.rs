@@ -355,6 +355,7 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
         }
 
         services::updater::start(&handle);
+        services::weather::start(&handle);
         spawn_providers(handle, state);
     });
 }

@@ -39,6 +39,7 @@ pub mod sysinfo;
 pub mod theme;
 pub mod todo;
 pub mod wallpaper;
+pub mod weather;
 
 pub use config::Config;
 pub use notifications::{NewNotification, Notification, Urgency};
