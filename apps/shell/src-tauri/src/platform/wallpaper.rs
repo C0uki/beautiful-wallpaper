@@ -82,10 +82,12 @@ pub fn video_frame(path: &str) -> Result<Vec<u8>> {
             let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         }
         let file = StorageFile::GetFileFromPathAsync(&path)?.get()?;
+        // 1600 is the most it will make: anything larger is refused as an
+        // invalid argument, and the video never became the wallpaper.
         let frame = file
             .GetThumbnailAsync(
                 ThumbnailMode::SingleItem,
-                1920,
+                1600,
                 ThumbnailOptions::ResizeThumbnail,
             )?
             .get()?;
