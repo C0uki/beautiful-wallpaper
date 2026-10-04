@@ -48,9 +48,10 @@ and the six IPC targets that still mean the same thing.
   is quantised and scored, a scheme variant is chosen to suit the image, and the
   full role set — plus a `success` quad and sixteen terminal colours — is
   derived. Optionally pushed into the Windows accent colour and Windows Terminal.
-- **The background surface**: the wallpaper with GPU transitions, and desktop
-  widgets — clock, media, weather, CPU/RAM/disk, calendar, user card — that can
-  be dragged and snapped to a grid.
+- **The background surface**: the wallpaper — a picture or an mp4/webm video —
+  with fourteen GPU transitions, and desktop widgets — clock, media, weather,
+  CPU/RAM/disk, calendar, user card — that can be dragged and snapped to a
+  grid, or left to find the calmest part of the wallpaper themselves.
 - **The wallpaper picker**: the local folder with history and thumbnails, plus
   Wallhaven, Unsplash and Pexels.
 - **A volume readout**, driven by a WASAPI callback so it appears on the
@@ -59,16 +60,19 @@ and the six IPC targets that still mean the same thing.
   persisted history.
 - **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
   keep clear of it. Four styles, horizontal or vertical, with workspaces,
-  active window, clock, weather, tray, battery, network, resources, media and
-  utility buttons — laid out by `bar.left/center/right`. It can hide itself until
+  active window, clock, weather, tray, battery, network, resources, media,
+  a visualiser and utility buttons — laid out by `bar.left/center/right`, by
+  dragging in the settings screen or in the file. It can hide itself until
   the pointer reaches its edge, run one bar per monitor, or be switched off.
-- **The tray**, drawing each icon as its real image and passing clicks to the
-  application it belongs to.
-- **The two sidebars**: the right one's quick toggles, sliders, night light and
-  notification centre; the left one's AI chat, translator, media and image-board
+- **The tray**, hosted by the shell itself so it works on the Windows 11
+  taskbar: each icon as its real image, with its tooltip, and clicks packed the
+  way the application asked for.
+- **The two sidebars**: the right one's quick toggles (power mode among them),
+  sliders, night light, Bluetooth pairing and notification centre; the left one's AI chat, translator, media and image-board
   tabs. A click anywhere else puts them away.
-- **The dock**, with pinned and running applications, hiding itself until the
-  pointer reaches the bottom edge. Applications that mark their windows as
+- **The dock**, with pinned and running applications — pinned ones dragged
+  into whatever order you like — hiding itself until the pointer reaches the
+  bottom edge. Applications that mark their windows as
   separate apps get an icon each, as on the taskbar — one per Chrome profile,
   with its picture.
 - **The overview and launcher**, searching applications, files, the web and a
@@ -88,7 +92,8 @@ and the six IPC targets that still mean the same thing.
   Explorer restarts, and — through `bw taskbar show` or the next start — after
   the shell was killed.
 - **An installer** that puts the machine back on uninstall: the taskbar, the
-  autostart entry, the App Paths key.
+  autostart entry, the App Paths key. Once installed, the shell **updates
+  itself** (`windows.autoUpdate`).
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
   shell follows. Every key is in [docs/config.md](docs/config.md).
 - **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
@@ -97,8 +102,7 @@ and the six IPC targets that still mean the same thing.
   every row of the generated settings screen.
 
 What is missing is mostly at the edges: everything but the bar on monitors other
-than the primary one, eight of the fourteen wallpaper transitions,
-drag-to-reorder in the dock, and the audio visualiser.
+than the primary one, the media tab's lyrics, and dropping files on the dock.
 [docs/roadmap.md](docs/roadmap.md) has the full list, including what is
 deliberately not built.
 

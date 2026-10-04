@@ -64,23 +64,23 @@ bw config set keybinds.overview "Ctrl+Alt+Space"
 
 ## The tray is empty
 
-Windows has no API for enumerating notification-area icons. They belong to
-Explorer's own toolbar, and the only way to read them — the one every
-third-party Windows bar ends up at — is to read that toolbar across the process
-boundary. It is undocumented, so it degrades to showing nothing rather than
-failing loudly.
+Windows has no API for enumerating notification-area icons. The shell hosts
+the notification area itself: it puts a window of the taskbar's own class in
+front of Explorer's, so applications send their icons to it first, and passes
+each one on to Explorer. Icons that were already there when it started are
+asked for again with the same broadcast Explorer sends when it starts.
 
-Things that make it empty:
+Things that leave it empty, or short of an icon:
 
-- **Explorer is not running**, or was restarted after the shell started.
-- **The shell and Explorer are at different integrity levels.** Running the
-  shell as administrator while Explorer runs normally puts the toolbar out of
-  reach.
-- A Windows update changed the toolbar's internals.
-
-Restarting the shell after Explorer is the first thing to try. This is the
-least verifiable code in the project; a change to it cannot be checked without
-a real Explorer to read from.
+- **An application that does not answer that broadcast.** Its icon appears the
+  next time it changes it, or when it is restarted.
+- **The shell and the application are at different integrity levels.** A
+  program running as administrator cannot send to a shell that is not, and
+  Windows silently drops what it sends.
+- **Explorer's own icons** — volume, network, battery — never go through this
+  at all; the bar has its own widgets for those.
+- **An icon Settings keeps off the taskbar** (Personalization > Taskbar > Other
+  system tray icons) is in the overflow rather than on the bar.
 
 ## Brightness does not move
 
