@@ -541,23 +541,30 @@ pub fn monitors() -> Vec<Monitor> {
 ///
 /// `Progman` only creates it after being sent the undocumented `0x052C`
 /// message — the standard trick every animated-wallpaper tool on Windows uses.
-/// Once created, the right `WorkerW` is the sibling of the `SHELLDLL_DefView`
-/// that hosts the icons.
+/// Since Windows 11 24H2 it is a child of `Progman`, below the icons'
+/// `SHELLDLL_DefView`; before that, it is the top-level window after the one
+/// that hosts them.
 fn worker_w() -> Result<HWND> {
     unsafe {
         let progman = FindWindowW(w!("Progman"), PCWSTR::null())?;
         // Ask Progman to spawn the WorkerW layer. It ignores the result, so a
-        // timeout here is not an error.
+        // timeout here is not an error. 24H2 creates it only for these
+        // arguments; with zeros the surface fell back to Progman itself, under
+        // the icons' view, which paints the stock wallpaper over it.
         let mut ignored = 0usize;
         SendMessageTimeoutW(
             progman,
             0x052C,
-            WPARAM(0),
-            LPARAM(0),
+            WPARAM(0xD),
+            LPARAM(1),
             SMTO_NORMAL,
             1000,
             Some(std::ptr::addr_of_mut!(ignored)),
         );
+
+        if let Ok(worker) = FindWindowExW(progman, HWND::default(), w!("WorkerW"), PCWSTR::null()) {
+            return Ok(worker);
+        }
 
         struct Search {
             found: HWND,
