@@ -12,3 +12,4 @@ pub mod preset;
 pub mod theme;
 pub mod updater;
 pub mod wallpaper;
+pub mod weather;
