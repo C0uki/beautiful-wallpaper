@@ -481,6 +481,14 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             Layer::Overlay => builder.always_on_top(true).visible(false),
         };
 
+        // Tauri takes every drag over its windows to report dropped files,
+        // and on Windows that ends a page's own drag the moment it starts: the
+        // dock's icons and the bar layout editor's chips could not be moved.
+        // Only the shelf wants files dropped on it.
+        if surface.label != SHELF.label {
+            builder = builder.disable_drag_drop_handler();
+        }
+
         let window = builder.build()?;
         apply_layer(app, &window, surface.layer, &config, &screen.device);
 
