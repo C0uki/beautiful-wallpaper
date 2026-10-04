@@ -277,6 +277,15 @@ fn main() {
             if matches!(event, tauri::RunEvent::Exit) {
                 services::integration::restore(app);
                 surfaces::release_reservations(app);
+                // And out, rather than back into the event loop. At sign-out,
+                // restart or shutdown, tao ends its loop from inside
+                // `WM_ENDSESSION` but goes on pumping messages until Windows
+                // gets round to killing the process, and the next window
+                // event panics with "cannot move state from Destroyed".
+                // Tauri's own exit finishes the same way: this cleanup, then
+                // `process::exit`.
+                app.cleanup_before_exit();
+                std::process::exit(0);
             }
         });
 }
