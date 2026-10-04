@@ -46,10 +46,16 @@ pub enum ConfigError {
 /// A file that exists but cannot be parsed is an error rather than a silent
 /// reset: overwriting a config the user hand-edited would lose their work.
 pub fn load(path: &Path) -> Result<Config, ConfigError> {
+    load_reporting(path).map(|(config, _)| config)
+}
+
+/// [`load`], also naming the keys in the file this build has no setting for:
+/// see [`unknown_keys`].
+pub fn load_reporting(path: &Path) -> Result<(Config, Vec<String>), ConfigError> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(Config::default())
+            return Ok((Config::default(), Vec::new()))
         }
         Err(source) => {
             return Err(ConfigError::Read {
@@ -58,10 +64,44 @@ pub fn load(path: &Path) -> Result<Config, ConfigError> {
             })
         }
     };
-    parse(&text).map_err(|source| ConfigError::Parse {
+    let config = parse(&text).map_err(|source| ConfigError::Parse {
         path: path.to_owned(),
         source,
-    })
+    })?;
+    let unknown = unknown_keys(&text, &config);
+    Ok((config, unknown))
+}
+
+/// Every key in a config document that no setting reads, as a dotted path —
+/// one a newer version added, or a typo. Parsing skips them; this is what
+/// keeps a typo from vanishing without a word.
+pub fn unknown_keys(text: &str, config: &Config) -> Vec<String> {
+    let (Ok(document), Ok(known)) = (
+        serde_json::from_str::<Value>(text),
+        serde_json::to_value(config),
+    ) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    collect_unknown(&document, &known, "", &mut found);
+    found
+}
+
+fn collect_unknown(document: &Value, known: &Value, path: &str, into: &mut Vec<String>) {
+    let (Value::Object(document), Value::Object(known)) = (document, known) else {
+        return;
+    };
+    for (key, value) in document {
+        let here = if path.is_empty() {
+            key.clone()
+        } else {
+            format!("{path}.{key}")
+        };
+        match known.get(key) {
+            Some(known) => collect_unknown(value, known, &here, into),
+            None => into.push(here),
+        }
+    }
 }
 
 /// Parses config JSON, filling in every key the document leaves out.
@@ -269,9 +309,14 @@ mod tests {
     }
 
     #[test]
-    fn unknown_keys_are_rejected_rather_than_silently_dropped() {
-        let error = parse(r#"{"bar":{"botom":true}}"#).unwrap_err();
-        assert!(error.to_string().contains("botom"), "{error}");
+    fn unknown_keys_are_skipped_and_named_rather_than_refused() {
+        // A typo, next to the setting it meant, and a section only a newer
+        // version has: the config still loads, and both are named.
+        let text = r#"{"bar":{"botom":true,"bottom":true},"later":{"x":1}}"#;
+        let config = parse(text).unwrap();
+        assert!(config.bar.bottom);
+        assert_eq!(unknown_keys(text, &config), ["bar.botom", "later"]);
+        assert!(unknown_keys("{}", &config).is_empty());
     }
 
     #[test]

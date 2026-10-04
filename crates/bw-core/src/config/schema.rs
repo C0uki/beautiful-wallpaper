@@ -13,6 +13,11 @@ use ts_rs::TS;
 
 /// Declares a config struct with camelCase JSON keys, a `Default` built from the
 /// per-field expressions, and TypeScript bindings.
+///
+/// A key no field claims is skipped rather than refused, and named by
+/// [`super::unknown_keys`] instead. Refusing it meant a config written by a
+/// newer version — which adds keys — stopped an older one from starting at
+/// all, so going back a version left no shell.
 macro_rules! config_struct {
     (
         $(#[$meta:meta])*
@@ -25,7 +30,7 @@ macro_rules! config_struct {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-        #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+        #[serde(rename_all = "camelCase", default)]
         #[ts(export)]
         pub struct $name {
             $(
