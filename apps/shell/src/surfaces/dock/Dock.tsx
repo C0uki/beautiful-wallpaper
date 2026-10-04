@@ -136,12 +136,16 @@ export function Dock() {
   // on screen, so reaching it has to bring the window back before the slide can
   // show anything — a transition inside an off-screen window is invisible. That
   // is one move per transition; the slide itself still runs in the webview.
-  const revealed = pinned || !config.autoHide || hovered;
+  //
+  // A drag counts as a hover: the pointer leaves the page the moment one
+  // starts, and a dock that hid then took every place to drop with it.
+  const held = hovered || dragged !== null;
+  const revealed = pinned || !config.autoHide || held;
 
   useEffect(() => {
     if (!config.autoHide || pinned) return;
-    void actions.setSurfaceRevealed("dock", hovered);
-  }, [config.autoHide, pinned, hovered]);
+    void actions.setSurfaceRevealed("dock", held);
+  }, [config.autoHide, pinned, held]);
 
   // The window spans the screen; only the band the icons sit in should take
   // the pointer. Measured across only: the slide moves the dock up and down,
