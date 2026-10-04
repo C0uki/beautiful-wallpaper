@@ -86,7 +86,17 @@ impl AppState {
     /// Loads the config from disk, materialising defaults on first run.
     pub fn load() -> Result<Self, config::ConfigError> {
         let config_path = bw_core::paths::config_file();
-        let loaded = config::load(&config_path)?;
+        let (loaded, unknown) = config::load_reporting(&config_path)?;
+        if !unknown.is_empty() {
+            // ponytail: the save below drops them, so a setting a newer
+            // version kept is back at its default when that version returns.
+            // Carry the unknown keys through `save` if anyone goes back and
+            // forth between versions.
+            tracing::warn!(
+                ?unknown,
+                "the config has keys this version has no setting for"
+            );
+        }
 
         // Writing the file back immediately means a first-run user has something
         // to edit, and that a config from an older version gains the new keys.

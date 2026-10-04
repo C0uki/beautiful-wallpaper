@@ -9,10 +9,10 @@ use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::event;
-use crate::state::AppState;
+use crate::state::{AppState, NotificationStore};
 
 /// The config the shell last acted on.
 ///
@@ -56,8 +56,16 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
             last = Instant::now();
             std::thread::sleep(debounce);
 
-            match bw_core::config::load(&path) {
-                Ok(config) => adopt(&app, &state, config),
+            match bw_core::config::load_reporting(&path) {
+                Ok((config, unknown)) => {
+                    if !unknown.is_empty() {
+                        // Said out loud: a misspelt key is skipped, and the
+                        // edit that seemed to do nothing would be a mystery.
+                        tracing::warn!(?unknown, "the config has keys no setting reads");
+                        say(&app, &format!("Not a setting: {}", unknown.join(", ")));
+                    }
+                    adopt(&app, &state, config);
+                }
                 // A half-written file is normal mid-save; the next event will
                 // carry the complete one.
                 Err(error) => tracing::debug!(%error, "ignoring an unreadable config"),
@@ -66,6 +74,16 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
     });
 
     Some(watcher)
+}
+
+fn say(app: &AppHandle, text: &str) {
+    let Some(store) = app.try_state::<NotificationStore>() else {
+        return;
+    };
+    store
+        .0
+        .post(bw_core::NewNotification::from_shell("Config", text));
+    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
 }
 
 /// Takes a wholesale config change and re-does everything it invalidates.

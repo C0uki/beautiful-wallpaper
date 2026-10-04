@@ -5,16 +5,15 @@
 //! the live config, and a `_presetMeta` key smuggled into the document carries
 //! the description. Three things about that do not survive the crossing.
 //!
-//! **The metadata cannot live inside the config.** This schema is
-//! `deny_unknown_fields`, so a `_presetMeta` key would make the file
-//! unreadable as a config. The preset is a wrapper around the config instead,
+//! **The metadata cannot live inside the config.** A `_presetMeta` key is one
+//! no setting reads, which every load would report as unknown. The preset is a wrapper around the config instead,
 //! which also means nothing has to remember to strip a key on the way back
 //! out — forget that once upstream and the junk key lands in `config.json`.
 //!
 //! **A whole-file merge can write keys this build has never heard of.** A
 //! preset saved by a newer version carries its new keys, and merging them in
-//! produces a `config.json` that this build then refuses to load — a shell
-//! that will not start, from pressing Apply. So applying is not a merge: it is
+//! produces a `config.json` full of keys this build skips and reports on every
+//! load, from pressing Apply. So applying is not a merge: it is
 //! a list of paths, every one of which [`compare`] has already found on both
 //! sides. What the preset carries and this build has no setting for is
 //! reported, not written.
