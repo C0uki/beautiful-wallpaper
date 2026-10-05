@@ -193,7 +193,10 @@ export function Shelf() {
         const files = event.dataTransfer.files;
         const webview = (window as { chrome?: { webview?: WebView2 } }).chrome
           ?.webview;
-        if (webview) webview.postMessageWithAdditionalObjects({}, files);
+        // A string, though nothing reads it: Tauri's own handler sees every
+        // message first and stops WebView2 handing anything that is not a
+        // string to the shell's.
+        if (webview) webview.postMessageWithAdditionalObjects("shelf", files);
         else void receive(Array.from(files).map((file) => file.name));
       }}
     >
