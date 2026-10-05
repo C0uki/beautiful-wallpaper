@@ -68,6 +68,8 @@ export const Event = {
   Capture: "bw://capture",
   /** What is on the drop shelf changed. Carries the whole list. */
   Shelf: "bw://shelf",
+  /** Files were dropped on the shelf's page. Carries their paths. */
+  ShelfDropped: "bw://shelf-dropped",
   /**
    * The screen's decorations should change: something went full-screen, or
    * the config did. Carries the whole resolved `ScreenChrome`.

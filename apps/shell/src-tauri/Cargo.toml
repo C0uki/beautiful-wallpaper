@@ -50,6 +50,10 @@ bw-core = { version = "0.2.2", path = "../../../crates/bw-core" }
 
 [target.'cfg(windows)'.dependencies]
 windows-core = "0.58"
+# WebView2's own interfaces, at the versions wry already builds: the shelf
+# reads the paths of files dropped on its page through them.
+webview2-com = "0.38"
+webview2-windows-core = { package = "windows-core", version = "0.61" }
 windows-registry = "0.5"
 windows = { version = "0.58", features = [
   "ApplicationModel",
