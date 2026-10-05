@@ -1,12 +1,10 @@
 // The drop shelf.
 //
-// Files come in from anywhere on the machine and go out to anywhere else. Both
-// halves are Windows' drag-and-drop rather than the browser's: on Windows the
-// shell drop target the webview registers takes the drop before the page sees
-// it, so `ondrop` never fires and the paths arrive as `tauri://drag-drop`
-// instead. The HTML5 handlers below are for the development harness, where
-// there is no such target and a real file dragged into the browser is the only
-// way to test this at all.
+// Files come in from anywhere on the machine and go out to anywhere else. In,
+// the page takes the drop like any page, but a web page never learns where a
+// dropped file lives: it hands the files to WebView2, which tells the shell
+// their paths, and they come back as `ShelfDropped`. In the development
+// harness there is no WebView2, and the names are all there is.
 //
 // Dragging back out cannot be started by the page either — an application
 // expecting a file wants shell items, not a web drag — so a press and a few
@@ -14,19 +12,19 @@
 // thing.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  DragDropPayload,
-  DropOutcome,
-  ShelfItem,
-  ShelfKind,
-} from "@bw/core";
-import { DragEvent as Drag, Event } from "@bw/core";
+import type { DropOutcome, ShelfItem, ShelfKind } from "@bw/core";
+import { Event } from "@bw/core";
 import { IconButton, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
 import "./shelf.css";
+
+/** WebView2's way for a page to hand the shell objects it cannot describe. */
+interface WebView2 {
+  postMessageWithAdditionalObjects(message: unknown, objects: FileList): void;
+}
 
 /** Far enough that a click is not a drag. The shell's own value, in pixels. */
 const DRAG_THRESHOLD = 6;
@@ -111,18 +109,9 @@ export function Shelf() {
     void api
       .listen<ShelfItem[]>(Event.Shelf, setItems)
       .then((off) => stop.push(off));
-    // Windows' own drag, which is the only one that carries real paths.
+    // What a drop on the page turned out to be, paths and all.
     void api
-      .listen<DragDropPayload>(Drag.Enter, () => setHovering(true))
-      .then((off) => stop.push(off));
-    void api
-      .listen<DragDropPayload>(Drag.Leave, () => setHovering(false))
-      .then((off) => stop.push(off));
-    void api
-      .listen<DragDropPayload>(Drag.Drop, (payload) => {
-        setHovering(false);
-        void receive(payload.paths ?? []);
-      })
+      .listen<string[]>(Event.ShelfDropped, (paths) => void receive(paths))
       .then((off) => stop.push(off));
 
     return () => {
@@ -193,8 +182,6 @@ export function Shelf() {
       className={["bw-shelf", hovering ? "hovering" : ""]
         .filter(Boolean)
         .join(" ")}
-      // Only ever reached in the harness: on Windows the shell drop target
-      // above the page has already taken the drop.
       onDragOver={(event) => {
         event.preventDefault();
         setHovering(true);
@@ -203,9 +190,11 @@ export function Shelf() {
       onDrop={(event) => {
         event.preventDefault();
         setHovering(false);
-        void receive(
-          Array.from(event.dataTransfer.files).map((file) => file.name),
-        );
+        const files = event.dataTransfer.files;
+        const webview = (window as { chrome?: { webview?: WebView2 } }).chrome
+          ?.webview;
+        if (webview) webview.postMessageWithAdditionalObjects({}, files);
+        else void receive(Array.from(files).map((file) => file.name));
       }}
     >
       <header className="bw-shelf-head">

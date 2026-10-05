@@ -41,6 +41,8 @@ pub mod event {
     pub const DOCK: &str = "bw://dock";
     /// What is on the drop shelf changed. Carries the whole list.
     pub const SHELF: &str = "bw://shelf";
+    /// Files were dropped on the shelf's page. Carries their paths.
+    pub const SHELF_DROPPED: &str = "bw://shelf-dropped";
     /// The screen's decorations should change: something went full-screen, or
     /// the config did. Carries the whole resolved state.
     pub const CHROME: &str = "bw://chrome";

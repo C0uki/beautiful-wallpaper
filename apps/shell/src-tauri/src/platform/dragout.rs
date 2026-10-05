@@ -1,9 +1,10 @@
-//! Dragging a file off the shelf, and showing one in Explorer.
+//! Dragging a file off the shelf and onto it, and showing one in Explorer.
 //!
-//! Receiving a drop is free — the webview already has a shell drop target and
-//! Tauri hands the paths over. Giving one back is not: an application that
-//! accepts a file expects an OLE drag carrying shell items, which is a
-//! different mechanism from anything a web page can start.
+//! Receiving a drop is nearly free: the page takes it like any page would, and
+//! WebView2 hands over the paths a web page never sees ([`accept_drops`]).
+//! Giving one back is not: an application that accepts a file expects an OLE
+//! drag carrying shell items, which is a different mechanism from anything a
+//! web page can start.
 //!
 //! Two shell functions do the work that would otherwise be two COM interfaces
 //! implemented by hand. `SHCreateDataObject` builds the data object from item
@@ -27,6 +28,57 @@ use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::UI::Shell::{
     ILCreateFromPathW, ILFree, SHCreateDataObject, SHDoDragDrop, SHOpenFolderAndSelectItems,
 };
+
+/// Passes `on_paths` the paths of files dropped on this window's page.
+///
+/// Tauri's own drop handling never heard of a drop on the shell's windows:
+/// every drag ended over a drop target that took it and did nothing, so the
+/// shelf showed the no-entry cursor and stayed empty. The page takes the drop
+/// instead and passes the files on with
+/// `chrome.webview.postMessageWithAdditionalObjects`, which WebView2 delivers
+/// here as `ICoreWebView2File`s — and those carry the path.
+pub fn accept_drops(
+    window: &tauri::WebviewWindow,
+    on_paths: impl Fn(Vec<String>) + Send + 'static,
+) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2File, ICoreWebView2WebMessageReceivedEventArgs2,
+    };
+    use webview2_com::{take_pwstr, WebMessageReceivedEventHandler};
+    use webview2_windows_core::{Interface, PWSTR};
+
+    let _ = window.with_webview(move |webview| unsafe {
+        let Ok(core) = webview.controller().CoreWebView2() else {
+            return;
+        };
+        let handler = WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
+            // Tauri's own messages carry no objects and fail this cast.
+            let Some(args) = args.and_then(|args| {
+                args.cast::<ICoreWebView2WebMessageReceivedEventArgs2>()
+                    .ok()
+            }) else {
+                return Ok(());
+            };
+            let objects = args.AdditionalObjects()?;
+            let mut count = 0;
+            objects.Count(&mut count)?;
+            let mut paths = Vec::new();
+            for index in 0..count {
+                if let Ok(file) = objects.GetValueAtIndex(index)?.cast::<ICoreWebView2File>() {
+                    let mut path = PWSTR::null();
+                    file.Path(&mut path)?;
+                    paths.push(take_pwstr(path));
+                }
+            }
+            if !paths.is_empty() {
+                on_paths(paths);
+            }
+            Ok(())
+        }));
+        let mut token = 0;
+        let _ = core.add_WebMessageReceived(&handler, &mut token);
+    });
+}
 
 /// Item id lists that free themselves.
 ///

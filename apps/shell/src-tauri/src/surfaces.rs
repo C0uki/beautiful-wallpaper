@@ -484,13 +484,20 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         // Tauri takes every drag over its windows to report dropped files,
         // and on Windows that ends a page's own drag the moment it starts: the
         // dock's icons and the bar layout editor's chips could not be moved.
-        // Only the shelf wants files dropped on it.
-        if surface.label != SHELF.label {
-            builder = builder.disable_drag_drop_handler();
-        }
+        // Nor did a file dropped on the shelf ever reach it that way; the
+        // shelf has its own way in, below.
+        builder = builder.disable_drag_drop_handler();
 
         let window = builder.build()?;
         apply_layer(app, &window, surface.layer, &config, &screen.device);
+        #[cfg(windows)]
+        if surface.label == SHELF.label {
+            let app = app.clone();
+            crate::platform::dragout::accept_drops(&window, move |paths| {
+                use tauri::Emitter;
+                let _ = app.emit_to(SHELF.label, crate::commands::event::SHELF_DROPPED, paths);
+            });
+        }
 
         // A flag set before this window existed — `bw settings open` sent while
         // the shell was still starting, say — found nothing to show and was
