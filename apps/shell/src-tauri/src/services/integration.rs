@@ -52,6 +52,20 @@ pub fn reassert_taskbar(app: &AppHandle) {
     let _ = app;
 }
 
+/// Has Explorer work every work area out again, when the shell is holding the
+/// taskbar; see `HiddenTaskbar::recompute`. After the bars have asked for their
+/// edges, so that it counts them.
+pub fn recompute_work_areas(app: &AppHandle) {
+    #[cfg(windows)]
+    if let Some(held) = app.try_state::<Integration>() {
+        if let Some(hidden) = held.taskbar.lock().as_ref() {
+            unsafe { hidden.recompute() };
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+}
+
 /// Puts the taskbar back, whatever the config says.
 ///
 /// Called when the shell is on its way out. The guard's own `Drop` does this

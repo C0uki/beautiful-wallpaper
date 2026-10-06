@@ -1255,6 +1255,7 @@ fn apply_layer(
                         forget_dead_background(&app);
                         crate::services::integration::reassert_taskbar(&app);
                         place_bars(&app);
+                        crate::services::integration::recompute_work_areas(&app);
                         place_overlays(&app);
                         crate::services::chrome::apply(&app);
                         crate::services::chrome::emit(&app);

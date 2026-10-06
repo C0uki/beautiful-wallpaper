@@ -862,6 +862,21 @@ impl HiddenTaskbar {
         taskbar_state(ABM_SETSTATE, self.state | ABS_AUTOHIDE);
         set_taskbar_visible(false);
     }
+
+    /// Makes Explorer work out every monitor's work area again.
+    ///
+    /// When a monitor comes back while the taskbar is held, Explorer leaves
+    /// each work area at its whole monitor — the bar's reserved edge, and any
+    /// other app bar's, gone — and nothing an app bar asks for changes that
+    /// until the taskbar's own setting does. So the setting is changed, and
+    /// changed back.
+    ///
+    /// # Safety
+    /// Changes global desktop state.
+    pub unsafe fn recompute(&self) {
+        taskbar_state(ABM_SETSTATE, self.state & !ABS_AUTOHIDE);
+        self.reassert();
+    }
 }
 
 impl Drop for HiddenTaskbar {
