@@ -649,6 +649,9 @@ config_struct! {
 config_struct! {
     pub struct LeftMedia {
         pub enable: bool = true,
+        /// Look the playing track's lyrics up on lrclib.net, which is sent its
+        /// title, artist, album and length.
+        pub lyrics: bool = true,
     }
 }
 

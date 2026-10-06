@@ -1393,6 +1393,13 @@
     "kind": "toggle"
   },
   {
+    "path": "sidebar.left.media.lyrics",
+    "section": "sidebar",
+    "label": "Lyrics",
+    "group": "Media",
+    "kind": "toggle"
+  },
+  {
     "path": "sidebar.left.booru.provider",
     "section": "sidebar",
     "label": "Provider",

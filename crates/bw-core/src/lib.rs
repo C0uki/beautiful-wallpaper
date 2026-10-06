@@ -22,6 +22,7 @@ pub mod dock;
 pub mod keys;
 pub mod launcher;
 pub mod listener;
+pub mod lyrics;
 pub mod menu;
 pub mod notifications;
 pub mod ocr;

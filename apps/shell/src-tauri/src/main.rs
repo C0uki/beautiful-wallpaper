@@ -147,6 +147,7 @@ fn main() {
             commands::get_dock_items,
             commands::activate_window,
             commands::launch_app,
+            commands::get_lyrics,
             commands::set_pinned,
             commands::has_ai_key,
             commands::set_ai_key,

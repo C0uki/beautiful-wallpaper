@@ -15,6 +15,7 @@ import {
   type GeneratedTheme,
   type GlobalStates,
   type MediaState,
+  type Lyrics,
   type ResourceReading,
   type ActiveWindow,
   type Notification,
@@ -436,6 +437,15 @@ export const actions = {
   },
   mediaCommand(action: "playPause" | "next" | "previous") {
     return backend().invoke<void>(Command.MediaCommand, { action });
+  },
+  getLyrics(media: MediaState) {
+    const { title, artist, album, duration } = media;
+    return backend().invoke<Lyrics | null>(Command.GetLyrics, {
+      title,
+      artist,
+      album,
+      duration,
+    });
   },
   dismissNotification(id: number) {
     return backend().invoke<void>(Command.DismissNotification, { id });

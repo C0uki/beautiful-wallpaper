@@ -1865,6 +1865,82 @@ pub fn launch_app(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// The playing track's lyrics from lrclib.net, or none: switched off
+/// (`sidebar.left.media.lyrics`), or a track it does not know.
+#[tauri::command]
+pub async fn get_lyrics(
+    state: State<'_, AppState>,
+    title: String,
+    artist: String,
+    album: String,
+    duration: f64,
+) -> Result<Option<bw_core::lyrics::Lyrics>, String> {
+    if !state.config().sidebar.left.media.lyrics || title.is_empty() {
+        return Ok(None);
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        // lrclib.net asks the programs calling it to say who they are.
+        .user_agent("beautiful-wallpaper (https://github.com/C0uki/beautiful-wallpaper)")
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    // The exact record first, then the search: a player's album name or
+    // length is often not quite lrclib's.
+    let mut query = vec![("track_name", title), ("artist_name", artist)];
+    if !album.is_empty() {
+        query.push(("album_name", album));
+    }
+    if duration > 0.0 {
+        query.push(("duration", (duration.round() as u64).to_string()));
+    }
+    if let Some(lyrics) = lrclib(&client, "get", &query)
+        .await?
+        .as_ref()
+        .and_then(bw_core::lyrics::parse)
+    {
+        return Ok(Some(lyrics));
+    }
+    let found = lrclib(&client, "search", &query[..2]).await?;
+    Ok(found
+        .as_ref()
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .find_map(bw_core::lyrics::parse))
+}
+
+/// One call to lrclib.net's API; `None` for a track it does not have.
+async fn lrclib(
+    client: &reqwest::Client,
+    endpoint: &str,
+    query: &[(&str, String)],
+) -> Result<Option<serde_json::Value>, String> {
+    let mut url = reqwest::Url::parse("https://lrclib.net/api/").expect("a valid address");
+    url.path_segments_mut()
+        .map_err(|()| "lrclib.net's address takes no path".to_owned())?
+        .pop_if_empty()
+        .push(endpoint);
+    url.query_pairs_mut()
+        .extend_pairs(query.iter().map(|(key, value)| (*key, value.as_str())));
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    response
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .json::<serde_json::Value>()
+        .await
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
 /// Adds or removes a pinned application, returning the updated config.
 #[tauri::command]
 pub fn set_pinned(
