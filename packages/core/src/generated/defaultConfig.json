@@ -285,7 +285,8 @@
         "to": "en"
       },
       "media": {
-        "enable": true
+        "enable": true,
+        "lyrics": true
       },
       "booru": {
         "provider": "safebooru",

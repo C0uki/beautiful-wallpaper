@@ -173,6 +173,7 @@ export const Command = {
   GetDockItems: "get_dock_items",
   ActivateWindow: "activate_window",
   LaunchApp: "launch_app",
+  GetLyrics: "get_lyrics",
   SetPinned: "set_pinned",
   HasAiKey: "has_ai_key",
   SetAiKey: "set_ai_key",
@@ -238,6 +239,21 @@ export interface ResourceReading {
   disk: number;
   diskUsedBytes: number;
   diskTotalBytes: number;
+}
+
+/** One line of a song, and when in it the line is sung. */
+export interface LyricLine {
+  /** Seconds from the start of the track. */
+  time: number;
+  /** Empty for a gap between verses. */
+  text: string;
+}
+
+/** A track's lyrics from lrclib.net: `bw_core::lyrics::Lyrics`. */
+export interface Lyrics {
+  /** Timed lines in order; empty when only the plain text is known. */
+  lines: LyricLine[];
+  plain: string;
 }
 
 export interface MediaState {

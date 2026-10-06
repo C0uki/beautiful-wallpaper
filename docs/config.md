@@ -626,6 +626,9 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 | Setting                     | Value        | Default |
 | --------------------------- | ------------ | ------- |
 | `sidebar.left.media.enable` | true / false | `true`  |
+| `sidebar.left.media.lyrics` | true / false | `true`  |
+
+- **`sidebar.left.media.lyrics`** — Look the playing track's lyrics up on lrclib.net, which is sent its title, artist, album and length.
 
 ### `sidebar.left.booru`
 

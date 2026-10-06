@@ -217,6 +217,33 @@
   width: 100%;
 }
 
+/* Positioned, so a line's offsetTop is measured from here when the line
+   being sung is scrolled to the middle. */
+.bw-media-tab-lyrics {
+  position: relative;
+  width: 100%;
+  max-height: 40vh;
+  overflow-y: auto;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--on-surface-variant);
+}
+
+.bw-media-tab-lyrics p {
+  margin: 6px 0;
+  transition: color 200ms;
+}
+
+.bw-media-tab-lyrics p[data-sung="true"] {
+  color: var(--on-surface);
+  font-weight: 600;
+}
+
+.bw-media-tab-plain {
+  white-space: pre-line;
+}
+
 .bw-media-tab-bar {
   height: 4px;
   border-radius: 2px;

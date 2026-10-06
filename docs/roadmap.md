@@ -151,14 +151,14 @@ but safe-rated work, and the tab itself is hidden entirely until
 
 ### Still to do
 
-- **Dropping files on a dock icon** to open them with that application.
-  Pinned icons can be dragged to rearrange them; nothing can be dropped on one.
-- **The media tab's lyrics**, which came from an external script. The
-  visualiser is there.
+Nothing: Phase 3 is complete.
 
-Done since the first pass: a quick toggle for Windows 11's power mode, read
-and written through the overlay calls `powrprof.dll` exports without a
-header; and Bluetooth pairing — with the PIN shown, confirmed or typed in the
+Done since the first pass: lyrics in the media tab, from lrclib.net rather
+than the original's external script, following the song when they are timed
+(`sidebar.left.media.lyrics` turns the lookup off); files dropped on a dock
+icon open in that application, as on a taskbar; a quick toggle for Windows
+11's power mode, read and written through the overlay calls `powrprof.dll`
+exports without a header; and Bluetooth pairing — with the PIN shown, confirmed or typed in the
 dialog — forgetting, and connecting or disconnecting audio devices the way
 Settings does, through the Bluetooth audio driver's one-shot properties.
 

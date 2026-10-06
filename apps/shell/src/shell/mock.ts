@@ -1722,6 +1722,9 @@ export function mockBackend(): Backend {
         case Command.LaunchApp:
           return undefined as T;
 
+        case Command.GetLyrics:
+          return null as T;
+
         case Command.SetPinned: {
           const path = String(args["path"]).toLowerCase();
           const pinned = Boolean(args["pinned"]);
