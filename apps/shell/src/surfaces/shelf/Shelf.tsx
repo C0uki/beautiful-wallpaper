@@ -19,12 +19,8 @@ import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
+import { sendDroppedFiles } from "../../lib/dropped";
 import "./shelf.css";
-
-/** WebView2's way for a page to hand the shell objects it cannot describe. */
-interface WebView2 {
-  postMessageWithAdditionalObjects(message: unknown, objects: FileList): void;
-}
 
 /** Far enough that a click is not a drag. The shell's own value, in pixels. */
 const DRAG_THRESHOLD = 6;
@@ -191,13 +187,9 @@ export function Shelf() {
         event.preventDefault();
         setHovering(false);
         const files = event.dataTransfer.files;
-        const webview = (window as { chrome?: { webview?: WebView2 } }).chrome
-          ?.webview;
-        // A string, though nothing reads it: Tauri's own handler sees every
-        // message first and stops WebView2 handing anything that is not a
-        // string to the shell's.
-        if (webview) webview.postMessageWithAdditionalObjects("shelf", files);
-        else void receive(Array.from(files).map((file) => file.name));
+        if (!sendDroppedFiles("shelf", files)) {
+          void receive(Array.from(files).map((file) => file.name));
+        }
       }}
     >
       <header className="bw-shelf-head">

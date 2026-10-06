@@ -2,7 +2,8 @@
 //
 // Windows already has a taskbar; this is what replaces it once the shell hides
 // it (`windows.hideTaskbar`). So it behaves like one — click to raise, click
-// again to minimise, right-click to pin, drag a pinned icon to move it —
+// again to minimise, right-click to pin, drag a pinned icon to move it, drop
+// files on one to open them in it —
 // rather than like a launcher that happens to show running programs.
 //
 // Hiding is done by moving the whole window off the bottom of the screen and
@@ -12,10 +13,11 @@
 // window is cut down to the band the icons sit in instead, so the rest of the
 // bottom edge belongs to the windows under it.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Symbol, useRipple } from "../../widgets";
 import { tr } from "../../i18n";
 import { backend } from "../../shell/backend";
+import { sendDroppedFiles } from "../../lib/dropped";
 import { actions, connectDock, useShell } from "../../shell/store";
 import type { DockApp } from "@bw/core";
 import { reorder } from "./order";
@@ -31,11 +33,17 @@ interface Drag {
   end: () => void;
 }
 
+/** Whether a drag carries files from outside, rather than a dock icon. */
+function carriesFiles(event: DragEvent): boolean {
+  return event.dataTransfer.types.includes("Files");
+}
+
 /** One application: an icon, plus a dot per open window. */
 function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
   const ripple = useRipple();
   const size = useShell((state) => state.config.dock.iconSize);
   const [flashed, setFlashed] = useState(false);
+  const [fileOver, setFileOver] = useState(false);
 
   const running = app.windows.length > 0;
 
@@ -69,18 +77,32 @@ function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
       data-running={running}
       data-flashed={flashed}
       data-dragged={drag?.dragged}
-      data-drop-target={drag?.over}
+      data-drop-target={drag?.over || fileOver}
       draggable={drag !== undefined}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
         drag?.start();
       }}
-      onDragEnter={drag?.enter}
-      onDragOver={(event) => {
-        if (drag) event.preventDefault();
+      onDragEnter={(event) => {
+        if (carriesFiles(event)) setFileOver(true);
+        else drag?.enter();
       }}
+      onDragOver={(event) => {
+        if (carriesFiles(event)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        } else if (drag) event.preventDefault();
+      }}
+      onDragLeave={() => setFileOver(false)}
       onDrop={(event) => {
         event.preventDefault();
+        if (carriesFiles(event)) {
+          setFileOver(false);
+          // Files dropped on an application open in it, as on a taskbar:
+          // the shell starts it with their paths.
+          sendDroppedFiles(app.executable, event.dataTransfer.files);
+          return;
+        }
         drag?.drop();
       }}
       onDragEnd={drag?.end}
@@ -123,6 +145,8 @@ export function Dock() {
   const ready = useShell((state) => state.ready);
 
   const [hovered, setHovered] = useState(false);
+  // Files carried in from outside: the dock has to come up to be dropped on.
+  const [carrying, setCarrying] = useState(false);
   const [pinned, setPinned] = useState(config.pinnedOnStartup);
   const dock = useRef<HTMLDivElement>(null);
   const [dragged, setDragged] = useState<string | null>(null);
@@ -139,7 +163,7 @@ export function Dock() {
   //
   // A drag counts as a hover: the pointer leaves the page the moment one
   // starts, and a dock that hid then took every place to drop with it.
-  const held = hovered || dragged !== null;
+  const held = hovered || dragged !== null || carrying;
   const revealed = pinned || !config.autoHide || held;
 
   useEffect(() => {
@@ -182,6 +206,16 @@ export function Dock() {
       data-revealed={revealed}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
+      onDragEnter={(event) => {
+        if (carriesFiles(event)) setCarrying(true);
+      }}
+      onDragLeave={(event) => {
+        const to = event.relatedTarget;
+        if (!(to instanceof Node && event.currentTarget.contains(to))) {
+          setCarrying(false);
+        }
+      }}
+      onDrop={() => setCarrying(false)}
     >
       <div
         ref={dock}
