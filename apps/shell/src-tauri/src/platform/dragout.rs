@@ -29,7 +29,8 @@ use windows::Win32::UI::Shell::{
     ILCreateFromPathW, ILFree, SHCreateDataObject, SHDoDragDrop, SHOpenFolderAndSelectItems,
 };
 
-/// Passes `on_paths` the paths of files dropped on this window's page.
+/// Passes `on_drop` what the page said a drop was for, and the paths of the
+/// files dropped on it.
 ///
 /// Tauri's own drop handling never heard of a drop on the shell's windows:
 /// every drag ended over a drop target that took it and did nothing, so the
@@ -39,7 +40,7 @@ use windows::Win32::UI::Shell::{
 /// here as `ICoreWebView2File`s — and those carry the path.
 pub fn accept_drops(
     window: &tauri::WebviewWindow,
-    on_paths: impl Fn(Vec<String>) + Send + 'static,
+    on_drop: impl Fn(String, Vec<String>) + Send + 'static,
 ) {
     use webview2_com::Microsoft::Web::WebView2::Win32::{
         ICoreWebView2File, ICoreWebView2WebMessageReceivedEventArgs2,
@@ -53,13 +54,13 @@ pub fn accept_drops(
         };
         let handler = WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
             // Tauri's own messages carry no objects and fail this cast.
-            let Some(args) = args.and_then(|args| {
-                args.cast::<ICoreWebView2WebMessageReceivedEventArgs2>()
-                    .ok()
-            }) else {
+            let Some(args) = args else {
                 return Ok(());
             };
-            let objects = args.AdditionalObjects()?;
+            let Ok(with_objects) = args.cast::<ICoreWebView2WebMessageReceivedEventArgs2>() else {
+                return Ok(());
+            };
+            let objects = with_objects.AdditionalObjects()?;
             let mut count = 0;
             objects.Count(&mut count)?;
             let mut paths = Vec::new();
@@ -71,7 +72,12 @@ pub fn accept_drops(
                 }
             }
             if !paths.is_empty() {
-                on_paths(paths);
+                let mut text = PWSTR::null();
+                let message = match args.TryGetWebMessageAsString(&mut text) {
+                    Ok(()) => take_pwstr(text),
+                    Err(_) => String::new(),
+                };
+                on_drop(message, paths);
             }
             Ok(())
         }));

@@ -51,9 +51,25 @@ fn packaged(aumid: &str) -> Result<(), String> {
 pub fn command(line: &str) -> Result<(), String> {
     let (program, arguments) = bw_core::launcher::split_command(line)
         .ok_or_else(|| format!("`{line}` is not something to run"))?;
+    run(&program, &arguments)
+}
 
-    let program_wide = wide(&program);
-    let arguments_wide = wide(&arguments);
+/// Starts `program` with `files` on its command line, which is what dropping
+/// them on a taskbar button does.
+pub fn open_with(program: &str, files: &[String]) -> Result<(), String> {
+    // Windows paths cannot contain a double quote, so quoting each one is all
+    // the escaping there is to do.
+    let arguments = files
+        .iter()
+        .map(|file| format!("\"{file}\""))
+        .collect::<Vec<_>>()
+        .join(" ");
+    run(program, &arguments)
+}
+
+fn run(program: &str, arguments: &str) -> Result<(), String> {
+    let program_wide = wide(program);
+    let arguments_wide = wide(arguments);
 
     let result = unsafe {
         ShellExecuteW(

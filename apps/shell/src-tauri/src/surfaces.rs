@@ -493,9 +493,34 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         #[cfg(windows)]
         if surface.label == SHELF.label {
             let app = app.clone();
-            crate::platform::dragout::accept_drops(&window, move |paths| {
+            crate::platform::dragout::accept_drops(&window, move |_, paths| {
                 use tauri::Emitter;
                 let _ = app.emit_to(SHELF.label, crate::commands::event::SHELF_DROPPED, paths);
+            });
+        }
+        // An application's icon opens the files dropped on it. The page says
+        // which application; it is only started if that is a program that is
+        // really there, whatever the message says.
+        #[cfg(windows)]
+        if surface.label == DOCK.label {
+            crate::platform::dragout::accept_drops(&window, |program, files| {
+                let program = std::path::Path::new(&program);
+                let runnable = program.is_file()
+                    && program
+                        .extension()
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"));
+                if !runnable {
+                    tracing::warn!(
+                        ?program,
+                        "files were dropped on something that is not a program"
+                    );
+                    return;
+                }
+                if let Err(error) =
+                    crate::platform::launch::open_with(&program.to_string_lossy(), &files)
+                {
+                    tracing::warn!(%error, "could not open the files dropped on the dock");
+                }
             });
         }
 
