@@ -164,6 +164,7 @@ export function Background() {
           editing={editing}
           grid={widgets.grid}
           wallpaper={wallpaper.blanked ? "" : src}
+          zoom={background.parallax.enable ? background.parallax.zoom : 1}
         />
       ) : null}
 

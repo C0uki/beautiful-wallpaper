@@ -38,6 +38,8 @@ export interface WidgetCanvasProps {
   grid: number;
   /** The wallpaper on screen, for the widgets placed where it is calmest. */
   wallpaper?: string;
+  /** How much larger than the screen the wallpaper is drawn, for parallax. */
+  zoom?: number;
 }
 
 type Spot = { x: number; y: number };
@@ -49,17 +51,17 @@ const isCalm = (item: CanvasItem) =>
  * Where each `leastBusy` widget goes on `image`, as fractions of the screen.
  *
  * The wallpaper is read at 160 pixels across, framed the way it is drawn
- * ("cover"), and each widget takes the calmest free place in turn, around
- * the ones that stay where they were put.
- *
- * ponytail: the parallax zoom is ignored — a few percent at the edges, which
- * the margin keeps widgets out of anyway.
+ * ("cover", then enlarged by the parallax `zoom` about the middle), and each
+ * widget takes the calmest free place in turn, around the ones that stay
+ * where they were put. The parallax pan follows the pointer around the
+ * middle, so the picture is read where it rests: centred.
  */
 function placeCalmly(
   image: HTMLImageElement,
   root: HTMLElement,
   items: CanvasItem[],
   elements: Map<string, HTMLElement>,
+  zoom: number,
 ): Record<string, Spot> {
   const bounds = root.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return {};
@@ -73,10 +75,11 @@ function placeCalmly(
   canvas.height = height;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) return {};
-  const scale = Math.max(
-    width / (image.naturalWidth || 1),
-    height / (image.naturalHeight || 1),
-  );
+  const scale =
+    Math.max(
+      width / (image.naturalWidth || 1),
+      height / (image.naturalHeight || 1),
+    ) * zoom;
   const drawnWidth = image.naturalWidth * scale;
   const drawnHeight = image.naturalHeight * scale;
   context.drawImage(
@@ -155,6 +158,7 @@ export function WidgetCanvas({
   editing,
   grid,
   wallpaper,
+  zoom = 1,
 }: WidgetCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -188,14 +192,16 @@ export function WidgetCanvas({
     image.crossOrigin = "anonymous";
     image.onload = () => {
       if (!cancelled) {
-        setCalm(placeCalmly(image, root, itemsRef.current, elements.current));
+        setCalm(
+          placeCalmly(image, root, itemsRef.current, elements.current, zoom),
+        );
       }
     };
     image.src = wallpaper;
     return () => {
       cancelled = true;
     };
-  }, [wallpaper, layout]);
+  }, [wallpaper, layout, zoom]);
 
   const snap = useCallback(
     (pixels: number) => (grid > 0 ? Math.round(pixels / grid) * grid : pixels),
