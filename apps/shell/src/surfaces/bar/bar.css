@@ -13,8 +13,6 @@
   gap: 8px;
   color: var(--on-surface);
   font-size: 0.95em;
-  /* Past the fake screen corners, which are drawn over both ends. */
-  padding-inline: var(--bar-corner, 0px);
 }
 
 /* While the bar is hiding, only its hover strip is on screen. Fading the slots
@@ -73,8 +71,7 @@
 .bw-bar[data-style="islands"] {
   background: transparent;
   gap: 10px;
-  padding-block: 4px;
-  padding-inline: max(8px, var(--bar-corner, 0px));
+  padding: 4px 8px;
 }
 
 .bw-bar[data-style="islands"] .bw-bar-slot {
@@ -89,8 +86,7 @@
 /* A vertical bar stacks its slots instead. */
 .bw-bar[data-vertical="true"] {
   flex-direction: column;
-  padding-inline: 0;
-  padding-block: max(8px, var(--bar-corner, 0px));
+  padding: 8px 0;
 }
 
 .bw-bar[data-vertical="true"] .bw-bar-slot {

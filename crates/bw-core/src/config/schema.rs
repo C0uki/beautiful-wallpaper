@@ -139,14 +139,6 @@ config_struct! {
         pub wallpaper_theming: WallpaperTheming = WallpaperTheming::default(),
         /// Corner rounding multiplier applied to every surface.
         pub rounding_scale: f64 = 1.0,
-        /// Draw rounded corners over the screen's own square ones.
-        ///
-        /// `0` never, `1` always, `2` only when nothing is full-screen — which
-        /// is the default, because four rounded corners over a full-screen
-        /// video are four notches cut out of the picture.
-        pub fake_screen_rounding: u32 = 2,
-        /// The radius of those corners, in pixels.
-        pub screen_rounding: u32 = 24,
     }
 }
 

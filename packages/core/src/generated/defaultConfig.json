@@ -28,9 +28,7 @@
       "syncSystemAccent": true,
       "syncWindowsTerminal": false
     },
-    "roundingScale": 1.0,
-    "fakeScreenRounding": 2,
-    "screenRounding": 24
+    "roundingScale": 1.0
   },
   "audio": {
     "step": 5,

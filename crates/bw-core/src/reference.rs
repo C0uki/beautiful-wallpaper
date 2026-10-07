@@ -425,17 +425,13 @@ mod tests {
     fn doc_comments_come_through_attached_to_their_key() {
         let notes = descriptions();
 
-        let rounding = notes
-            .get("appearance.fakeScreenRounding")
+        let menu = notes
+            .get("hacks.desktopMenu")
             .expect("that key is documented in the schema");
-        assert!(
-            rounding.contains("full-screen"),
-            "got: {rounding}",
-            rounding = rounding
-        );
+        assert!(menu.contains("hook"), "got: {menu}", menu = menu);
 
         // Paragraphs are joined, not truncated to the first one.
-        assert!(rounding.len() > 120, "the whole comment should be here");
+        assert!(menu.len() > 120, "the whole comment should be here");
     }
 
     /// Every section needs a sentence saying what it is for. This is the only

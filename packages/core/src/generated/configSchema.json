@@ -133,20 +133,6 @@
     "kind": "decimal"
   },
   {
-    "path": "appearance.fakeScreenRounding",
-    "section": "appearance",
-    "label": "Fake screen rounding",
-    "group": "",
-    "kind": "integer"
-  },
-  {
-    "path": "appearance.screenRounding",
-    "section": "appearance",
-    "label": "Screen rounding",
-    "group": "",
-    "kind": "integer"
-  },
-  {
     "path": "audio.step",
     "section": "audio",
     "label": "Step",

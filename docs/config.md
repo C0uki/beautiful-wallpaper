@@ -113,15 +113,11 @@ Extra translucency applied on top of the wallpaper-derived value.
 - **`appearance.wallpaperTheming.syncSystemAccent`** — Recolour the OS accent colour and light/dark mode from the wallpaper.
 - **`appearance.wallpaperTheming.syncWindowsTerminal`** — Write a matching colour scheme into Windows Terminal's settings.
 
-| Setting                         | Value        | Default |
-| ------------------------------- | ------------ | ------- |
-| `appearance.roundingScale`      | number       | `1.0`   |
-| `appearance.fakeScreenRounding` | whole number | `2`     |
-| `appearance.screenRounding`     | whole number | `24`    |
+| Setting                    | Value  | Default |
+| -------------------------- | ------ | ------- |
+| `appearance.roundingScale` | number | `1.0`   |
 
 - **`appearance.roundingScale`** — Corner rounding multiplier applied to every surface.
-- **`appearance.fakeScreenRounding`** — Draw rounded corners over the screen's own square ones. `0` never, `1` always, `2` only when nothing is full-screen — which is the default, because four rounded corners over a full-screen video are four notches cut out of the picture.
-- **`appearance.screenRounding`** — The radius of those corners, in pixels.
 
 ## `audio`
 

@@ -58,13 +58,6 @@ export const OVERRIDES: Record<string, Override> = {
   "appearance.palette.mode": { choices: plain(["auto", "light", "dark"]) },
   "appearance.roundingScale": { range: { min: 0, max: 2, step: 0.05 } },
   "appearance.transparency.extra": { range: { min: 0, max: 1, step: 0.05 } },
-  "appearance.fakeScreenRounding": {
-    choices: [
-      { value: "0", label: () => tr("Never") },
-      { value: "1", label: () => tr("Always") },
-      { value: "2", label: () => tr("When nothing is full-screen") },
-    ],
-  },
   // Tri-state numbers. A box showing "1" is honest and says nothing.
   "policies.ai": {
     choices: [
