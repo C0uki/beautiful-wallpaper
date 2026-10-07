@@ -382,6 +382,26 @@ fn percent_encode(value: &str) -> String {
     encoded
 }
 
+/// The Start-menu name of a program known only by its executable: "Spotify"
+/// for `Spotify.exe`.
+///
+/// Media sessions name an unpackaged program this way, or by the bare name —
+/// Chrome's is `Chrome` — and a shortcut's subtitle is the path it starts.
+pub fn name_for_program<'a>(apps: &'a [AppEntry], program: &str) -> Option<&'a str> {
+    let stem = |file: &str| {
+        let file = file
+            .rsplit(['\\', '/'])
+            .next()
+            .unwrap_or(file)
+            .to_ascii_lowercase();
+        file.strip_suffix(".exe").map(str::to_owned).unwrap_or(file)
+    };
+    let wanted = stem(program);
+    apps.iter()
+        .find(|app| app.kind == AppKind::Shortcut && stem(&app.subtitle) == wanted)
+        .map(|app| app.name.as_str())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -636,5 +656,15 @@ mod tests {
             .map(|index| characters[*index])
             .collect();
         assert_eq!(matched.to_lowercase(), "code");
+    }
+
+    #[test]
+    fn a_program_is_named_after_the_shortcut_that_starts_it() {
+        let mut chrome = app("Google Chrome");
+        chrome.subtitle = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe".to_owned();
+        let apps = [app("Notepad"), chrome];
+        assert_eq!(name_for_program(&apps, "chrome.exe"), Some("Google Chrome"));
+        assert_eq!(name_for_program(&apps, "Chrome"), Some("Google Chrome"));
+        assert_eq!(name_for_program(&apps, "Spotify.exe"), None);
     }
 }

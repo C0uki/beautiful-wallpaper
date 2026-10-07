@@ -179,7 +179,7 @@ pub fn media() -> MediaState {
     let mut state = MediaState {
         source: session
             .SourceAppUserModelId()
-            .map(|id| app_name(&id.to_string()))
+            .map(|id| id.to_string())
             .unwrap_or_default(),
         ..MediaState::default()
     };
@@ -222,26 +222,21 @@ pub fn media() -> MediaState {
     state
 }
 
-/// What the Start menu calls the application with this id: "メディア
+/// What the Start menu calls the application playing media: "メディア
 /// プレーヤー" rather than `Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic`.
 ///
-/// Asked of the Applications folder, which knows packaged and desktop
-/// applications alike by the id they play media under. One that is not
-/// listed there — Chrome's `Chrome` — is shown as its id, less what follows
-/// a `!` and a trailing `.exe`.
-#[cfg(windows)]
-fn app_name(id: &str) -> String {
-    use windows::core::HSTRING;
-    use windows::Win32::System::Com::{
-        CoInitializeEx, CoTaskMemFree, IBindCtx, COINIT_MULTITHREADED,
-    };
-    use windows::Win32::UI::Shell::{IShellItem, SHCreateItemFromParsingName, SIGDN_NORMALDISPLAY};
-
+/// A packaged program's id, or a desktop one's that registered it, is in the
+/// Applications folder. An unpackaged program goes by its executable —
+/// `Spotify.exe`, or Chrome's bare `Chrome` — and is matched against the
+/// Start menu's shortcuts, from `apps`. Anything else is shown as its id,
+/// less what follows a `!` and a trailing `.exe`.
+pub fn app_name(id: &str, apps: impl FnOnce() -> Vec<bw_core::launcher::AppEntry>) -> String {
     // An empty path would name the Applications folder itself.
     if id.is_empty() {
         return String::new();
     }
-    // Asked every second, and the answer does not change.
+    // Asked every second, and the answer does not change. A fallback is not
+    // kept: the Start menu is still being read for a while after startup.
     static LAST: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
     let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some((known, name)) = last.as_ref() {
@@ -250,26 +245,46 @@ fn app_name(id: &str) -> String {
         }
     }
 
-    let listed = unsafe {
+    let found = listed_app_name(id)
+        .or_else(|| bw_core::launcher::name_for_program(&apps(), id).map(str::to_owned));
+    match found {
+        Some(name) => {
+            *last = Some((id.to_owned(), name.clone()));
+            name
+        }
+        None => {
+            let id = id.split('!').next().unwrap_or(id);
+            id.strip_suffix(".exe").unwrap_or(id).to_owned()
+        }
+    }
+}
+
+/// The Applications folder's name for an application user model id.
+#[cfg(windows)]
+fn listed_app_name(id: &str) -> Option<String> {
+    use windows::core::HSTRING;
+    use windows::Win32::System::Com::{
+        CoInitializeEx, CoTaskMemFree, IBindCtx, COINIT_MULTITHREADED,
+    };
+    use windows::Win32::UI::Shell::{IShellItem, SHCreateItemFromParsingName, SIGDN_NORMALDISPLAY};
+
+    unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-        SHCreateItemFromParsingName::<_, _, IShellItem>(
+        let item: IShellItem = SHCreateItemFromParsingName(
             &HSTRING::from(format!("shell:AppsFolder\\{id}")),
             None::<&IBindCtx>,
         )
-        .and_then(|item| item.GetDisplayName(SIGDN_NORMALDISPLAY))
-        .ok()
-        .map(|text| {
-            let name = text.to_string().unwrap_or_default();
-            CoTaskMemFree(Some(text.0 as _));
-            name
-        })
-    };
-    let name = listed.filter(|name| !name.is_empty()).unwrap_or_else(|| {
-        let id = id.split('!').next().unwrap_or(id);
-        id.strip_suffix(".exe").unwrap_or(id).to_owned()
-    });
-    *last = Some((id.to_owned(), name.clone()));
-    name
+        .ok()?;
+        let text = item.GetDisplayName(SIGDN_NORMALDISPLAY).ok()?;
+        let name = text.to_string().unwrap_or_default();
+        CoTaskMemFree(Some(text.0 as _));
+        (!name.is_empty()).then_some(name)
+    }
+}
+
+#[cfg(not(windows))]
+fn listed_app_name(_id: &str) -> Option<String> {
+    None
 }
 
 #[cfg(not(windows))]
