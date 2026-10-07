@@ -28,17 +28,13 @@ pub fn start(app: &AppHandle) {
         loop {
             let config = app.state::<AppState>().config();
             let weather = &config.weather;
-            // `ja_JP` asks for Japanese.
-            // ponytail: `auto` gets English, not the OS language the surfaces
-            // resolve it to; read `GetUserDefaultLocaleName` here if it matters.
-            let lang = config
-                .language
-                .ui
-                .split(['_', '-'])
-                .next()
-                .filter(|lang| *lang != "auto")
-                .unwrap_or_default()
-                .to_owned();
+            // `ja_JP` asks for Japanese, and `auto` for the language the
+            // surfaces resolve it to: the system's.
+            let ui = match config.language.ui.as_str() {
+                "auto" => system_language(),
+                chosen => chosen.to_owned(),
+            };
+            let lang = ui.split(['_', '-']).next().unwrap_or_default().to_owned();
             let asking = format!("{}|{}|{lang}", weather.city, weather.use_usc_units);
 
             if weather.enable && (Instant::now() >= next || asking != tried) {
@@ -63,6 +59,22 @@ pub fn start(app: &AppHandle) {
             tokio::time::sleep(Duration::from_secs(10)).await;
         }
     });
+}
+
+/// The first of the person's preferred languages, as a BCP-47 tag such as
+/// `ja-JP`: what WebView2 hands the surfaces as `navigator.languages`. Empty
+/// when Windows will not say, which asks wttr.in for English.
+#[cfg(windows)]
+fn system_language() -> String {
+    windows::Globalization::ApplicationLanguages::Languages()
+        .and_then(|languages| languages.GetAt(0))
+        .map(|tag| tag.to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(not(windows))]
+fn system_language() -> String {
+    String::new()
 }
 
 async fn fetch(
