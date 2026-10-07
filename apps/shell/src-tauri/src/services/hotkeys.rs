@@ -46,6 +46,10 @@ pub fn apply(app: &AppHandle) {
     // With the chord each was refused for, to tell a new refusal from one
     // already reported.
     let mut refused_chords: Vec<(String, String)> = Vec::new();
+    // The ones that never reached Windows: not a combination the parser can
+    // read. Told apart in the notification, because "Windows keeps these"
+    // sent the search for `Print` to the wrong place.
+    let mut unreadable: Vec<String> = Vec::new();
 
     for (binding, chord) in bindings(&config.keybinds) {
         let Some(bound) = action_for(&binding) else {
@@ -59,6 +63,7 @@ pub fn apply(app: &AppHandle) {
         let Ok(shortcut) = Shortcut::from_str(&bw_core::keys::normalise(&chord)) else {
             refused.push(binding.clone());
             refused_chords.push((binding.clone(), chord.clone()));
+            unreadable.push(binding.clone());
             tracing::warn!(%chord, %binding, "not a key combination");
             continue;
         };
@@ -99,7 +104,7 @@ pub fn apply(app: &AppHandle) {
         *said = refused_chords;
         fresh
     };
-    report(app, &config.keybinds, &fresh);
+    report(app, &config.keybinds, &fresh, &unreadable);
 }
 
 /// The refusals the last `apply` found, as binding and chord.
@@ -213,7 +218,12 @@ fn toggle(app: &AppHandle, flag: &str) {
 }
 
 /// Says which keys could not be taken, once, rather than per key.
-fn report(app: &AppHandle, keybinds: &bw_core::config::Keybinds, refused: &[String]) {
+fn report(
+    app: &AppHandle,
+    keybinds: &bw_core::config::Keybinds,
+    refused: &[String],
+    unreadable: &[String],
+) {
     if refused.is_empty() {
         return;
     }
@@ -224,19 +234,37 @@ fn report(app: &AppHandle, keybinds: &bw_core::config::Keybinds, refused: &[Stri
     // Named by their chord rather than their config key: the user pressed a
     // combination, and that is what they will look for.
     let serialised = serde_json::to_value(keybinds).unwrap_or_default();
-    let named: Vec<String> = bw_core::keys::chords(&serialised)
+    let (misread, kept): (Vec<_>, Vec<_>) = bw_core::keys::chords(&serialised)
         .into_iter()
         .filter(|(binding, _)| refused.contains(binding))
-        .map(|(binding, chord)| format!("{chord} ({binding})"))
-        .collect();
+        .partition(|(binding, _)| unreadable.contains(binding));
+    let named = |found: Vec<(String, String)>| {
+        found
+            .into_iter()
+            .map(|(binding, chord)| format!("{chord} ({binding})"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    let mut body = Vec::new();
+    if !kept.is_empty() {
+        body.push(format!(
+            "Windows keeps these for itself, or another program already has them: {}. \
+             Settings offers a free combination for each.",
+            named(kept)
+        ));
+    }
+    if !misread.is_empty() {
+        body.push(format!(
+            "These are not key combinations the shell can read: {}. \
+             Check how they are written in Settings.",
+            named(misread)
+        ));
+    }
 
     let notification = store.0.post(NewNotification::from_shell(
         "Some keyboard shortcuts are unavailable",
-        format!(
-            "Windows keeps these for itself, or another program already has them: {}. \
-             Settings offers a free combination for each.",
-            named.join(", ")
-        ),
+        body.join(" "),
     ));
     let _ = app.emit(event::NOTIFICATIONS, store.0.list());
     let _ = notification;
