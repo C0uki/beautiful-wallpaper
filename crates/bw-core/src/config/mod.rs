@@ -124,12 +124,37 @@ pub fn save(path: &Path, config: &Config) -> Result<(), ConfigError> {
             source,
         })?;
     }
-    let mut text = serde_json::to_string_pretty(config).expect("config is always serialisable");
+    let mut document = serde_json::to_value(config).expect("config is always serialisable");
+    // What a newer version wrote stays for when it comes back: this version
+    // has no setting for those keys, and saving without them reset them all.
+    if let Some(before) = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+    {
+        keep_unknown(&before, &mut document);
+    }
+    let mut text = serde_json::to_string_pretty(&document).expect("a JSON value is serialisable");
     text.push('\n');
     std::fs::write(path, text).map_err(|source| ConfigError::Write {
         path: path.to_owned(),
         source,
     })
+}
+
+/// Copies into `document` every key of `before` it does not have, at any depth:
+/// the keys [`unknown_keys`] names.
+fn keep_unknown(before: &Value, document: &mut Value) {
+    let (Value::Object(before), Value::Object(document)) = (before, document) else {
+        return;
+    };
+    for (key, value) in before {
+        match document.get_mut(key) {
+            Some(known) => keep_unknown(value, known),
+            None => {
+                document.insert(key.clone(), value.clone());
+            }
+        }
+    }
 }
 
 /// Looks up a dotted path such as `background.widgets.clock.enable`.
@@ -317,6 +342,30 @@ mod tests {
         assert!(config.bar.bottom);
         assert_eq!(unknown_keys(text, &config), ["bar.botom", "later"]);
         assert!(unknown_keys("{}", &config).is_empty());
+    }
+
+    #[test]
+    fn saving_keeps_what_a_newer_version_wrote() {
+        let dir = std::env::temp_dir().join(format!("bw-config-keep-{}", std::process::id()));
+        let path = dir.join("config.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"bar":{"height":30,"later":true},"later":{"x":1}}"#,
+        )
+        .unwrap();
+
+        let mut config = Config::default();
+        config.bar.height = 44;
+        save(&path, &config).unwrap();
+
+        let text = std::fs::read_to_string(&path).unwrap();
+        let saved: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(saved["bar"]["height"], 44);
+        assert_eq!(saved["bar"]["later"], true);
+        assert_eq!(saved["later"]["x"], 1);
+        assert_eq!(load(&path).unwrap(), config);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
