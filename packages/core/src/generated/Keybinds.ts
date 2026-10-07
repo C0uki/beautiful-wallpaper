@@ -35,7 +35,9 @@ export type Keybinds = {
   widgetEditMode: string;
   /**
    * `Win+Shift+S` is not available: Windows keeps it for the Snipping
-   * Tool and will not hand it over.
+   * Tool and will not hand it over. Nor is a bare `PrintScreen`, which
+   * Windows 11 gives the Snipping Tool too; with `Ctrl` or `Shift` it
+   * reaches the shell.
    */
   captureRegion: string;
   captureOcr: string;

@@ -388,7 +388,7 @@ The chords that open each surface. Windows keeps some combinations for itself an
 | `keybinds.sidebarRight`      | text         | `"Super+Shift+N"`     |
 | `keybinds.wallpaperSelector` | text         | `"Ctrl+Alt+W"`        |
 | `keybinds.widgetEditMode`    | text         | `"Super+Shift+D"`     |
-| `keybinds.captureRegion`     | text         | `"PrintScreen"`       |
+| `keybinds.captureRegion`     | text         | `"Ctrl+Alt+S"`        |
 | `keybinds.captureOcr`        | text         | `"Ctrl+PrintScreen"`  |
 | `keybinds.captureTranslate`  | text         | `"Shift+PrintScreen"` |
 | `keybinds.session`           | text         | `"Super+Shift+E"`     |
@@ -399,7 +399,7 @@ The chords that open each surface. Windows keeps some combinations for itself an
 
 - **`keybinds.overview`** — `Alt+Space` follows PowerToys Run, which is what a Windows user is most likely to already have in their fingers.
 - **`keybinds.sidebarLeft`** — `Ctrl+Alt` for the two that `Win+Shift` lost: Windows turned down `Win+Shift+A` and `Win+Shift+W` on a plain Windows 11 install.
-- **`keybinds.captureRegion`** — `Win+Shift+S` is not available: Windows keeps it for the Snipping Tool and will not hand it over.
+- **`keybinds.captureRegion`** — `Win+Shift+S` is not available: Windows keeps it for the Snipping Tool and will not hand it over. Nor is a bare `PrintScreen`, which Windows 11 gives the Snipping Tool too; with `Ctrl` or `Shift` it reaches the shell.
 - **`keybinds.desktopMenu`** — `X` after `Win+X`, which is the closest thing Windows has to this. Not `Win+Shift+M`, which restores every minimised window.
 - **`keybinds.shelf`** — `F` for files, since `Win+Shift+D` is the widget editor's.
 - **`keybinds.settings`** — `I` after `Win+I`, which is where Windows keeps its own settings. Not `Win+Shift+S`, which opens the Snipping Tool.

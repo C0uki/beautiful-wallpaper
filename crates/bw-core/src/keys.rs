@@ -167,6 +167,12 @@ const TAKEN: &[Taken] = &[
         chord: "Super+PrintScreen",
         used_for: "saving a screenshot",
     },
+    // Registering it succeeds, and the key never arrives: Windows 11 opens
+    // the Snipping Tool on it before any hotkey is consulted, by default.
+    Taken {
+        chord: "PrintScreen",
+        used_for: "the Snipping Tool",
+    },
     // The `Win+Shift` combinations that are also taken. Everything else in
     // that space is free, which is why the shell's own keys live there.
     Taken {
@@ -476,6 +482,8 @@ mod tests {
         );
         assert_eq!(taken_by_windows("Super+Shift+A"), None);
         assert_eq!(taken_by_windows("Ctrl+Alt+S"), None);
+        assert_eq!(taken_by_windows("Print"), Some("the Snipping Tool"));
+        assert_eq!(taken_by_windows("Ctrl+PrintScreen"), None);
     }
 
     /// The whole point of the shipped defaults living in `Win+Shift`: a
