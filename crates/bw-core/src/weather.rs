@@ -38,6 +38,10 @@ pub fn parse(body: &str, usc: bool, lang: &str) -> Option<WeatherState> {
         .get("weather")
         .and_then(|days| days.get(0)?.get("astronomy")?.get(0));
     let sun = |key: &str| astronomy.and_then(|day| text(day, key)).unwrap_or_default();
+    // The report says itself whether it is night where it was taken: its
+    // icon is the night one. The times next to it cannot say as much — the
+    // observation is in UTC, and sunrise and sunset are local.
+    let night = first(now, "weatherIconUrl").is_some_and(|url| url.contains("night"));
 
     Some(WeatherState {
         city: root
@@ -50,19 +54,16 @@ pub fn parse(body: &str, usc: bool, lang: &str) -> Option<WeatherState> {
         temperature: number(if usc { "temp_F" } else { "temp_C" })?,
         humidity: number("humidity").unwrap_or_default(),
         wind_speed: number("windspeedKmph").unwrap_or_default() / 3.6,
-        icon: icon(number("weatherCode").unwrap_or_default() as u32).to_owned(),
+        icon: icon(number("weatherCode").unwrap_or_default() as u32, night).to_owned(),
         sunrise: sun("sunrise"),
         sunset: sun("sunset"),
     })
 }
 
 /// The icon for one of the World Weather Online condition codes wttr.in uses.
-///
-/// ponytail: a clear sky is `sunny` at night too; telling day from night means
-/// comparing the clock with `sunrise`/`sunset`, worth it if anyone looks at
-/// the bar after dark and minds.
-fn icon(code: u32) -> &'static str {
+fn icon(code: u32, night: bool) -> &'static str {
     match code {
+        113 if night => "clear_night",
         113 => "sunny",
         116 => "cloud",
         119 | 122 => "cloudy",
@@ -95,6 +96,18 @@ mod tests {
         let english = parse(KOMAKI, true, "").expect("parses");
         assert_eq!(english.description, "Overcast");
         assert_eq!(english.temperature, 68.0);
+    }
+
+    /// Trimmed from a real `wttr.in/New+York?format=j1`, at night there.
+    const NEW_YORK_NIGHT: &str = r#"{"current_condition": [{"temp_C": "17", "temp_F": "63", "humidity": "70", "windspeedKmph": "9", "weatherCode": "113", "weatherIconUrl": [{"value": "https://cdn.worldweatheronline.com/images/wsymbols01_png_64/wsymbol_0008_clear_sky_night.png"}], "weatherDesc": [{"value": "Clear "}]}]}"#;
+
+    #[test]
+    fn a_clear_night_is_not_sunny() {
+        let weather = parse(NEW_YORK_NIGHT, false, "").expect("parses");
+        assert_eq!(weather.icon, "clear_night");
+        // Without the night icon, as in the trimmed Komaki report: day.
+        assert_eq!(parse(KOMAKI, false, "").expect("parses").icon, "cloudy");
+        assert_eq!(icon(113, false), "sunny");
     }
 
     #[test]
