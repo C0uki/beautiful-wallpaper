@@ -1241,21 +1241,22 @@ fn apply_layer(
                 // Windows takes, so a pass that is already running is told to
                 // go round once more rather than ignoring the news.
                 //
-                // ponytail: a change landing between the last check and the
-                // lock's release is missed; the next change of any kind
-                // catches up.
+                // A change that lands after the last look but before the lock
+                // is let go of finds it held and leaves; the pass looks once
+                // more after letting go, and takes that change up itself.
                 static PLACING: Mutex<()> = Mutex::new(());
                 static AGAIN: std::sync::atomic::AtomicBool =
                     std::sync::atomic::AtomicBool::new(false);
-                AGAIN.store(true, std::sync::atomic::Ordering::Relaxed);
+                use std::sync::atomic::Ordering::SeqCst;
+                AGAIN.store(true, SeqCst);
                 let app = app.clone();
-                std::thread::spawn(move || {
-                    let Some(_placing) = PLACING.try_lock() else {
+                std::thread::spawn(move || loop {
+                    let Some(placing) = PLACING.try_lock() else {
                         return;
                     };
                     // Half a second for the burst to settle into one pass.
                     std::thread::sleep(std::time::Duration::from_millis(500));
-                    while AGAIN.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                    while AGAIN.swap(false, SeqCst) {
                         // The taskbar first: a new Explorer may have
                         // forgotten it was hiding itself, and the bar asks
                         // for what is left.
@@ -1267,6 +1268,10 @@ fn apply_layer(
                         crate::services::chrome::apply(&app);
                         crate::services::chrome::emit(&app);
                         restore_background(&app);
+                    }
+                    drop(placing);
+                    if !AGAIN.load(SeqCst) {
+                        return;
                     }
                 });
             });
