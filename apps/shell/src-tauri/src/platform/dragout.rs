@@ -77,7 +77,14 @@ pub fn accept_drops(
                     Ok(()) => take_pwstr(text),
                     Err(_) => String::new(),
                 };
-                on_drop(message, paths);
+                // Dressed as a Tauri call so Tauri's handler, which reads it
+                // first, parses it quietly (`lib/dropped.ts`); the purpose is
+                // its `cmd`.
+                let purpose = serde_json::from_str::<serde_json::Value>(&message)
+                    .ok()
+                    .and_then(|call| call.get("cmd")?.as_str().map(str::to_owned))
+                    .unwrap_or_default();
+                on_drop(purpose, paths);
             }
             Ok(())
         }));

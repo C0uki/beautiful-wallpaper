@@ -184,11 +184,30 @@ let connected: Promise<void> | undefined;
 export function connect(): Promise<void> {
   connected ??= (async () => {
     const api = backend();
+    // What an event has already brought, which the snapshot below must not
+    // overwrite. While the shell is starting it answers slowly, and the
+    // snapshot can land after an event sent later than it was taken: the
+    // shelf, opened in those seconds, was told it was open and then that it
+    // was not, and sat on screen empty, refusing every drop.
+    const fresh = new Set<keyof ShellState>();
+    const arrived = <K extends keyof ShellState>(
+      key: K,
+      value: ShellState[K],
+    ) => {
+      fresh.add(key);
+      set({ [key]: value } as Pick<ShellState, K>);
+    };
 
     await Promise.all([
-      api.listen<Config>(Event.ConfigChanged, (config) => set({ config })),
-      api.listen<GeneratedTheme>(Event.ThemeChanged, (theme) => set({ theme })),
-      api.listen<GlobalStates>(Event.StateChanged, (states) => set({ states })),
+      api.listen<Config>(Event.ConfigChanged, (config) =>
+        arrived("config", config),
+      ),
+      api.listen<GeneratedTheme>(Event.ThemeChanged, (theme) =>
+        arrived("theme", theme),
+      ),
+      api.listen<GlobalStates>(Event.StateChanged, (states) =>
+        arrived("states", states),
+      ),
       api.listen<ResourceReading>(Event.Resources, (resources) =>
         set({ resources }),
       ),
@@ -204,11 +223,11 @@ export function connect(): Promise<void> {
       api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
       api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
       api.listen<Notification[]>(Event.Notifications, (notifications) =>
-        set({ notifications }),
+        arrived("notifications", notifications),
       ),
       api.listen<{ path: string; blanked: boolean }>(
         Event.WallpaperChanged,
-        (wallpaper) => set({ wallpaper }),
+        (wallpaper) => arrived("wallpaper", wallpaper),
       ),
       api.listen<VolumeReading>(Event.Volume, (volume) => set({ volume })),
       api.listen<VolumeReading>(Event.Mic, (mic) => set({ mic })),
@@ -254,14 +273,15 @@ export function connect(): Promise<void> {
       api.invoke<Notification[]>(Command.GetNotifications),
     ]);
 
-    set({
+    const snapshot: Partial<ShellState> = {
       config,
       theme,
       states,
       notifications,
-      ready: true,
       wallpaper: { path: config.background.wallpaperPath, blanked: false },
-    });
+    };
+    for (const key of fresh) delete snapshot[key];
+    set({ ...snapshot, ready: true });
 
     startClock();
   })();
