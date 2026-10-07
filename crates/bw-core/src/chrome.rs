@@ -95,31 +95,21 @@ impl ScreenChrome {
     }
 }
 
-/// One of the four corners of the screen.
+/// One of the two top corners of the screen. The bottom two are where the
+/// taskbar and the dock are, and were dropped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub enum Corner {
     TopLeft,
     TopRight,
-    BottomLeft,
-    BottomRight,
 }
 
 impl Corner {
-    pub const ALL: [Self; 4] = [
-        Self::TopLeft,
-        Self::TopRight,
-        Self::BottomLeft,
-        Self::BottomRight,
-    ];
-
-    pub fn is_top(self) -> bool {
-        matches!(self, Self::TopLeft | Self::TopRight)
-    }
+    pub const ALL: [Self; 2] = [Self::TopLeft, Self::TopRight];
 
     pub fn is_left(self) -> bool {
-        matches!(self, Self::TopLeft | Self::BottomLeft)
+        self == Self::TopLeft
     }
 }
 
@@ -171,7 +161,6 @@ pub fn hot_corners(config: &CornerOpen, screen: (i32, i32)) -> Vec<HotCorner> {
 
     Corner::ALL
         .into_iter()
-        .filter(|corner| config.bottom || corner.is_top())
         .filter_map(|corner| {
             let action = action_for(config, corner);
             // A corner bound to nothing is not a corner that does nothing
@@ -187,11 +176,7 @@ pub fn hot_corners(config: &CornerOpen, screen: (i32, i32)) -> Vec<HotCorner> {
                     } else {
                         screen_width - width
                     },
-                    y: if corner.is_top() {
-                        0
-                    } else {
-                        screen_height - height
-                    },
+                    y: 0,
                     width,
                     height,
                 },
@@ -205,8 +190,6 @@ fn action_for(config: &CornerOpen, corner: Corner) -> String {
     match corner {
         Corner::TopLeft => config.top_left_action.trim().to_owned(),
         Corner::TopRight => config.top_right_action.trim().to_owned(),
-        Corner::BottomLeft => config.bottom_left_action.trim().to_owned(),
-        Corner::BottomRight => config.bottom_right_action.trim().to_owned(),
     }
 }
 
@@ -337,7 +320,6 @@ mod tests {
     #[test]
     fn the_strips_stay_on_the_screen() {
         let mut config = corners();
-        config.bottom = true;
         config.corner_region_width = 4000;
         config.corner_region_height = 4000;
 
@@ -354,7 +336,6 @@ mod tests {
     #[test]
     fn opposite_strips_never_touch() {
         let mut config = corners();
-        config.bottom = true;
         // Wider than half of a narrow screen.
         config.corner_region_width = 250;
         let narrow = (400, 300);
@@ -373,17 +354,6 @@ mod tests {
             left.rect.x + left.rect.width <= right.rect.x,
             "the strips overlap: {left:?} and {right:?}"
         );
-    }
-
-    #[test]
-    fn the_bottom_corners_are_off_until_they_are_asked_for() {
-        let found = hot_corners(&corners(), SCREEN);
-        assert_eq!(found.len(), 2);
-        assert!(found.iter().all(|hot| hot.corner.is_top()));
-
-        let mut config = corners();
-        config.bottom = true;
-        assert_eq!(hot_corners(&config, SCREEN).len(), 4);
     }
 
     #[test]
@@ -413,9 +383,7 @@ mod tests {
     #[test]
     fn scrolling_a_left_corner_is_brightness_and_a_right_one_is_volume() {
         assert_eq!(scroll_target(Corner::TopLeft), ScrollTarget::Brightness);
-        assert_eq!(scroll_target(Corner::BottomLeft), ScrollTarget::Brightness);
         assert_eq!(scroll_target(Corner::TopRight), ScrollTarget::Volume);
-        assert_eq!(scroll_target(Corner::BottomRight), ScrollTarget::Volume);
     }
 
     #[test]

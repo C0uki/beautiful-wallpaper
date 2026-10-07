@@ -293,7 +293,7 @@ config_struct! {
         pub hover_region_height: u32 = 3,
         /// `"hug"` | `"float"` | `"islands"` | `"m3"`
         pub style: String = s("m3"),
-        pub left: Vec<String> = vec![s("media")],
+        pub left: Vec<String> = vec![s("sidebarLeft"), s("media")],
         pub center: Vec<String> = vec![s("workspaces"), s("activeWindow")],
         pub right: Vec<String> = vec![
             s("tray"),
@@ -301,6 +301,7 @@ config_struct! {
             s("network"),
             s("battery"),
             s("utilButtons"),
+            s("sidebarRight"),
             s("clock"),
         ],
         /// Draw a thin border around the whole screen.
@@ -484,9 +485,6 @@ config_struct! {
     /// window's close button.
     pub struct CornerOpen {
         pub enable: bool = true,
-        /// Whether the bottom two corners do anything. Off, because the bottom
-        /// of the screen is where the taskbar and the dock already are.
-        pub bottom: bool = false,
         /// Scrolling on a left corner changes the brightness and on a right
         /// corner the volume.
         pub value_scroll: bool = true,
@@ -503,8 +501,6 @@ config_struct! {
         /// corner does nothing and gets no region at all.
         pub top_left_action: String = s("sidebarLeftOpen"),
         pub top_right_action: String = s("sidebarRightOpen"),
-        pub bottom_left_action: String = s("sidebarLeftOpen"),
-        pub bottom_right_action: String = s("sidebarRightOpen"),
     }
 }
 

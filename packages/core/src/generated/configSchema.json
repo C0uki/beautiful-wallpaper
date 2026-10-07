@@ -1428,13 +1428,6 @@
     "kind": "toggle"
   },
   {
-    "path": "sidebar.cornerOpen.bottom",
-    "section": "sidebar",
-    "label": "Bottom",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
     "path": "sidebar.cornerOpen.valueScroll",
     "section": "sidebar",
     "label": "Value scroll",
@@ -1480,20 +1473,6 @@
     "path": "sidebar.cornerOpen.topRightAction",
     "section": "sidebar",
     "label": "Top right action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
-    "path": "sidebar.cornerOpen.bottomLeftAction",
-    "section": "sidebar",
-    "label": "Bottom left action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
-    "path": "sidebar.cornerOpen.bottomRightAction",
-    "section": "sidebar",
-    "label": "Bottom right action",
     "group": "Corner open",
     "kind": "text"
   },

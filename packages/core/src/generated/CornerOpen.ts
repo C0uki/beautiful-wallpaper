@@ -11,11 +11,6 @@
 export type CornerOpen = {
   enable: boolean;
   /**
-   * Whether the bottom two corners do anything. Off, because the bottom
-   * of the screen is where the taskbar and the dock already are.
-   */
-  bottom: boolean;
-  /**
    * Scrolling on a left corner changes the brightness and on a right
    * corner the volume.
    */
@@ -41,6 +36,4 @@ export type CornerOpen = {
    */
   topLeftAction: string;
   topRightAction: string;
-  bottomLeftAction: string;
-  bottomRightAction: string;
 };

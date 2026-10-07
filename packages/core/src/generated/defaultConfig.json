@@ -123,7 +123,7 @@
     "perMonitor": false,
     "hoverRegionHeight": 3,
     "style": "m3",
-    "left": ["media"],
+    "left": ["sidebarLeft", "media"],
     "center": ["workspaces", "activeWindow"],
     "right": [
       "tray",
@@ -131,6 +131,7 @@
       "network",
       "battery",
       "utilButtons",
+      "sidebarRight",
       "clock"
     ],
     "showFrame": false,
@@ -296,16 +297,13 @@
     },
     "cornerOpen": {
       "enable": true,
-      "bottom": false,
       "valueScroll": true,
       "clickless": false,
       "cornerRegionWidth": 250,
       "cornerRegionHeight": 5,
       "visualize": false,
       "topLeftAction": "sidebarLeftOpen",
-      "topRightAction": "sidebarRightOpen",
-      "bottomLeftAction": "sidebarLeftOpen",
-      "bottomRightAction": "sidebarRightOpen"
+      "topRightAction": "sidebarRightOpen"
     }
   },
   "time": {

@@ -431,7 +431,34 @@ export function UtilButtonsWidget() {
   );
 }
 
-/** Everything the bar layout can name. */
+/** The two ends of a Mac menu bar: the left sidebar where the Apple menu
+ *  would be, and the right one beside the clock, as Control Center is. */
+export function SidebarLeftWidget() {
+  const open = useShell((state) => state.states.sidebarLeftOpen);
+  return (
+    <IconButton
+      icon="apps"
+      size={30}
+      label={tr("Sidebar left")}
+      active={open}
+      onClick={() => void actions.toggleState("sidebarLeftOpen")}
+    />
+  );
+}
+
+export function SidebarRightWidget() {
+  const open = useShell((state) => state.states.sidebarRightOpen);
+  return (
+    <IconButton
+      icon="toggle_on"
+      size={30}
+      label={tr("Sidebar right")}
+      active={open}
+      onClick={() => void actions.toggleState("sidebarRightOpen")}
+    />
+  );
+}
+
 /** A small spectrum, while something is playing. Unmounted otherwise, which
  *  is what stops the shell listening to the output. */
 export function VisualizerWidget() {
@@ -441,6 +468,7 @@ export function VisualizerWidget() {
   ) : null;
 }
 
+/** Everything the bar layout can name. */
 export const BAR_WIDGETS: Record<string, () => ReactElement | null> = {
   clock: ClockWidget,
   workspaces: WorkspacesWidget,
@@ -453,4 +481,6 @@ export const BAR_WIDGETS: Record<string, () => ReactElement | null> = {
   visualizer: VisualizerWidget,
   tray: TrayWidget,
   utilButtons: UtilButtonsWidget,
+  sidebarLeft: SidebarLeftWidget,
+  sidebarRight: SidebarRightWidget,
 };
