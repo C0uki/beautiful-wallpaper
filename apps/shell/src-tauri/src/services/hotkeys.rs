@@ -54,7 +54,9 @@ pub fn apply(app: &AppHandle) {
             continue;
         };
 
-        let Ok(shortcut) = Shortcut::from_str(&chord) else {
+        // Through the one spelling first: the parser knows neither `Win` nor
+        // `Print`, both of which people write.
+        let Ok(shortcut) = Shortcut::from_str(&bw_core::keys::normalise(&chord)) else {
             refused.push(binding.clone());
             refused_chords.push((binding.clone(), chord.clone()));
             tracing::warn!(%chord, %binding, "not a key combination");

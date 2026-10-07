@@ -287,6 +287,12 @@ fn capitalise(lower: &str) -> String {
     if let Some(name) = NAMES.iter().find(|name| name.to_ascii_lowercase() == lower) {
         return (*name).to_owned();
     }
+    // What the key cap says, and what the defaults said until the hotkey
+    // parser turned `Print` down as no key at all: three bindings refused on
+    // every machine, reported as if Windows had kept them.
+    if lower == "print" {
+        return "PrintScreen".to_owned();
+    }
 
     let mut characters = lower.chars();
     match characters.next() {
@@ -449,7 +455,7 @@ mod tests {
         assert_eq!(normalise("Super+Shift+S"), "Shift+Super+S");
         assert_eq!(normalise("META+SHIFT+s"), "Shift+Super+S");
         assert_eq!(normalise("Alt+Space"), "Alt+Space");
-        assert_eq!(normalise("Print"), "Print");
+        assert_eq!(normalise("Print"), "PrintScreen");
         assert_eq!(normalise("ctrl+printscreen"), "Ctrl+PrintScreen");
     }
 
@@ -536,7 +542,7 @@ mod tests {
 
     #[test]
     fn a_suggestion_keeps_the_key_that_was_asked_for() {
-        assert_eq!(suggest("Print", &[]).unwrap(), "Ctrl+Alt+Print");
+        assert_eq!(suggest("Print", &[]).unwrap(), "Ctrl+Alt+PrintScreen");
         assert_eq!(suggest("Alt+Space", &[]).unwrap(), "Ctrl+Alt+Space");
     }
 
