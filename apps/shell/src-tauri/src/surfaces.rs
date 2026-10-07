@@ -844,6 +844,13 @@ pub fn place_overlays(app: &AppHandle) {
     // resize or replace.
     for surface in ALL.iter().filter(|surface| surface.layer == Layer::Chrome) {
         if let Some(window) = app.get_webview_window(surface.label) {
+            // A maximized window keeps its maximized place whatever it is told.
+            #[cfg(windows)]
+            if let Ok(handle) = window.hwnd() {
+                unsafe {
+                    crate::platform::win::unmaximize(windows::Win32::Foundation::HWND(handle.0))
+                };
+            }
             let _ = window.set_position(tauri::LogicalPosition::new(0.0, 0.0));
             let _ = window.set_size(tauri::LogicalSize::new(screen.0, screen.1));
         }
@@ -1217,7 +1224,7 @@ fn apply_layer(
     if window.label() == HOT_CORNERS.label {
         win::set_hot_corners(hwnd);
     }
-    if layer == Layer::Bar || window.label() == DOCK.label {
+    if layer == Layer::Bar || window.label() == DOCK.label || window.label() == HOT_CORNERS.label {
         let app = app.clone();
         unsafe {
             win::watch_edge_window(hwnd, move || {

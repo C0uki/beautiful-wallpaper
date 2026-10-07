@@ -32,13 +32,14 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
     GetMessageW, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsWindowVisible, PostThreadMessageW, RegisterWindowMessageW,
-    SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
-    SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
-    WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WM_WINDOWPOSCHANGING,
-    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    GetWindowThreadProcessId, IsWindowVisible, IsZoomed, PostThreadMessageW,
+    RegisterWindowMessageW, SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST,
+    HWND_TOPMOST, MSG, SIZE_MAXIMIZED, SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE,
+    WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT,
+    WM_SIZE, WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -225,6 +226,9 @@ pub fn set_hot_corners(hwnd: HWND) {
 ///     surfaces were placed against. Windows says so with `WM_DISPLAYCHANGE`,
 ///     also sent to every top-level window, and the same callback runs: it is
 ///     the same work, putting everything back where the screens now are.
+///   * Windows maximizing one, which it does by itself to the hot corners'
+///     window — watched here too — and which leaves their strips off the
+///     screen. The same callback runs.
 ///
 /// # Safety
 /// `hwnd` must be a live top-level window owned by this process.
@@ -323,7 +327,12 @@ unsafe extern "system" fn edge_window(
         }
     }
 
-    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE {
+    // Windows maximizes a window the size of the screen by itself — the hot
+    // corners were found that way after a monitor came back — and a maximized
+    // window hangs 8px off every edge, which took the corners' strips off the
+    // top of the screen. Putting it back is the same pass.
+    let maximized = msg == WM_SIZE && wparam.0 == SIZE_MAXIMIZED as usize;
+    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE || maximized {
         if let Some(callback) = TASKBAR_CREATED.get() {
             callback();
         }
@@ -334,6 +343,16 @@ unsafe extern "system" fn edge_window(
     }
 
     DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
+/// Takes a maximized window back to its own size, without activating it.
+///
+/// # Safety
+/// `hwnd` must be a live window.
+pub unsafe fn unmaximize(hwnd: HWND) {
+    if IsZoomed(hwnd).as_bool() {
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    }
 }
 
 /// Applies a DWM backdrop and dark-mode titlebar hint.
