@@ -380,24 +380,25 @@ Settings that reach past what Windows offers an ordinary program. Each one costs
 
 The chords that open each surface. Windows keeps some combinations for itself and simply refuses to register them; the settings screen says which of these it refused and suggests a free one.
 
-| Setting                      | Value        | Default           |
-| ---------------------------- | ------------ | ----------------- |
-| `keybinds.enable`            | true / false | `true`            |
-| `keybinds.overview`          | text         | `"Alt+Space"`     |
-| `keybinds.sidebarLeft`       | text         | `"Super+Shift+A"` |
-| `keybinds.sidebarRight`      | text         | `"Super+Shift+N"` |
-| `keybinds.wallpaperSelector` | text         | `"Super+Shift+W"` |
-| `keybinds.widgetEditMode`    | text         | `"Super+Shift+D"` |
-| `keybinds.captureRegion`     | text         | `"Print"`         |
-| `keybinds.captureOcr`        | text         | `"Ctrl+Print"`    |
-| `keybinds.captureTranslate`  | text         | `"Shift+Print"`   |
-| `keybinds.session`           | text         | `"Super+Shift+E"` |
-| `keybinds.desktopMenu`       | text         | `"Super+Shift+X"` |
-| `keybinds.shelf`             | text         | `"Super+Shift+F"` |
-| `keybinds.overlay`           | text         | `"Super+Shift+O"` |
-| `keybinds.settings`          | text         | `"Super+Shift+I"` |
+| Setting                      | Value        | Default               |
+| ---------------------------- | ------------ | --------------------- |
+| `keybinds.enable`            | true / false | `true`                |
+| `keybinds.overview`          | text         | `"Alt+Space"`         |
+| `keybinds.sidebarLeft`       | text         | `"Ctrl+Alt+A"`        |
+| `keybinds.sidebarRight`      | text         | `"Super+Shift+N"`     |
+| `keybinds.wallpaperSelector` | text         | `"Ctrl+Alt+W"`        |
+| `keybinds.widgetEditMode`    | text         | `"Super+Shift+D"`     |
+| `keybinds.captureRegion`     | text         | `"PrintScreen"`       |
+| `keybinds.captureOcr`        | text         | `"Ctrl+PrintScreen"`  |
+| `keybinds.captureTranslate`  | text         | `"Shift+PrintScreen"` |
+| `keybinds.session`           | text         | `"Super+Shift+E"`     |
+| `keybinds.desktopMenu`       | text         | `"Super+Shift+X"`     |
+| `keybinds.shelf`             | text         | `"Super+Shift+F"`     |
+| `keybinds.overlay`           | text         | `"Super+Shift+O"`     |
+| `keybinds.settings`          | text         | `"Super+Shift+I"`     |
 
 - **`keybinds.overview`** — `Alt+Space` follows PowerToys Run, which is what a Windows user is most likely to already have in their fingers.
+- **`keybinds.sidebarLeft`** — `Ctrl+Alt` for the two that `Win+Shift` lost: Windows turned down `Win+Shift+A` and `Win+Shift+W` on a plain Windows 11 install.
 - **`keybinds.captureRegion`** — `Win+Shift+S` is not available: Windows keeps it for the Snipping Tool and will not hand it over.
 - **`keybinds.desktopMenu`** — `X` after `Win+X`, which is the closest thing Windows has to this. Not `Win+Shift+M`, which restores every minimised window.
 - **`keybinds.shelf`** — `F` for files, since `Win+Shift+D` is the widget editor's.

@@ -369,15 +369,17 @@ config_struct! {
         /// `Alt+Space` follows PowerToys Run, which is what a Windows user is
         /// most likely to already have in their fingers.
         pub overview: String = s("Alt+Space"),
-        pub sidebar_left: String = s("Super+Shift+A"),
+        /// `Ctrl+Alt` for the two that `Win+Shift` lost: Windows turned down
+        /// `Win+Shift+A` and `Win+Shift+W` on a plain Windows 11 install.
+        pub sidebar_left: String = s("Ctrl+Alt+A"),
         pub sidebar_right: String = s("Super+Shift+N"),
-        pub wallpaper_selector: String = s("Super+Shift+W"),
+        pub wallpaper_selector: String = s("Ctrl+Alt+W"),
         pub widget_edit_mode: String = s("Super+Shift+D"),
         /// `Win+Shift+S` is not available: Windows keeps it for the Snipping
         /// Tool and will not hand it over.
-        pub capture_region: String = s("Print"),
-        pub capture_ocr: String = s("Ctrl+Print"),
-        pub capture_translate: String = s("Shift+Print"),
+        pub capture_region: String = s("PrintScreen"),
+        pub capture_ocr: String = s("Ctrl+PrintScreen"),
+        pub capture_translate: String = s("Shift+PrintScreen"),
         pub session: String = s("Super+Shift+E"),
         /// `X` after `Win+X`, which is the closest thing Windows has to this.
         /// Not `Win+Shift+M`, which restores every minimised window.

@@ -25,6 +25,10 @@ export type Keybinds = {
    * most likely to already have in their fingers.
    */
   overview: string;
+  /**
+   * `Ctrl+Alt` for the two that `Win+Shift` lost: Windows turned down
+   * `Win+Shift+A` and `Win+Shift+W` on a plain Windows 11 install.
+   */
   sidebarLeft: string;
   sidebarRight: string;
   wallpaperSelector: string;
