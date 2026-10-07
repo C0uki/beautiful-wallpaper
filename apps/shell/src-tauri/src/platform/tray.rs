@@ -143,6 +143,74 @@ pub fn host(on_change: impl Fn() + Send + Sync + 'static) {
     let _ = std::thread::Builder::new()
         .name("bw-tray-host".to_owned())
         .spawn(|| unsafe { run() });
+    watch_promotions();
+}
+
+/// Reads every icon's [`promoted`] again whenever Settings changes which
+/// icons are kept on the taskbar, so a switch flipped there shows at once
+/// rather than the next time the application adds its icon.
+fn watch_promotions() {
+    use windows::Win32::Foundation::{BOOL, HANDLE};
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegNotifyChangeKeyValue, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_NOTIFY,
+        REG_NOTIFY_CHANGE_LAST_SET, REG_NOTIFY_CHANGE_NAME,
+    };
+
+    let _ = std::thread::Builder::new()
+        .name("bw-tray-settings".to_owned())
+        .spawn(|| unsafe {
+            let mut key = HKEY::default();
+            if RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                w!("Control Panel\\NotifyIconSettings"),
+                0,
+                KEY_NOTIFY,
+                &mut key,
+            )
+            .is_err()
+            {
+                return;
+            }
+            // Blocks until something under the key changes, every time.
+            while RegNotifyChangeKeyValue(
+                key,
+                BOOL::from(true),
+                REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET,
+                HANDLE::default(),
+                BOOL::from(false),
+            )
+            .is_ok()
+            {
+                // The registry is read with the icons let go of: the host
+                // thread takes the same lock for every message it forwards.
+                let asked: Vec<(isize, u32)> = ICONS
+                    .lock()
+                    .iter()
+                    .map(|icon| (icon.window, icon.id))
+                    .collect();
+                let answers: Vec<bool> = asked
+                    .iter()
+                    .map(|&(window, id)| promoted(window, id))
+                    .collect();
+                let mut changed = false;
+                for icon in ICONS.lock().iter_mut() {
+                    let Some(at) = asked
+                        .iter()
+                        .position(|&(window, id)| window == icon.window && id == icon.id)
+                    else {
+                        continue;
+                    };
+                    changed |= icon.promoted != answers[at];
+                    icon.promoted = answers[at];
+                }
+                if changed {
+                    if let Some(on_change) = ON_CHANGE.get() {
+                        on_change();
+                    }
+                }
+            }
+            let _ = RegCloseKey(key);
+        });
 }
 
 /// The shell's own `Shell_TrayWnd`, once it exists.
@@ -463,8 +531,8 @@ unsafe fn record(copy: &COPYDATASTRUCT) {
 /// Personalization > Taskbar, recorded per executable and id under
 /// `NotifyIconSettings`. An icon Windows has not recorded yet is shown.
 ///
-/// ponytail: read once, when the icon is added; a change in Settings shows
-/// once the application adds its icon again.
+/// Read when the icon is added, and again by [`watch_promotions`] whenever
+/// Settings changes.
 fn promoted(window: isize, id: u32) -> bool {
     let mut process = 0u32;
     unsafe { GetWindowThreadProcessId(HWND(window as _), Some(&mut process)) };
