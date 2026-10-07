@@ -217,6 +217,28 @@ pub fn media() -> MediaState {
             .EndTime()
             .map(|span| span.Duration as f64 / TICKS_PER_SECOND)
             .unwrap_or_default();
+        // The position is as of `LastUpdatedTime`, and a player may report it
+        // only every few seconds, or when something changes: while it plays,
+        // what has played since is added. Both are counted from 1601, in the
+        // same ticks.
+        let updated = timeline
+            .LastUpdatedTime()
+            .map(|time| time.UniversalTime)
+            .unwrap_or_default();
+        if state.playing && updated > 0 {
+            const UNIX_EPOCH_IN_TICKS: i64 = 116_444_736_000_000_000;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|since| since.as_nanos() as i64 / 100 + UNIX_EPOCH_IN_TICKS)
+                .unwrap_or_default();
+            let played = (now - updated) as f64 / TICKS_PER_SECOND;
+            if played > 0.0 {
+                state.position += played;
+                if state.duration > 0.0 {
+                    state.position = state.position.min(state.duration);
+                }
+            }
+        }
     }
 
     state

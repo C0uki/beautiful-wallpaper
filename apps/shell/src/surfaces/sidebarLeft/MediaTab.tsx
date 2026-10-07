@@ -40,10 +40,28 @@ function MediaLyrics({ media }: { media: MediaState }) {
 
   const lyrics = found?.track === track ? found.lyrics : null;
   const lines = lyrics?.lines ?? [];
-  // ponytail: follows the position the media session reports, once a
-  // second; interpolate between reports if a line ever lands visibly late.
+
+  // The position arrives once a second, and the lines are timed to the
+  // hundredth: between reports the song goes on, so the time since the last
+  // one is added. No more than a report and a half, in case they stop.
+  const heard = useRef({ position: media.position, at: performance.now() });
+  if (heard.current.position !== media.position) {
+    heard.current = { position: media.position, at: performance.now() };
+  }
+  const [, tick] = useState(0);
+  const timed = lines.length > 0;
+  useEffect(() => {
+    if (!media.playing || !timed) return;
+    const timer = window.setInterval(() => tick((count) => count + 1), 200);
+    return () => window.clearInterval(timer);
+  }, [media.playing, timed]);
+  const position = media.playing
+    ? heard.current.position +
+      Math.min((performance.now() - heard.current.at) / 1000, 1.5)
+    : media.position;
+
   const sung = lines.reduce(
-    (last, line, index) => (line.time <= media.position ? index : last),
+    (last, line, index) => (line.time <= position ? index : last),
     -1,
   );
 
