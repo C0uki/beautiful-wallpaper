@@ -180,7 +180,7 @@
     "sidebarRight": "Super+Shift+N",
     "wallpaperSelector": "Ctrl+Alt+W",
     "widgetEditMode": "Super+Shift+D",
-    "captureRegion": "PrintScreen",
+    "captureRegion": "Ctrl+Alt+S",
     "captureOcr": "Ctrl+PrintScreen",
     "captureTranslate": "Shift+PrintScreen",
     "session": "Super+Shift+E",
