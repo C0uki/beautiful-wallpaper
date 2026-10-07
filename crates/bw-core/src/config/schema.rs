@@ -376,8 +376,10 @@ config_struct! {
         pub wallpaper_selector: String = s("Ctrl+Alt+W"),
         pub widget_edit_mode: String = s("Super+Shift+D"),
         /// `Win+Shift+S` is not available: Windows keeps it for the Snipping
-        /// Tool and will not hand it over.
-        pub capture_region: String = s("PrintScreen"),
+        /// Tool and will not hand it over. Nor is a bare `PrintScreen`, which
+        /// Windows 11 gives the Snipping Tool too; with `Ctrl` or `Shift` it
+        /// reaches the shell.
+        pub capture_region: String = s("Ctrl+Alt+S"),
         pub capture_ocr: String = s("Ctrl+PrintScreen"),
         pub capture_translate: String = s("Shift+PrintScreen"),
         pub session: String = s("Super+Shift+E"),
