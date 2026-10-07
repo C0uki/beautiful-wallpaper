@@ -32,6 +32,12 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(state.config());
 
+    // Kept in the file across saves, so a key no setting reads is there on
+    // every reload: only one that was not there last time is news.
+    let mut reported = bw_core::config::load_reporting(&path)
+        .map(|(_, unknown)| unknown)
+        .unwrap_or_default();
+
     let (sender, receiver) = mpsc::channel();
     let mut watcher = notify::recommended_watcher(move |result| {
         let _ = sender.send(result);
@@ -59,11 +65,19 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
             match bw_core::config::load_reporting(&path) {
                 Ok((config, unknown)) => {
                     if !unknown.is_empty() {
-                        // Said out loud: a misspelt key is skipped, and the
-                        // edit that seemed to do nothing would be a mystery.
                         tracing::warn!(?unknown, "the config has keys no setting reads");
-                        say(&app, &format!("Not a setting: {}", unknown.join(", ")));
                     }
+                    // Said out loud: a misspelt key is skipped, and the edit
+                    // that seemed to do nothing would be a mystery.
+                    let fresh: Vec<&str> = unknown
+                        .iter()
+                        .filter(|key| !reported.contains(key))
+                        .map(String::as_str)
+                        .collect();
+                    if !fresh.is_empty() {
+                        say(&app, &format!("Not a setting: {}", fresh.join(", ")));
+                    }
+                    reported = unknown;
                     adopt(&app, &state, config);
                 }
                 // A half-written file is normal mid-save; the next event will
