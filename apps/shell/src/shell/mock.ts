@@ -256,8 +256,6 @@ export function mockBackend(): Backend {
         : "top";
 
     return {
-      cornersVisible: config.appearance.fakeScreenRounding !== 0,
-      radius: config.appearance.screenRounding,
       frameEdges: bar.showFrame
         ? (["top", "bottom", "left", "right"] as Edge[]).filter(
             (edge) => !hugging || edge !== barEdge || centreOnly,
@@ -338,7 +336,6 @@ export function mockBackend(): Backend {
       },
       config: presetConfig((draft) => {
         draft.appearance.roundingScale = 1.4;
-        draft.appearance.screenRounding = 32;
         draft.appearance.transparency.extra = 0.15;
         draft.bar.style = "float";
         draft.bar.height = 44;

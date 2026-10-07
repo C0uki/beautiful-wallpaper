@@ -11,14 +11,6 @@ import type { Edge } from "./Edge";
  */
 export type ScreenChrome = {
   /**
-   * Whether the fake rounded corners are drawn right now.
-   */
-  cornersVisible: boolean;
-  /**
-   * Their radius, in pixels.
-   */
-  radius: number;
-  /**
    * The edges the frame is drawn on. Empty when there is no frame.
    */
   frameEdges: Array<Edge>;

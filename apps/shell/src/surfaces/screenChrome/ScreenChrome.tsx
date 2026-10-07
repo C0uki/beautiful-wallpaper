@@ -1,15 +1,9 @@
-// The screen's own decorations: fake rounded corners, and a frame.
+// The screen's own decoration: a frame.
 //
-// Both are drawn on one window that covers the whole display and is
-// click-through everywhere — there is nothing here to press. Four separate
-// corner windows and four more frame windows is what this would be if it were
-// a direct translation of the original, and eight webviews to paint eight
-// coloured shapes is not a translation worth making.
-//
-// The corners are drawn as four boxes with one rounded outer edge each and the
-// screen's background colour showing through the curve. That is the trick the
-// original uses too: nothing is cut out of the screen, a shape is laid over
-// each corner that happens to be the shape of the missing bit.
+// Drawn on one window that covers the whole display and is click-through
+// everywhere — there is nothing here to press. Four frame windows is what this
+// would be as a direct translation of the original, and four webviews to paint
+// four coloured strips is not a translation worth making.
 
 import { useEffect, useState } from "react";
 import type { Edge, ScreenChrome as Chrome } from "@bw/core";
@@ -118,52 +112,6 @@ export function ScreenChrome() {
           }}
         />
       ) : null}
-
-      {/* The corners sit inside the frame when there is one, so the curve
-          follows the frame's inner edge rather than being buried under it. */}
-      {chrome.cornersVisible ? (
-        <div
-          className="bw-chrome-corners"
-          style={{
-            top: has("top") ? thickness : 0,
-            bottom: has("bottom") ? thickness : 0,
-            left: has("left") ? thickness : 0,
-            right: has("right") ? thickness : 0,
-          }}
-        >
-          {(["tl", "tr", "bl", "br"] as const).map((corner) => (
-            <span
-              key={corner}
-              className={`bw-chrome-corner ${corner}`}
-              style={{
-                width: chrome.radius,
-                height: chrome.radius,
-                // The curve is the *inside* of the shape, so the radius goes
-                // on the corner facing the middle of the screen.
-                borderRadius: cornerRadius(corner, chrome.radius),
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
     </div>
   );
-}
-
-/** Rounds only the edge that faces the middle of the screen. */
-function cornerRadius(
-  corner: "tl" | "tr" | "bl" | "br",
-  radius: number,
-): string {
-  const r = `${radius}px`;
-  switch (corner) {
-    case "tl":
-      return `0 0 ${r} 0`;
-    case "tr":
-      return `0 0 0 ${r}`;
-    case "bl":
-      return `0 ${r} 0 0`;
-    case "br":
-      return `${r} 0 0 0`;
-  }
 }

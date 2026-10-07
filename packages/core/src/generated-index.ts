@@ -34,7 +34,6 @@ export type { DockApp } from "./generated/DockApp";
 export type { DropOutcome } from "./generated/DropOutcome";
 export type { Edge } from "./generated/Edge";
 export type { Entry } from "./generated/Entry";
-export type { FakeRounding } from "./generated/FakeRounding";
 export type { Field } from "./generated/Field";
 export type { FieldKind } from "./generated/FieldKind";
 export type { FirstRunState } from "./generated/FirstRunState";
