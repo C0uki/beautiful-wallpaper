@@ -383,7 +383,11 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
     {
         let app = app.clone();
         std::thread::spawn(move || loop {
-            let _ = app.emit(event::MEDIA, bw_shell::providers::media());
+            let mut media = bw_shell::providers::media();
+            media.source = bw_shell::providers::app_name(&media.source, || {
+                app.state::<CatalogueHandle>().items()
+            });
+            let _ = app.emit(event::MEDIA, media);
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
             let active = bw_shell::providers::active_window();

@@ -222,6 +222,71 @@ pub fn media() -> MediaState {
     state
 }
 
+/// What the Start menu calls the application playing media: "メディア
+/// プレーヤー" rather than `Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic`.
+///
+/// A packaged program's id, or a desktop one's that registered it, is in the
+/// Applications folder. An unpackaged program goes by its executable —
+/// `Spotify.exe`, or Chrome's bare `Chrome` — and is matched against the
+/// Start menu's shortcuts, from `apps`. Anything else is shown as its id,
+/// less what follows a `!` and a trailing `.exe`.
+pub fn app_name(id: &str, apps: impl FnOnce() -> Vec<bw_core::launcher::AppEntry>) -> String {
+    // An empty path would name the Applications folder itself.
+    if id.is_empty() {
+        return String::new();
+    }
+    // Asked every second, and the answer does not change. A fallback is not
+    // kept: the Start menu is still being read for a while after startup.
+    static LAST: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+    let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((known, name)) = last.as_ref() {
+        if known == id {
+            return name.clone();
+        }
+    }
+
+    let found = listed_app_name(id)
+        .or_else(|| bw_core::launcher::name_for_program(&apps(), id).map(str::to_owned));
+    match found {
+        Some(name) => {
+            *last = Some((id.to_owned(), name.clone()));
+            name
+        }
+        None => {
+            let id = id.split('!').next().unwrap_or(id);
+            id.strip_suffix(".exe").unwrap_or(id).to_owned()
+        }
+    }
+}
+
+/// The Applications folder's name for an application user model id.
+#[cfg(windows)]
+fn listed_app_name(id: &str) -> Option<String> {
+    use windows::core::HSTRING;
+    use windows::Win32::System::Com::{
+        CoInitializeEx, CoTaskMemFree, IBindCtx, COINIT_MULTITHREADED,
+    };
+    use windows::Win32::UI::Shell::{IShellItem, SHCreateItemFromParsingName, SIGDN_NORMALDISPLAY};
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let item: IShellItem = SHCreateItemFromParsingName(
+            &HSTRING::from(format!("shell:AppsFolder\\{id}")),
+            None::<&IBindCtx>,
+        )
+        .ok()?;
+        let text = item.GetDisplayName(SIGDN_NORMALDISPLAY).ok()?;
+        let name = text.to_string().unwrap_or_default();
+        CoTaskMemFree(Some(text.0 as _));
+        (!name.is_empty()).then_some(name)
+    }
+}
+
+#[cfg(not(windows))]
+fn listed_app_name(_id: &str) -> Option<String> {
+    None
+}
+
 #[cfg(not(windows))]
 pub fn media() -> MediaState {
     MediaState::default()
