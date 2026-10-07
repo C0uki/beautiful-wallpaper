@@ -9,14 +9,29 @@ interface WebView2 {
   postMessageWithAdditionalObjects(message: string, objects: FileList): void;
 }
 
+/**
+ * The message that goes with the files: `purpose` dressed as a Tauri call.
+ *
+ * Tauri's own handler reads every message before the shell's does. A bare
+ * string is not a call it can parse, and it said so in the page's console on
+ * every drop. A call with no invoke key parses, and Tauri drops it unanswered.
+ */
+export function dropMessage(purpose: string): string {
+  return JSON.stringify({
+    cmd: purpose,
+    callback: 0,
+    error: 0,
+    payload: null,
+    __TAURI_INVOKE_KEY__: "",
+  });
+}
+
 /** Hands `files` to the shell, saying what they are for. False outside
  *  WebView2 — the development harness — where there is no shell to take them. */
-export function sendDroppedFiles(message: string, files: FileList): boolean {
+export function sendDroppedFiles(purpose: string, files: FileList): boolean {
   const webview = (window as { chrome?: { webview?: WebView2 } }).chrome
     ?.webview;
   if (!webview) return false;
-  // A string even when nothing reads it: Tauri's own handler sees every
-  // message first, and anything but a string stops WebView2 handing it on.
-  webview.postMessageWithAdditionalObjects(message, files);
+  webview.postMessageWithAdditionalObjects(dropMessage(purpose), files);
   return true;
 }
