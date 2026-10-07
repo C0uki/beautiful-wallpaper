@@ -46,26 +46,52 @@ impl Drop for Loopback {
 
 /// Starts capturing, calling `on_bars` with each frame of bars.
 ///
-/// ponytail: the capture stays on the device that was the default when it
-/// started; the next start follows a new default. Follow it live with an
-/// `IMMNotificationClient`, as the volume watcher does, if that is missed.
+/// Follows the default output device: a capture that finds the default has
+/// moved — headphones plugged in, a speaker picked in the volume flyout —
+/// ends, and the next one listens to the new device.
 pub fn start(on_bars: impl Fn(Vec<f32>) + Send + 'static) -> Loopback {
     let stop = Arc::new(AtomicBool::new(false));
     let stopping = stop.clone();
     let _ = std::thread::Builder::new()
         .name("bw-loopback".to_owned())
-        .spawn(move || {
-            if let Err(error) = unsafe { capture(&stopping, &on_bars) } {
-                tracing::warn!(%error, "the visualiser could not listen to the output");
+        .spawn(move || unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            while !stopping.load(Ordering::Relaxed) {
+                let device = default_output();
+                if let Err(error) = capture(&stopping, &on_bars) {
+                    tracing::warn!(%error, "the visualiser could not listen to the output");
+                    // Tried again on another device only: the same one would
+                    // fail the same way. A device that went away mid-capture
+                    // is one, and the new default is taken up here.
+                    while !stopping.load(Ordering::Relaxed) && default_output() == device {
+                        std::thread::sleep(Duration::from_secs(1));
+                    }
+                }
             }
         });
     Loopback { stop }
 }
 
+/// The id of the default output device, if there is one.
+unsafe fn default_output() -> Option<String> {
+    let enumerator: IMMDeviceEnumerator =
+        CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+    let id = enumerator
+        .GetDefaultAudioEndpoint(eRender, eConsole)
+        .ok()?
+        .GetId()
+        .ok()?;
+    let text = id.to_string().ok();
+    CoTaskMemFree(Some(id.0 as _));
+    text
+}
+
+/// Listens to the default output until told to stop, or until the default is
+/// another device.
 unsafe fn capture(stop: &AtomicBool, on_bars: &dyn Fn(Vec<f32>)) -> Result<()> {
-    let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     let enumerator: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
     let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole)?;
+    let listening = default_output();
     let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
 
     let format = client.GetMixFormat()?;
@@ -104,8 +130,16 @@ unsafe fn capture(stop: &AtomicBool, on_bars: &dyn Fn(Vec<f32>)) -> Result<()> {
     let mut last_sent = Instant::now();
     let mut last_heard = Instant::now();
     let mut quiet = false;
+    let mut last_looked = Instant::now();
     while !stop.load(Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(10));
+
+        if last_looked.elapsed() > Duration::from_secs(1) {
+            last_looked = Instant::now();
+            if default_output() != listening {
+                break;
+            }
+        }
 
         while capture.GetNextPacketSize()? > 0 {
             let mut data = std::ptr::null_mut();
