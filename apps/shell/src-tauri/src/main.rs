@@ -416,6 +416,7 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             // WebView2 error in the log for every call made on the dead
             // surface in between; looking every second keeps it to a second's.
             surfaces::forget_dead_background(&app);
+            surfaces::restore_owed_background(&app);
 
             std::thread::sleep(Duration::from_secs(1));
         });

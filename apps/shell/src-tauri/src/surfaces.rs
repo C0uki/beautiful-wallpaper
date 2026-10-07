@@ -766,15 +766,22 @@ fn background_label() -> String {
 pub fn restore_background(app: &AppHandle) {
     #[cfg(windows)]
     {
-        // ponytail: polls for up to ten seconds, then settles for a moment so
-        // the desktop has its icon view; a desktop that takes longer is left
-        // without a background until the shell restarts.
+        // Ten seconds, and no longer: this runs inside the pass that puts
+        // everything back, and a desktop slower than that is not waited on
+        // there. It is owed instead, and `restore_owed_background` makes it
+        // once the desktop turns up.
         for _ in 0..40 {
             if crate::platform::win::desktop_exists() {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
+        if !crate::platform::win::desktop_exists() {
+            BACKGROUND_OWED.store(true, std::sync::atomic::Ordering::Relaxed);
+            return;
+        }
+        BACKGROUND_OWED.store(false, std::sync::atomic::Ordering::Relaxed);
+        // A moment more, so the desktop has its icon view.
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
@@ -791,6 +798,23 @@ pub fn restore_background(app: &AppHandle) {
             tracing::warn!(%error, "could not make the wallpaper surface again");
         }
     });
+}
+
+/// Whether a wallpaper surface is waiting for a desktop to go into.
+#[cfg(windows)]
+static BACKGROUND_OWED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Makes the wallpaper surface [`restore_background`] gave up waiting for,
+/// once there is a desktop for it. Looked at every second.
+pub fn restore_owed_background(app: &AppHandle) {
+    #[cfg(windows)]
+    if BACKGROUND_OWED.load(std::sync::atomic::Ordering::Relaxed)
+        && crate::platform::win::desktop_exists()
+    {
+        restore_background(app);
+    }
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 /// Lets go of a wallpaper surface that went down with Explorer.
