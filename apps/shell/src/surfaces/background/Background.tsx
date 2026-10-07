@@ -4,7 +4,7 @@
 // desktop wallpaper and below the icons — the closest thing Windows has to the
 // `WlrLayer.Bottom` layer the original uses.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WidgetPlacement } from "@bw/core";
 import { WallpaperCanvas } from "../../gl/WallpaperCanvas";
 import { backend } from "../../shell/backend";
@@ -61,6 +61,17 @@ export function Background() {
     [video, path],
   );
   const [playing, setPlaying] = useState("");
+
+  // Nobody sees the wallpaper behind a full-screen program, and decoding a
+  // video for nobody is a battery spent on nothing.
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const covered = useShell((state) => state.activeWindow?.fullscreen ?? false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (covered) video.pause();
+    else void video.play().catch(() => {});
+  }, [covered, videoSrc]);
 
   // Parallax: nudge the wallpaper as the pointer moves, within the headroom the
   // configured zoom provides.
@@ -121,11 +132,10 @@ export function Background() {
         />
       )}
 
-      {/* ponytail: plays on behind full-screen programs too. Pause it there
-          if the decoding ever shows up in a battery report. */}
       {videoSrc && !wallpaper.blanked ? (
         <video
           key={videoSrc}
+          ref={videoRef}
           src={videoSrc}
           autoPlay
           muted
