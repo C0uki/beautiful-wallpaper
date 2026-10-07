@@ -179,7 +179,7 @@ pub fn media() -> MediaState {
     let mut state = MediaState {
         source: session
             .SourceAppUserModelId()
-            .map(|id| id.to_string())
+            .map(|id| app_name(&id.to_string()))
             .unwrap_or_default(),
         ..MediaState::default()
     };
@@ -220,6 +220,56 @@ pub fn media() -> MediaState {
     }
 
     state
+}
+
+/// What the Start menu calls the application with this id: "メディア
+/// プレーヤー" rather than `Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic`.
+///
+/// Asked of the Applications folder, which knows packaged and desktop
+/// applications alike by the id they play media under. One that is not
+/// listed there — Chrome's `Chrome` — is shown as its id, less what follows
+/// a `!` and a trailing `.exe`.
+#[cfg(windows)]
+fn app_name(id: &str) -> String {
+    use windows::core::HSTRING;
+    use windows::Win32::System::Com::{
+        CoInitializeEx, CoTaskMemFree, IBindCtx, COINIT_MULTITHREADED,
+    };
+    use windows::Win32::UI::Shell::{IShellItem, SHCreateItemFromParsingName, SIGDN_NORMALDISPLAY};
+
+    // An empty path would name the Applications folder itself.
+    if id.is_empty() {
+        return String::new();
+    }
+    // Asked every second, and the answer does not change.
+    static LAST: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+    let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((known, name)) = last.as_ref() {
+        if known == id {
+            return name.clone();
+        }
+    }
+
+    let listed = unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        SHCreateItemFromParsingName::<_, _, IShellItem>(
+            &HSTRING::from(format!("shell:AppsFolder\\{id}")),
+            None::<&IBindCtx>,
+        )
+        .and_then(|item| item.GetDisplayName(SIGDN_NORMALDISPLAY))
+        .ok()
+        .map(|text| {
+            let name = text.to_string().unwrap_or_default();
+            CoTaskMemFree(Some(text.0 as _));
+            name
+        })
+    };
+    let name = listed.filter(|name| !name.is_empty()).unwrap_or_else(|| {
+        let id = id.split('!').next().unwrap_or(id);
+        id.strip_suffix(".exe").unwrap_or(id).to_owned()
+    });
+    *last = Some((id.to_owned(), name.clone()));
+    name
 }
 
 #[cfg(not(windows))]
