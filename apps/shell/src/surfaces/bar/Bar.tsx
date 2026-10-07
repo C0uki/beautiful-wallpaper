@@ -23,6 +23,13 @@ function Slot({ names, justify }: { names: string[]; justify: string }) {
 
 export function Bar() {
   const bar = useShell((state) => state.config.bar);
+  // The fake screen corners are drawn over the bar's two ends; the buttons
+  // there are pushed in past them rather than cut off.
+  const corner = useShell((state) =>
+    state.config.appearance.fakeScreenRounding === 0
+      ? 0
+      : state.config.appearance.screenRounding,
+  );
   const [revealed, setRevealed] = useState(false);
 
   // While hiding, the window is parked off its edge with only the hover strip
@@ -41,7 +48,10 @@ export function Bar() {
       data-vertical={bar.vertical}
       data-bottom={bar.bottom}
       data-revealed={!bar.autoHide || revealed}
-      style={{ ["--bar-height" as string]: `${bar.height}px` }}
+      style={{
+        ["--bar-height" as string]: `${bar.height}px`,
+        ["--bar-corner" as string]: `${corner}px`,
+      }}
       onPointerEnter={() => hover(true)}
       onPointerLeave={() => hover(false)}
     >
