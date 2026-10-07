@@ -1329,22 +1329,6 @@ export function mockBackend(): Backend {
               y: 0,
               action: corner.topRightAction,
             },
-            ...(corner.bottom
-              ? [
-                  {
-                    corner: "bottomLeft" as const,
-                    x: 0,
-                    y: screen.height - height,
-                    action: corner.bottomLeftAction,
-                  },
-                  {
-                    corner: "bottomRight" as const,
-                    x: screen.width - width,
-                    y: screen.height - height,
-                    action: corner.bottomRightAction,
-                  },
-                ]
-              : []),
           ]
             .filter((made) => made.action.trim().length > 0)
             .map((made) => ({
@@ -1359,13 +1343,7 @@ export function mockBackend(): Backend {
           const corner = String(args["corner"] ?? "");
           const open = config.sidebar.cornerOpen;
           const flag =
-            corner === "topLeft"
-              ? open.topLeftAction
-              : corner === "topRight"
-                ? open.topRightAction
-                : corner === "bottomLeft"
-                  ? open.bottomLeftAction
-                  : open.bottomRightAction;
+            corner === "topLeft" ? open.topLeftAction : open.topRightAction;
           if (isStateFlag(flag)) {
             states[flag] = !states[flag];
             emit(Event.StateChanged, states);

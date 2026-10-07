@@ -281,23 +281,23 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
 The strip along one edge of the screen: where it sits, how it looks, and what it carries.
 
-| Setting                 | Value        | Default                                                          |
-| ----------------------- | ------------ | ---------------------------------------------------------------- |
-| `bar.enable`            | true / false | `true`                                                           |
-| `bar.bottom`            | true / false | `false`                                                          |
-| `bar.vertical`          | true / false | `false`                                                          |
-| `bar.height`            | whole number | `40`                                                             |
-| `bar.reserveSpace`      | true / false | `true`                                                           |
-| `bar.autoHide`          | true / false | `false`                                                          |
-| `bar.perMonitor`        | true / false | `false`                                                          |
-| `bar.hoverRegionHeight` | whole number | `3`                                                              |
-| `bar.style`             | text         | `"m3"`                                                           |
-| `bar.left`              | list of text | `["media"]`                                                      |
-| `bar.center`            | list of text | `["workspaces","activeWindow"]`                                  |
-| `bar.right`             | list of text | `["tray","resources","network","battery","utilButtons","clock"]` |
-| `bar.showFrame`         | true / false | `false`                                                          |
-| `bar.frameThickness`    | whole number | `4`                                                              |
-| `bar.frameColor`        | text         | `"black"`                                                        |
+| Setting                 | Value        | Default                                                                         |
+| ----------------------- | ------------ | ------------------------------------------------------------------------------- |
+| `bar.enable`            | true / false | `true`                                                                          |
+| `bar.bottom`            | true / false | `false`                                                                         |
+| `bar.vertical`          | true / false | `false`                                                                         |
+| `bar.height`            | whole number | `40`                                                                            |
+| `bar.reserveSpace`      | true / false | `true`                                                                          |
+| `bar.autoHide`          | true / false | `false`                                                                         |
+| `bar.perMonitor`        | true / false | `false`                                                                         |
+| `bar.hoverRegionHeight` | whole number | `3`                                                                             |
+| `bar.style`             | text         | `"m3"`                                                                          |
+| `bar.left`              | list of text | `["sidebarLeft","media"]`                                                       |
+| `bar.center`            | list of text | `["workspaces","activeWindow"]`                                                 |
+| `bar.right`             | list of text | `["tray","resources","network","battery","utilButtons","sidebarRight","clock"]` |
+| `bar.showFrame`         | true / false | `false`                                                                         |
+| `bar.frameThickness`    | whole number | `4`                                                                             |
+| `bar.frameColor`        | text         | `"black"`                                                                       |
 
 - **`bar.bottom`** — Anchor the bar to the bottom edge instead of the top.
 - **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
@@ -646,7 +646,6 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 | Setting                                 | Value        | Default              |
 | --------------------------------------- | ------------ | -------------------- |
 | `sidebar.cornerOpen.enable`             | true / false | `true`               |
-| `sidebar.cornerOpen.bottom`             | true / false | `false`              |
 | `sidebar.cornerOpen.valueScroll`        | true / false | `true`               |
 | `sidebar.cornerOpen.clickless`          | true / false | `false`              |
 | `sidebar.cornerOpen.cornerRegionWidth`  | whole number | `250`                |
@@ -654,10 +653,7 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 | `sidebar.cornerOpen.visualize`          | true / false | `false`              |
 | `sidebar.cornerOpen.topLeftAction`      | text         | `"sidebarLeftOpen"`  |
 | `sidebar.cornerOpen.topRightAction`     | text         | `"sidebarRightOpen"` |
-| `sidebar.cornerOpen.bottomLeftAction`   | text         | `"sidebarLeftOpen"`  |
-| `sidebar.cornerOpen.bottomRightAction`  | text         | `"sidebarRightOpen"` |
 
-- **`sidebar.cornerOpen.bottom`** — Whether the bottom two corners do anything. Off, because the bottom of the screen is where the taskbar and the dock already are.
 - **`sidebar.cornerOpen.valueScroll`** — Scrolling on a left corner changes the brightness and on a right corner the volume.
 - **`sidebar.cornerOpen.clickless`** — Open on hover rather than on a click. Faster, and much easier to trigger by accident, which is why it is off.
 - **`sidebar.cornerOpen.cornerRegionWidth`** — A wide, thin strip rather than a square: what makes a corner reachable is being able to throw the pointer at the edge.
