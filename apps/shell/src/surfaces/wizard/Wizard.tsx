@@ -579,7 +579,7 @@ function KeysStep({
 }
 
 /** Why this key is a problem — three different reasons, said differently. */
-function explain(key: KeyStatus): string {
+export function explain(key: KeyStatus): string {
   if (key.sharedWith.length > 0) {
     // The one nothing refuses: both register as far as the config is
     // concerned, and only one of them can ever fire.

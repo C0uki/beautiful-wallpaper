@@ -408,7 +408,7 @@ export function UtilButtonsWidget() {
       }}
     >
       <IconButton
-        icon="wallpaper"
+        icon="photo_library"
         size={30}
         label={tr("Wallpapers")}
         active={states.wallpaperSelectorOpen}
@@ -421,7 +421,7 @@ export function UtilButtonsWidget() {
         onClick={() => void actions.randomWallpaper()}
       />
       <IconButton
-        icon="tune"
+        icon="settings"
         size={30}
         label={tr("Settings")}
         active={states.settingsOpen}
@@ -432,12 +432,13 @@ export function UtilButtonsWidget() {
 }
 
 /** The two ends of a Mac menu bar: the left sidebar where the Apple menu
- *  would be, and the right one beside the clock, as Control Center is. */
+ *  would be, and the right one beside the clock, as Control Center is. Each
+ *  icon is a panel opening from its own side, so it says which one opens. */
 export function SidebarLeftWidget() {
   const open = useShell((state) => state.states.sidebarLeftOpen);
   return (
     <IconButton
-      icon="apps"
+      icon="left_panel_open"
       size={30}
       label={tr("Sidebar left")}
       active={open}
@@ -450,7 +451,7 @@ export function SidebarRightWidget() {
   const open = useShell((state) => state.states.sidebarRightOpen);
   return (
     <IconButton
-      icon="toggle_on"
+      icon="right_panel_open"
       size={30}
       label={tr("Sidebar right")}
       active={open}
