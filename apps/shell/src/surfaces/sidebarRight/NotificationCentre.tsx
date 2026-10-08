@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { IconButton, Placeholder, ScrollArea, Symbol } from "../../widgets";
+import SwipeRow from "../../widgets/reactbits/SwipeRow";
 import { formatAge } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
@@ -71,35 +72,60 @@ export function NotificationCentre() {
                 </header>
 
                 {shown.map((notification) => (
-                  <article
+                  // React Bits' Swipe Row: swiped left, or its action
+                  // pressed, it is dismissed.
+                  <SwipeRow
                     key={notification.id}
-                    className="bw-notification"
-                    data-urgency={notification.urgency}
+                    className="bw-notification-row"
+                    label={notification.summary}
+                    actions={[
+                      {
+                        id: "dismiss",
+                        label: tr("Dismiss"),
+                        icon: <Symbol name="close" size={20} />,
+                      },
+                    ]}
+                    radius={14}
+                    rowColor="var(--layer2)"
+                    textColor="var(--on-surface)"
+                    drawerColor="var(--layer3)"
+                    actionColor="var(--error-container)"
+                    onAction={() =>
+                      void actions.dismissNotification(notification.id)
+                    }
+                    onCommit={() =>
+                      void actions.dismissNotification(notification.id)
+                    }
                   >
-                    <div className="bw-notification-text">
-                      <div className="bw-notification-heading">
-                        <span className="bw-notification-summary">
-                          {notification.summary}
-                        </span>
-                        <span className="bw-notification-age">
-                          {formatAge(notification.time, now.getTime() / 1000)}
-                        </span>
+                    <article
+                      className="bw-notification"
+                      data-urgency={notification.urgency}
+                    >
+                      <div className="bw-notification-text">
+                        <div className="bw-notification-heading">
+                          <span className="bw-notification-summary">
+                            {notification.summary}
+                          </span>
+                          <span className="bw-notification-age">
+                            {formatAge(notification.time, now.getTime() / 1000)}
+                          </span>
+                        </div>
+                        {notification.body ? (
+                          <span className="bw-notification-body">
+                            {notification.body}
+                          </span>
+                        ) : null}
                       </div>
-                      {notification.body ? (
-                        <span className="bw-notification-body">
-                          {notification.body}
-                        </span>
-                      ) : null}
-                    </div>
-                    <IconButton
-                      icon="close"
-                      size={28}
-                      label={tr("Dismiss")}
-                      onClick={() =>
-                        void actions.dismissNotification(notification.id)
-                      }
-                    />
-                  </article>
+                      <IconButton
+                        icon="close"
+                        size={28}
+                        label={tr("Dismiss")}
+                        onClick={() =>
+                          void actions.dismissNotification(notification.id)
+                        }
+                      />
+                    </article>
+                  </SwipeRow>
                 ))}
               </section>
             );

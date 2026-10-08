@@ -1,16 +1,17 @@
 // The toast stack.
 //
 // Follows the original's behaviour rather than Windows': toasts group by the
-// application that sent them, they can be swiped away, and the neighbours
-// follow the drag a little so the stack feels like one object.
+// application that sent them and can be swiped away. Each is React Bits'
+// Swipe Toast, with a fuse along its foot for the time it has left.
 //
 // Only the shell's own notifications reach this today. Reading other
 // applications' notifications needs package identity, which arrives with the
 // MSIX sparse package in a later phase — so the store this reads from is
 // deliberately source-agnostic and will not need reshaping then.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { IconButton, Symbol } from "../../widgets";
+import { useEffect, useMemo, useState } from "react";
+import { Symbol } from "../../widgets";
+import SwipeToast from "../../widgets/reactbits/SwipeToast";
 import { formatAge } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
@@ -38,9 +39,6 @@ export function toastLife(
   return timeout - (now - notification.time * 1000);
 }
 
-/** Drag further than this and letting go dismisses. */
-const DISMISS_THRESHOLD = 70;
-
 /** Notifications from one application, newest first. */
 interface Group {
   appName: string;
@@ -65,113 +63,78 @@ function groupByApp(notifications: Notification[]): Group[] {
   return groups;
 }
 
-/** One toast, draggable sideways to dismiss. */
+/** One toast: swiped sideways or closed to dismiss, gone by itself when its
+ *  fuse burns down. */
 function Toast({
   notification,
   extra,
-  onDismiss,
-  onDragDistance,
-  neighbourOffset,
+  timeout,
+  onExpire,
 }: {
   notification: Notification;
   /** How many more from the same application are stacked behind this one. */
   extra: number;
-  onDismiss: () => void;
-  onDragDistance: (distance: number) => void;
-  neighbourOffset: number;
+  timeout: number;
+  onExpire: () => void;
 }) {
-  const [distance, setDistance] = useState(0);
-  const [leaving, setLeaving] = useState(false);
-  const start = useRef<number | null>(null);
   const now = useShell((state) => state.now);
-
-  const offset = start.current === null ? neighbourOffset : distance;
-
-  const finish = () => {
-    if (start.current === null) return;
-    start.current = null;
-    onDragDistance(0);
-
-    if (Math.abs(distance) > DISMISS_THRESHOLD) {
-      // Let it fly out before it is actually removed, so the list does not
-      // snap closed under the pointer.
-      setLeaving(true);
-      setDistance(distance > 0 ? 400 : -400);
-      window.setTimeout(onDismiss, 180);
-      return;
-    }
-    setDistance(0);
-  };
+  // Taken once: the fuse is lit with whatever was left when the toast came
+  // up, and a duration that changed every second would light it again.
+  const [life] = useState(() => toastLife(notification, timeout));
+  const critical = notification.urgency === "critical";
 
   return (
-    <div
-      className="bw-toast"
-      data-urgency={notification.urgency}
-      data-leaving={leaving}
-      style={{
-        transform: `translateX(${offset}px)`,
-        opacity: leaving ? 0 : 1 - Math.min(Math.abs(offset) / 260, 0.55),
-        transition: start.current === null ? undefined : "none",
-      }}
-      onPointerDown={(event) => {
-        start.current = event.clientX;
-        (event.target as Element).setPointerCapture?.(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (start.current === null) return;
-        const moved = event.clientX - start.current;
-        setDistance(moved);
-        onDragDistance(moved);
-      }}
-      onPointerUp={finish}
-      onPointerCancel={finish}
-    >
-      <div className="bw-toast-icon">
+    <SwipeToast
+      inline
+      closeButton
+      width={360}
+      radius={16}
+      background={critical ? "var(--error-container)" : "var(--layer1)"}
+      color="var(--on-surface)"
+      fuseColor={critical ? "var(--error)" : "var(--primary)"}
+      // A critical one waits to be dismissed.
+      duration={critical ? 0 : Math.max(0, life)}
+      icon={
         <Symbol
           name={notification.image ? "image" : "notifications"}
           size={20}
           filled
         />
-      </div>
-
-      <div className="bw-toast-text">
-        <div className="bw-toast-heading">
-          <span className="bw-toast-app">{notification.appName}</span>
-          <span className="bw-toast-age">
-            {formatAge(notification.time, now.getTime() / 1000)}
+      }
+      title={notification.summary}
+      description={
+        <span className="bw-toast-text">
+          <span className="bw-toast-heading">
+            <span className="bw-toast-app">{notification.appName}</span>
+            <span className="bw-toast-age">
+              {formatAge(notification.time, now.getTime() / 1000)}
+            </span>
           </span>
-        </div>
-        <span className="bw-toast-summary">{notification.summary}</span>
-        {notification.body ? (
-          <span className="bw-toast-body">{notification.body}</span>
-        ) : null}
-        {extra > 0 ? (
-          <span className="bw-toast-more">
-            {tr("+%1 more").replace("%1", String(extra))}
-          </span>
-        ) : null}
-      </div>
-
-      <IconButton
-        icon="close"
-        size={30}
-        label={tr("Dismiss")}
-        onClick={(event) => {
-          event.stopPropagation();
-          onDismiss();
-        }}
-      />
-    </div>
+          {notification.body ? (
+            <span className="bw-toast-body">{notification.body}</span>
+          ) : null}
+          {extra > 0 ? (
+            <span className="bw-toast-more">
+              {tr("+%1 more").replace("%1", String(extra))}
+            </span>
+          ) : null}
+        </span>
+      }
+      onClose={(reason) => {
+        // Burnt down: off the screen, still in the history. Swiped or
+        // closed: dismissed. Its own `open` is never used, so nothing closes
+        // it any other way.
+        if (reason === "timeout") onExpire();
+        else if (reason !== "programmatic")
+          void actions.dismissNotification(notification.id);
+      }}
+    />
   );
 }
 
 export function Toasts() {
   const notifications = useShell((state) => state.notifications);
   const config = useShell((state) => state.config.notifications);
-  const [dragged, setDragged] = useState<{
-    appName: string;
-    distance: number;
-  } | null>(null);
   const [expired, setExpired] = useState<number[]>([]);
 
   const groups = useMemo(() => groupByApp(notifications), [notifications]);
@@ -198,24 +161,8 @@ export function Toasts() {
       setExpired((previous) => [...previous, ...stale]);
     }
 
-    const timers = fresh
-      .filter((notification) => notification.urgency !== "critical")
-      // Whatever is left of its welcome, not a fresh helping of it: one that
-      // arrived two seconds before this page did has two seconds less to run.
-      .map((notification) => ({
-        notification,
-        left: toastLife(notification, config.timeout, now),
-      }))
-      .filter(({ left }) => left > 0)
-      .map(({ notification, left }) =>
-        window.setTimeout(
-          () => setExpired((previous) => [...previous, notification.id]),
-          left,
-        ),
-      );
-    return () => timers.forEach(window.clearTimeout);
-    // `expired` is deliberately not a dependency: adding to it would restart
-    // every other toast's timer.
+    // `expired` is deliberately not a dependency: this only has to look again
+    // when something new arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications, config.timeout, config.doNotDisturb]);
 
@@ -248,18 +195,14 @@ export function Toasts() {
       {visible.map((group) => {
         const [newest, ...rest] = group.notifications;
         if (!newest) return null;
-        const dragging = dragged?.appName === group.appName;
 
         return (
           <Toast
             key={newest.id}
             notification={newest}
             extra={rest.length}
-            neighbourOffset={dragging ? 0 : (dragged?.distance ?? 0) * 0.15}
-            onDragDistance={(distance) =>
-              setDragged({ appName: group.appName, distance })
-            }
-            onDismiss={() => void actions.dismissNotification(newest.id)}
+            timeout={config.timeout}
+            onExpire={() => setExpired((previous) => [...previous, newest.id])}
           />
         );
       })}
