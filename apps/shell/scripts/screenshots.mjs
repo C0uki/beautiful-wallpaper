@@ -144,7 +144,7 @@ const SHOTS = [
     setup: async (page) => {
       // Language first: switching it remounts the surface, which would reset the
       // view back to its default.
-      await page.getByRole("tab", { name: "日本語" }).click();
+      await page.getByRole("radio", { name: "日本語" }).click();
       await page.waitForTimeout(600);
       await selectView(page, "Picker");
     },
@@ -567,7 +567,8 @@ async function dragRegion(page) {
 }
 
 async function selectView(page, label) {
-  await page.getByRole("tab", { name: label }).click();
+  // The harness picks its view with a segmented control: radios.
+  await page.getByRole("radio", { name: label }).click();
 }
 
 /** A small JPEG of the same view, sized to be committed alongside the READMEs. */

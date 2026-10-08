@@ -165,16 +165,6 @@
   transition: stroke-dashoffset var(--duration-slow) var(--ease-effects-default);
 }
 
-/* --- Segmented control ------------------------------------------------ */
-
-.bw-segmented {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--layer1);
-}
-
 /* --- Text field ------------------------------------------------------- */
 
 .bw-field {
@@ -230,34 +220,6 @@
 .bw-slider[data-disabled="true"] {
   opacity: 0.5;
   pointer-events: none;
-}
-
-.bw-slider-track {
-  position: relative;
-  flex: 1;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  border-radius: 999px;
-  background: var(--layer3);
-  overflow: hidden;
-}
-
-.bw-slider-fill {
-  height: 100%;
-  background: var(--primary);
-  border-radius: 999px;
-  transition: width var(--duration-fast) var(--ease-effects-default);
-}
-
-/* The real control, laid over the painted track and invisible. */
-.bw-slider-track input[type="range"] {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .bw-list-row {
@@ -351,58 +313,6 @@
 .bw-tab[data-active="true"] {
   background: var(--layer3);
   color: var(--on-surface);
-}
-
-/* Switch ------------------------------------------------------------------ */
-
-.bw-switch {
-  flex: none;
-  width: 46px;
-  height: 26px;
-  padding: 2px;
-  border-radius: 999px;
-  border: 2px solid var(--outline);
-  background: var(--layer2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition:
-    background var(--duration-normal) var(--ease-effects-default),
-    border-color var(--duration-normal) var(--ease-effects-default);
-}
-
-.bw-switch[data-checked="true"] {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-.bw-switch:disabled {
-  opacity: 0.38;
-  cursor: default;
-}
-
-.bw-switch-thumb {
-  width: 16px;
-  height: 16px;
-  margin-left: 1px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--outline);
-  color: var(--primary-on);
-  transition:
-    transform var(--duration-normal) var(--ease-effects-default),
-    width var(--duration-fast) var(--ease-effects-default),
-    height var(--duration-fast) var(--ease-effects-default),
-    background var(--duration-normal) var(--ease-effects-default);
-}
-
-.bw-switch[data-checked="true"] .bw-switch-thumb {
-  width: 20px;
-  height: 20px;
-  margin-left: 0;
-  transform: translateX(19px);
-  background: var(--primary-on);
 }
 
 /* Dialog ------------------------------------------------------------------ */
@@ -512,4 +422,10 @@
 .bw-media-tab-visualizer {
   width: 100%;
   height: 56px;
+}
+
+/* The Wake Slider takes what is left beside the icon. */
+.bw-slider-wake {
+  flex: 1;
+  min-width: 0;
 }

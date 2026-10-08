@@ -5,7 +5,7 @@
 // sorted for display and the store keeps the real order.
 
 import { useState } from "react";
-import { IconButton, Placeholder, ScrollArea, Symbol } from "../../widgets";
+import { Check, IconButton, Placeholder, ScrollArea } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 
@@ -50,21 +50,13 @@ export function TodoList() {
         <ScrollArea className="bw-todo-list">
           {[...unfinished, ...finished].map((todo) => (
             <div key={todo.id} className="bw-todo-item" data-done={todo.done}>
-              <button
-                type="button"
-                className="bw-todo-check"
-                role="checkbox"
-                aria-checked={todo.done}
-                aria-label={todo.content}
-                onClick={() => void actions.setTodoDone(todo.id, !todo.done)}
-              >
-                <Symbol
-                  name={todo.done ? "check_box" : "check_box_outline_blank"}
-                  size={20}
-                  filled={todo.done}
+              <span className="bw-todo-content">
+                <Check
+                  checked={todo.done}
+                  label={todo.content}
+                  onChange={(done) => void actions.setTodoDone(todo.id, done)}
                 />
-              </button>
-              <span className="bw-todo-content">{todo.content}</span>
+              </span>
               <IconButton
                 icon="close"
                 size={28}
