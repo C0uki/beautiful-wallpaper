@@ -8,11 +8,13 @@
 // screen opens under a key, Enter is one keystroke further, and two of these
 // buttons close every program the user has open. So the caret starts on
 // something recoverable, and if there is nothing recoverable on offer it
-// starts nowhere at all.
+// starts nowhere at all — and those three are React Bits' Hold Button, taken
+// only once they have been held down, by the pointer or by Enter and Space.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionAction } from "@bw/core";
 import { Symbol } from "../../widgets";
+import HoldButton from "../../widgets/reactbits/HoldButton";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
@@ -63,6 +65,12 @@ function endsTheSession(action: SessionAction): boolean {
   return action === "logOut" || action === "restart" || action === "shutDown";
 }
 
+/** Focuses the screen once, as it appears. A ref, not an effect: the element
+ *  is only there while the screen is open. */
+function focusOnOpen(element: HTMLDivElement | null) {
+  element?.focus();
+}
+
 export function Session() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.sessionOpen);
@@ -71,6 +79,7 @@ export function Session() {
   const [available, setAvailable] = useState<SessionAction[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const list = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     void connect();
@@ -94,6 +103,13 @@ export function Session() {
   }, [open]);
 
   const close = useCallback(() => actions.setState("sessionOpen", false), []);
+
+  // The caret is the keyboard focus itself, so a held Enter or Space reaches
+  // the button it is on.
+  useEffect(() => {
+    if (focused === null) return;
+    list.current?.querySelectorAll("button")[focused]?.focus();
+  }, [focused, available]);
 
   const take = useCallback(async (action: SessionAction) => {
     try {
@@ -127,9 +143,11 @@ export function Session() {
       }
       if (event.key === "Enter" || event.key === " ") {
         if (focused === null) return;
-        event.preventDefault();
         const action = available[focused];
-        if (action) void take(action);
+        // One that ends the session is held, and its button keeps time.
+        if (!action || endsTheSession(action)) return;
+        event.preventDefault();
+        void take(action);
       }
     },
     [available, close, focused, take],
@@ -143,9 +161,9 @@ export function Session() {
       role="dialog"
       aria-label={tr("Session")}
       tabIndex={-1}
-      // Autofocus so the arrow keys work without a click; the caret's starting
-      // position is decided above, not by the browser.
-      ref={(element) => element?.focus()}
+      // Focused once, when it opens, so the arrow keys work without a click;
+      // after that the focus moves with the caret.
+      ref={focusOnOpen}
       onKeyDown={onKeyDown}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) void close();
@@ -155,26 +173,46 @@ export function Session() {
         {problem ? <p className="bw-session-problem">{problem}</p> : null}
 
         {available.length ? (
-          <ul className="bw-session-actions">
-            {available.map((action, index) => (
-              <li key={action}>
-                <button
-                  type="button"
-                  className={[
-                    "bw-session-action",
-                    endsTheSession(action) ? "ends" : "",
-                    index === focused ? "focused" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onMouseEnter={() => setFocused(index)}
-                  onClick={() => void take(action)}
-                >
-                  <Symbol name={symbol(action)} size={34} />
-                  <span>{label(action)}</span>
-                </button>
-              </li>
-            ))}
+          <ul className="bw-session-actions" ref={list}>
+            {available.map((action, index) => {
+              const className = [
+                "bw-session-action",
+                endsTheSession(action) ? "ends" : "",
+                index === focused ? "focused" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              return (
+                <li key={action} onMouseEnter={() => setFocused(index)}>
+                  {endsTheSession(action) ? (
+                    <HoldButton
+                      className={className}
+                      icon={<Symbol name={symbol(action)} size={34} />}
+                      fillDirection="up"
+                      holdTime={1200}
+                      radius={16}
+                      backgroundColor="var(--layer1)"
+                      textColor="var(--on-surface)"
+                      fillColor="var(--error-container)"
+                      fillTextColor="var(--on-surface)"
+                      glow={false}
+                      onHold={() => void take(action)}
+                    >
+                      {label(action)}
+                    </HoldButton>
+                  ) : (
+                    <button
+                      type="button"
+                      className={className}
+                      onClick={() => void take(action)}
+                    >
+                      <Symbol name={symbol(action)} size={34} />
+                      <span>{label(action)}</span>
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="bw-session-problem">
@@ -182,7 +220,11 @@ export function Session() {
           </p>
         )}
 
-        <p className="bw-session-hint">{tr("Escape closes this")}</p>
+        <p className="bw-session-hint">
+          {tr("Hold the ones that end the session")}
+          {" · "}
+          {tr("Escape closes this")}
+        </p>
       </div>
     </div>
   );
