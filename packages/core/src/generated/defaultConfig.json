@@ -323,13 +323,13 @@
     "refreshInterval": 900
   },
   "windows": {
-    "glazewm": {
-      "port": 6123
-    },
     "hideSystemTaskbar": false,
     "startWithWindows": false,
     "autoUpdate": true,
-    "backdrop": "auto"
+    "backdrop": "auto",
+    "glazewm": {
+      "port": 6123
+    }
   },
   "workSafety": {
     "blankWallpaper": false,

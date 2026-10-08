@@ -1533,13 +1533,6 @@
     "kind": "integer"
   },
   {
-    "path": "windows.glazewm.port",
-    "section": "windows",
-    "label": "Port",
-    "group": "GlazeWM",
-    "kind": "integer"
-  },
-  {
     "path": "windows.hideSystemTaskbar",
     "section": "windows",
     "label": "Hide system taskbar",
@@ -1566,6 +1559,13 @@
     "label": "Backdrop",
     "group": "",
     "kind": "text"
+  },
+  {
+    "path": "windows.glazewm.port",
+    "section": "windows",
+    "label": "Port",
+    "group": "GlazeWM",
+    "kind": "integer"
   },
   {
     "path": "workSafety.blankWallpaper",

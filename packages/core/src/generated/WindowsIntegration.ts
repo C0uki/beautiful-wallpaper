@@ -5,7 +5,6 @@ import type { GlazeWm } from "./GlazeWm";
  * The Windows counterpart of end4-pC's `hyprland` section.
  */
 export type WindowsIntegration = {
-  glazewm: GlazeWm;
   /**
    * Hide the stock Windows taskbar while the shell's own bar is running.
    */
@@ -22,4 +21,5 @@ export type WindowsIntegration = {
    * Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
    */
   backdrop: string;
+  glazewm: GlazeWm;
 };

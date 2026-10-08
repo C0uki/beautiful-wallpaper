@@ -812,7 +812,6 @@ config_struct! {
 config_struct! {
     /// The Windows counterpart of end4-pC's `hyprland` section.
     pub struct WindowsIntegration {
-        pub glazewm: GlazeWm = GlazeWm::default(),
         /// Hide the stock Windows taskbar while the shell's own bar is running.
         pub hide_system_taskbar: bool = false,
         pub start_with_windows: bool = false,
@@ -823,6 +822,7 @@ config_struct! {
         /// Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on
         /// Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
         pub backdrop: String = s("auto"),
+        pub glazewm: GlazeWm = GlazeWm::default(),
     }
 }
 
