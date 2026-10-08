@@ -41,10 +41,10 @@ describe("the settings pages", () => {
     expect(twice, "paths claimed by more than one page").toEqual([]);
   });
 
-  /// A page that draws itself has nothing generated on it, so a path listed
-  /// there would be a set of settings nobody could reach.
-  it("gives a page that draws itself no paths of its own", () => {
-    for (const page of PAGES.filter((page) => page.custom)) {
+  /// The presets page has nothing generated on it, so a path listed there
+  /// would be a set of settings nobody could reach.
+  it("gives the presets page no paths of its own", () => {
+    for (const page of PAGES.filter((page) => page.custom === "presets")) {
       expect(page.paths, `${page.id} claims paths`).toEqual([]);
     }
   });

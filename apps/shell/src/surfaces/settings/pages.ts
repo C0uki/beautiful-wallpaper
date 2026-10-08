@@ -36,11 +36,12 @@ export interface SettingsPage {
    * A page that is not a list of settings.
    *
    * Presets are the whole config under a name rather than one key each, so
-   * they have no rows the schema could generate; the page draws itself. A
-   * `custom` page claims no paths, which is why `pages.test.ts` still holds
-   * for it.
+   * they have no rows the schema could generate; the page draws itself and
+   * claims no paths. The keyboard page does claim its paths — the shortcuts
+   * are settings like any other, and a search still finds them as rows — but
+   * draws them as the Mac does, in a sheet with a recorder for each.
    */
-  custom?: "presets";
+  custom?: "presets" | "shortcuts";
 }
 
 export const PAGES: SettingsPage[] = [
@@ -193,6 +194,7 @@ export const PAGES: SettingsPage[] = [
     title: () => tr("Keyboard"),
     summary: () => tr("The keys that open each part of the shell"),
     paths: ["keybinds"],
+    custom: "shortcuts",
   },
   {
     id: "privacy",

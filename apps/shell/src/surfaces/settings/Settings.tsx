@@ -21,6 +21,7 @@ import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
 import { PAGES, orderOn, pageFor } from "./pages";
 import { Presets } from "./Presets";
+import { Shortcuts } from "./Shortcuts";
 import { BarSlotEditor } from "./BarSlotEditor";
 import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
 import "./settings.css";
@@ -203,6 +204,8 @@ export function Settings() {
                 still puts the rows back: the answer is wherever it is. */}
             {!searching && current?.custom === "presets" ? (
               <Presets />
+            ) : !searching && current?.custom === "shortcuts" ? (
+              <Shortcuts config={config} onSet={set} />
             ) : shown.length ? (
               <Rows
                 fields={shown}
