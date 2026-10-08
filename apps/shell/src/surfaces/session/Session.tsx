@@ -193,8 +193,8 @@ export function Session() {
                       radius={16}
                       backgroundColor="var(--layer1)"
                       textColor="var(--on-surface)"
-                      fillColor="var(--error-container)"
-                      fillTextColor="var(--on-surface)"
+                      fillColor="var(--m3-error-container)"
+                      fillTextColor="var(--m3-on-error-container)"
                       glow={false}
                       onHold={() => void take(action)}
                     >
