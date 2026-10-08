@@ -16,58 +16,6 @@
   justify-content: flex-start;
 }
 
-.bw-toast {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: calc(var(--rounding-large) * var(--rounding-scale, 1));
-  background: color-mix(
-    in srgb,
-    var(--layer1) calc((1 - var(--background-transparency)) * 100%),
-    transparent
-  );
-  backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 6px 22px var(--shadow);
-  color: var(--on-surface);
-  touch-action: pan-y;
-  cursor: grab;
-  transition:
-    transform var(--duration-normal) var(--ease-spatial-default),
-    opacity var(--duration-normal) var(--ease-effects-default);
-  animation: bw-toast-in var(--duration-normal) var(--ease-spatial-default);
-}
-
-@keyframes bw-toast-in {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-}
-
-.bw-toast[data-urgency="critical"] {
-  border: 1px solid var(--error);
-}
-
-.bw-toast[data-leaving="true"] {
-  pointer-events: none;
-}
-
-.bw-toast-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--secondary-container, var(--layer3));
-}
-
-.bw-toast[data-urgency="critical"] .bw-toast-icon {
-  background: var(--error-container, var(--layer3));
-  color: var(--error);
-}
-
 .bw-toast-text {
   display: flex;
   flex-direction: column;
@@ -94,13 +42,6 @@
 .bw-toast-age {
   flex: none;
   font-variant-numeric: tabular-nums;
-}
-
-.bw-toast-summary {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .bw-toast-body {
