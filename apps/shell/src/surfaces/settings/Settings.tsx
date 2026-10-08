@@ -38,12 +38,20 @@ function valueAt(config: unknown, path: string): unknown {
     );
 }
 
-/** Everything a search term should match: the label, the group, the path —
- * as shown and in English, so a term from the docs still finds its row. */
+/** The label a row is shown with: the curated one where the mechanical one
+ *  reads wrongly. */
+function labelOf(field: Field): string {
+  return OVERRIDES[field.path]?.label?.() ?? tr(field.label);
+}
+
+/** Everything a search term should match: the label, the sentence under it,
+ * the group, the path — as shown and in English, so a term from the docs
+ * still finds its row. */
 function matches(field: Field, term: string): boolean {
   if (!term) return true;
+  const hint = OVERRIDES[field.path]?.hint?.() ?? "";
   const haystack =
-    `${tr(field.label)} ${field.label} ${tr(field.group)} ${field.group} ${field.path}`.toLowerCase();
+    `${labelOf(field)} ${field.label} ${hint} ${tr(field.group)} ${field.group} ${field.path}`.toLowerCase();
   return term
     .toLowerCase()
     .split(/\s+/)
@@ -277,7 +285,7 @@ function Row({
       {/* The dotted path is what `bw config set` takes; it is kept on the
           label's tooltip, and a search still finds it. */}
       <div className="bw-settings-label" title={field.path}>
-        <span>{tr(field.label)}</span>
+        <span>{labelOf(field)}</span>
         {override?.hint ? <em>{override.hint()}</em> : null}
       </div>
       <div className="bw-settings-control">
@@ -344,7 +352,7 @@ function Control({
       return (
         <Switch
           checked={Boolean(value)}
-          label={tr(field.label)}
+          label={labelOf(field)}
           onChange={(next) => onSet(field.path, next)}
         />
       );
@@ -360,7 +368,7 @@ function Control({
               min={override.range.min}
               max={override.range.max}
               step={override.range.step}
-              label={tr(field.label)}
+              label={labelOf(field)}
               onChange={(next) => onSet(field.path, next)}
             />
             <span>{current}</span>

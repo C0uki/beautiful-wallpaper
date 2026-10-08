@@ -3,15 +3,15 @@
 
 import { describe, expect, it } from "vitest";
 import { configSchema } from "@bw/core";
-import { PAGES, orderOn, pageFor } from "./pages";
+import { NOT_SHOWN, PAGES, orderOn, pageFor } from "./pages";
 
-/** Typed in edit mode by dragging, so deliberately on no page. */
-const placed = /^background\.widgets\.\w+\.(id|x|y)$/;
+const hidden = (path: string) =>
+  NOT_SHOWN.some((pattern) => pattern.test(path));
 
 describe("the settings pages", () => {
   it("has somewhere to put every setting in the config", () => {
     const homeless = configSchema
-      .filter((field) => !placed.test(field.path) && !pageFor(field))
+      .filter((field) => !hidden(field.path) && !pageFor(field))
       .map((field) => field.path);
     expect(homeless, "settings with no settings page").toEqual([]);
   });
@@ -56,6 +56,8 @@ describe("the settings pages", () => {
     expect(at("sidebar.width")).toBe("sidebars");
     expect(at("background.widgets.clock.enable")).toBe("desktop");
     expect(at("background.widgets.clock.x")).toBeUndefined();
+    expect(at("background.widgets.clock.style")).toBe("desktop");
+    expect(at("background.widgets.notes.style")).toBeUndefined();
   });
 
   it("gives every page a distinct id, a title and a summary", () => {
