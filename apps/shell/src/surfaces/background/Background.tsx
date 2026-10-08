@@ -187,7 +187,7 @@ export function Background() {
         }}
       >
         <IconButton
-          icon="wallpaper"
+          icon="photo_library"
           label={tr("Wallpapers")}
           onClick={() => void actions.toggleState("wallpaperSelectorOpen")}
         />
