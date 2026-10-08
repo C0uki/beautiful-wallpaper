@@ -837,8 +837,15 @@
 /* A notification is as tall as its text, where a Swipe Row is a fixed
    height for the sake of folding away; this one simply goes. */
 .bw-notification-row.swipe-row,
-.bw-notification-row .swipe-row__clip {
+.bw-notification-row .swipe-row__clip,
+.bw-notification-row .swipe-row__surface {
   height: auto;
+}
+
+/* The notification takes the row's width, short or long. */
+.bw-notification-row .bw-notification {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Its colours are palette names, which the row cannot read a contrast

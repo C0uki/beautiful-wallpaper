@@ -89,8 +89,8 @@ function Toast({
       closeButton
       width={360}
       radius={16}
-      background={critical ? "var(--error-container)" : "var(--layer1)"}
-      color="var(--on-surface)"
+      background={critical ? "var(--m3-error-container)" : "var(--layer1)"}
+      color={critical ? "var(--m3-on-error-container)" : "var(--on-surface)"}
       fuseColor={critical ? "var(--error)" : "var(--primary)"}
       // A critical one waits to be dismissed.
       duration={critical ? 0 : Math.max(0, life)}
