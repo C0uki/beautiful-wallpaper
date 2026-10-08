@@ -3,46 +3,67 @@
 
 import { describe, expect, it } from "vitest";
 import { configSchema } from "@bw/core";
-import { PAGES, pageFor } from "./pages";
+import { PAGES, orderOn, pageFor } from "./pages";
 
-const sections = [...new Set(configSchema.map((field) => field.section))];
+/** Typed in edit mode by dragging, so deliberately on no page. */
+const placed = /^background\.widgets\.\w+\.(id|x|y)$/;
 
 describe("the settings pages", () => {
-  it("has somewhere to put every section of the config", () => {
-    const homeless = sections.filter((section) => !pageFor(section));
-    expect(homeless, "config sections with no settings page").toEqual([]);
+  it("has somewhere to put every setting in the config", () => {
+    const homeless = configSchema
+      .filter((field) => !placed.test(field.path) && !pageFor(field))
+      .map((field) => field.path);
+    expect(homeless, "settings with no settings page").toEqual([]);
   });
 
-  it("does not name a section the config does not have", () => {
-    const invented = PAGES.flatMap((page) => page.sections).filter(
-      (section) => !sections.includes(section),
+  /// A claim that no setting ends up under is a typo, or a key that has
+  /// since been renamed — either way a page quietly missing its rows.
+  it("only claims paths that some setting ends up under", () => {
+    const dead = PAGES.flatMap((page) =>
+      page.paths
+        .filter(
+          (_, index) =>
+            !configSchema.some(
+              (field) =>
+                pageFor(field) === page && orderOn(page, field) === index,
+            ),
+        )
+        .map((path) => `${page.id}: ${path}`),
     );
-    expect(invented, "pages naming a section that no longer exists").toEqual(
-      [],
-    );
+    expect(dead, "claims that win no setting").toEqual([]);
   });
 
-  /// A section on two pages is a set of settings that can be changed from two
-  /// places and disagree about which one the user last used.
-  it("puts each section on exactly one page", () => {
-    const seen = PAGES.flatMap((page) => page.sections);
-    const twice = seen.filter(
-      (section, index) => seen.indexOf(section) !== index,
-    );
-    expect(twice, "sections claimed by more than one page").toEqual([]);
+  /// The same prefix on two pages would put a setting wherever the table
+  /// happened to list it first, and be changeable from neither on purpose.
+  it("claims each path once", () => {
+    const seen = PAGES.flatMap((page) => page.paths);
+    const twice = seen.filter((path, index) => seen.indexOf(path) !== index);
+    expect(twice, "paths claimed by more than one page").toEqual([]);
   });
 
-  /// A page that draws itself has nothing generated on it, so a section
-  /// listed there would be a set of settings nobody could reach.
-  it("gives a page that draws itself no sections of its own", () => {
+  /// A page that draws itself has nothing generated on it, so a path listed
+  /// there would be a set of settings nobody could reach.
+  it("gives a page that draws itself no paths of its own", () => {
     for (const page of PAGES.filter((page) => page.custom)) {
-      expect(page.sections, `${page.id} claims sections`).toEqual([]);
+      expect(page.paths, `${page.id} claims paths`).toEqual([]);
     }
   });
 
-  it("gives every page a distinct id and a title", () => {
+  it("moves a setting to the longer claim", () => {
+    const at = (path: string) =>
+      pageFor(configSchema.find((field) => field.path === path)!)?.id;
+    expect(at("sidebar.nightLight.enable")).toBe("displays");
+    expect(at("sidebar.width")).toBe("sidebars");
+    expect(at("background.widgets.clock.enable")).toBe("desktop");
+    expect(at("background.widgets.clock.x")).toBeUndefined();
+  });
+
+  it("gives every page a distinct id, a title and a summary", () => {
     const ids = PAGES.map((page) => page.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const page of PAGES) expect(page.title()).toBeTruthy();
+    for (const page of PAGES) {
+      expect(page.title()).toBeTruthy();
+      expect(page.summary()).toBeTruthy();
+    }
   });
 });
