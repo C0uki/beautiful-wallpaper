@@ -204,22 +204,14 @@ export const PAGES: SettingsPage[] = [
     paths: ["workSafety", "policies.weeb", "sidebar.left.booru"],
   },
   {
-    id: "windows",
-    icon: "desktop_windows",
-    tint: "#8e8e93",
-    group: "other",
-    title: () => tr("Window managers"),
-    summary: () => tr("GlazeWM or komorebi, for the workspaces widget"),
-    paths: ["windows.windowManager", "windows.glazewm", "windows.komorebi"],
-  },
-  {
     id: "advanced",
     icon: "build",
     tint: "#8e8e93",
     group: "other",
     title: () => tr("Advanced"),
-    summary: () => tr("Workarounds with a cost, and how often stats are read"),
-    paths: ["hacks", "resources"],
+    summary: () =>
+      tr("Workarounds with a cost, how often stats are read, and GlazeWM"),
+    paths: ["hacks", "resources", "windows.glazewm"],
     caution: () =>
       tr(
         "Everything under hacks reaches past what Windows offers a shell. Each one says what it costs.",
@@ -241,14 +233,24 @@ export const PAGES: SettingsPage[] = [
 const under = (path: string, prefix: string) =>
   path === prefix || path.startsWith(`${prefix}.`);
 
-/** Where each widget sits and what it is called are decided by dragging it in
- *  edit mode, not typed here. */
-const PLACED_BY_EDIT_MODE = /^background\.widgets\.\w+\.(id|x|y)$/;
+/** Settings deliberately on no page. */
+export const NOT_SHOWN = [
+  // Where each widget sits and what it is called are decided by dragging it
+  // in edit mode, not typed here.
+  /^background\.widgets\.\w+\.(id|x|y)$/,
+  // ponytail: these are in the schema but nothing reads them yet — only the
+  // clock draws a style, no surface draws a centred wallpaper, and the
+  // workspaces come from GlazeWM's port alone. A row that does nothing is
+  // worse than no row; show each again once something reads it.
+  /^background\.widgets\.(?!clock\.)\w+\.style$/,
+  /^background\.centeredWallpaper/,
+  /^windows\.(windowManager|komorebi\.)/,
+];
 
 /** The page a field belongs on — the longest claim on its path — or nothing,
  *  for a field that is not shown or that the table has forgotten. */
 export function pageFor(field: Field): SettingsPage | undefined {
-  if (PLACED_BY_EDIT_MODE.test(field.path)) return undefined;
+  if (NOT_SHOWN.some((pattern) => pattern.test(field.path))) return undefined;
   let best: SettingsPage | undefined;
   let length = 0;
   for (const page of PAGES) {
