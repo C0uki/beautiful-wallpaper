@@ -355,7 +355,11 @@ const SHOTS = [
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
       await page.getByRole("button", { name: "session" }).click();
-      await page.getByRole("button", { name: "Shut down" }).click();
+      // Shutting down is held, not clicked: down, past the hold time, up.
+      await page.getByRole("button", { name: "Shut down" }).hover();
+      await page.mouse.down();
+      await page.waitForTimeout(1600);
+      await page.mouse.up();
       await page.locator(".bw-session-problem").waitFor();
     },
   },

@@ -90,3 +90,18 @@
   font-size: 12px;
   color: var(--outline);
 }
+
+/* The three held ones are React Bits' Hold Button in the same square, with
+   the icon over the label like the rest. */
+.bw-session-action.hold-button {
+  width: 116px;
+  height: 116px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.bw-session-action .hold-button__idle,
+.bw-session-action .hold-button__done {
+  flex-direction: column;
+  gap: 10px;
+}
