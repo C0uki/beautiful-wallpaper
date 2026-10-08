@@ -22,7 +22,7 @@ import { Command, configSchema } from "@bw/core";
 import { backend } from "../../shell/backend";
 import { actions } from "../../shell/store";
 import { describeError } from "../../shell/errors";
-import { Button, Dialog, Placeholder, Symbol } from "../../widgets";
+import { Button, Check, Dialog, Placeholder, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { contrast } from "./diff";
 import "./presets.css";
@@ -396,9 +396,9 @@ function ConfirmApply({
               return (
                 <li key={change.path}>
                   <label>
-                    <input
-                      type="checkbox"
+                    <Check
                       checked={chosen.has(change.path)}
+                      ariaLabel={labelOf(change.path)}
                       onChange={() => toggle(change.path)}
                     />
                     <span className="bw-presets-what">

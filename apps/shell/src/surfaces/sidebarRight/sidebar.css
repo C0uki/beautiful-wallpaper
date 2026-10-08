@@ -596,21 +596,6 @@
   gap: 4px;
 }
 
-.bw-todo-item[data-done="true"] .bw-todo-content {
-  text-decoration: line-through;
-  opacity: 0.5;
-}
-
-.bw-todo-check {
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  padding: 4px;
-}
-
 .bw-todo-content {
   flex: 1;
   min-width: 0;

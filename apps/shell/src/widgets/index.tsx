@@ -17,6 +17,10 @@ import {
   type ReactNode,
 } from "react";
 import { Symbol } from "./Symbol";
+import RubberSegment from "./reactbits/RubberSegment";
+import SpringCheck from "./reactbits/SpringCheck";
+import SquishSwitch from "./reactbits/SquishSwitch";
+import WakeSlider from "./reactbits/WakeSlider";
 import "./widgets.css";
 
 export { Symbol };
@@ -209,21 +213,26 @@ export function Segmented<T extends string>({
   value,
   onChange,
 }: SegmentedProps<T>) {
+  // React Bits' Rubber Segment, in the wallpaper's colours: the thumb
+  // stretches towards where it is going and can be dragged.
   return (
-    <div className="bw-segmented" role="tablist">
-      {options.map((option) => (
-        <Button
-          key={option.value}
-          role="tab"
-          aria-selected={option.value === value}
-          variant={option.value === value ? "filled" : "text"}
-          {...(option.icon ? { icon: option.icon } : {})}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </Button>
-      ))}
-    </div>
+    <RubberSegment
+      items={options.map((option) => ({
+        value: option.value,
+        label: option.label,
+        ...(option.icon
+          ? { icon: <Symbol name={option.icon} size={16} /> }
+          : {}),
+      }))}
+      value={value}
+      onChange={(next) => onChange(next as T)}
+      size="sm"
+      radius={999}
+      trackColor="var(--layer1)"
+      thumbColor="var(--primary)"
+      textColor="var(--on-surface)"
+      activeTextColor="var(--primary-on)"
+    />
   );
 }
 
@@ -285,30 +294,25 @@ export function Slider({
   disabled = false,
   onChange,
 }: SliderProps) {
-  const clamped = Math.min(Math.max(value, min), max);
-  const fraction = max === min ? 0 : (clamped - min) / (max - min);
-
+  // React Bits' Wake Slider: a row of bars that swells where it is pulled.
   return (
     <div className="bw-slider" data-disabled={disabled}>
       {icon ? <Symbol name={icon} size={18} /> : null}
-      <div className="bw-slider-track">
-        <div
-          className="bw-slider-fill"
-          style={{ width: `${fraction * 100}%` }}
-        />
-        {/* The native input carries the interaction and the accessibility;
-            the painted track above is decoration sitting under it. */}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={clamped}
-          disabled={disabled}
-          aria-label={label}
-          onChange={(event) => onChange(Number(event.target.value))}
-        />
-      </div>
+      <WakeSlider
+        className="bw-slider-wake"
+        value={Math.min(Math.max(value, min), max)}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        ariaLabel={label}
+        onChange={onChange}
+        height={28}
+        restHeight={8}
+        gap={3}
+        fillColor="var(--primary)"
+        trackColor="var(--layer3)"
+      />
     </div>
   );
 }
@@ -415,21 +419,49 @@ export interface SwitchProps {
 }
 
 export function Switch({ checked, label, disabled, onChange }: SwitchProps) {
+  // React Bits' Squish Switch: the thumb stretches as it travels, and can be
+  // dragged across as well as clicked.
   return (
-    <button
-      type="button"
-      role="switch"
-      className="bw-switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      data-checked={checked}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="bw-switch-thumb">
-        {checked ? <Symbol name="check" size={14} /> : null}
-      </span>
-    </button>
+    <SquishSwitch
+      checked={checked}
+      onChange={onChange}
+      disabled={disabled ?? false}
+      ariaLabel={label}
+      width={48}
+      height={28}
+      radius={14}
+      trackColor="var(--layer3)"
+      trackOnColor="var(--primary)"
+      thumbColor="var(--outline)"
+      thumbOnColor="var(--primary-on)"
+    />
+  );
+}
+
+/** A tick box whose tick springs in. React Bits' Spring Check, with `label`
+ *  struck through once it is ticked. */
+export interface CheckProps {
+  checked: boolean;
+  label?: ReactNode;
+  /** For a box with no visible label. */
+  ariaLabel?: string;
+  onChange: (checked: boolean) => void;
+}
+
+export function Check({ checked, label, ariaLabel, onChange }: CheckProps) {
+  return (
+    <SpringCheck
+      checked={checked}
+      onChange={onChange}
+      label={label ?? ""}
+      {...(ariaLabel ? { ariaLabel } : {})}
+      boxSize={18}
+      boxRadius={5}
+      fontSize={14}
+      color="var(--on-surface)"
+      fillColor="var(--primary)"
+      checkColor="var(--primary-on)"
+    />
   );
 }
 
