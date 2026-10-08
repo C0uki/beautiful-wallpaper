@@ -6,8 +6,10 @@
 // choice — and how two hundred of them are made findable.
 //
 // Findable is the harder half. A generated form is complete by construction
-// and unusable if that is all it is, so there is a search across every page
-// and every page is grouped by the schema's own nesting.
+// and unusable if that is all it is, so there is a search across every page,
+// the pages are laid out by what the user is looking for (see pages.ts), and
+// each page is drawn as the Mac's System Settings draws one: a coloured tile
+// per page, and rows gathered into cards.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Field } from "@bw/core";
@@ -17,7 +19,7 @@ import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
-import { PAGES, pageFor } from "./pages";
+import { PAGES, orderOn, pageFor } from "./pages";
 import { Presets } from "./Presets";
 import { BarSlotEditor } from "./BarSlotEditor";
 import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
@@ -70,13 +72,19 @@ export function Settings() {
   }, [open]);
 
   // Grouped once rather than per render: two hundred rows filtered on every
-  // keystroke is the one thing here that could feel slow.
+  // keystroke is the one thing here that could feel slow. A page shows its
+  // rows in the order it claims them; the sort is stable, so the schema's own
+  // order holds within each claim.
   const byPage = useMemo(() => {
     const found = new Map<string, Field[]>();
     for (const field of configSchema) {
-      const home = pageFor(field.section);
+      const home = pageFor(field);
       if (!home) continue;
       found.set(home.id, [...(found.get(home.id) ?? []), field]);
+    }
+    for (const [id, fields] of found) {
+      const page = PAGES.find((entry) => entry.id === id)!;
+      fields.sort((a, b) => orderOn(page, a) - orderOn(page, b));
     }
     return found;
   }, []);
@@ -86,7 +94,7 @@ export function Settings() {
   // wherever it is — so every page's rows are shown together.
   const shown = useMemo(() => {
     const fields = searching
-      ? configSchema.filter((field) => pageFor(field.section))
+      ? configSchema.filter((field) => pageFor(field))
       : (byPage.get(page) ?? []);
     return fields.filter((field) => matches(field, term));
   }, [byPage, page, searching, term]);
@@ -129,17 +137,26 @@ export function Settings() {
               onChange={setTerm}
             />
           </div>
-          {PAGES.map((entry) => (
+          {PAGES.map((entry, index) => (
             <button
               key={entry.id}
               type="button"
               className={!searching && entry.id === page ? "selected" : ""}
+              // A gap before the first page of each group, as on a Mac.
+              data-starts-group={
+                index > 0 && PAGES[index - 1]!.group !== entry.group
+              }
               onClick={() => {
                 setTerm("");
                 setPage(entry.id);
               }}
             >
-              <Symbol name={entry.icon} size={20} />
+              <span
+                className="bw-settings-tile"
+                style={{ background: entry.tint }}
+              >
+                <Symbol name={entry.icon} size={16} filled />
+              </span>
               <span>{entry.title()}</span>
             </button>
           ))}
@@ -147,11 +164,14 @@ export function Settings() {
 
         <div className="bw-settings-body">
           <header className="bw-settings-head">
-            <h1>
-              {searching
-                ? tr("%1 settings match").replace("%1", String(shown.length))
-                : (current?.title() ?? "")}
-            </h1>
+            <div>
+              <h1>
+                {searching
+                  ? tr("%1 settings match").replace("%1", String(shown.length))
+                  : (current?.title() ?? "")}
+              </h1>
+              {!searching && current ? <p>{current.summary()}</p> : null}
+            </div>
             <IconButton
               icon="close"
               size={32}
@@ -192,7 +212,9 @@ export function Settings() {
   );
 }
 
-/** The rows, with a heading whenever the group changes. */
+/** The rows, gathered into cards: a new card wherever the group changes,
+ *  titled by the group, or by the section when the rows are not in one. A
+ *  search is one card, since its rows come from everywhere. */
 function Rows({
   fields,
   config,
@@ -204,43 +226,36 @@ function Rows({
   onSet: (path: string, value: unknown) => void;
   grouped: boolean;
 }) {
-  let lastGroup: string | null = null;
-  let lastSection: string | null = null;
+  const cards: { key: string; title: string; fields: Field[] }[] = [];
+  for (const field of fields) {
+    const key = grouped ? `${field.section}/${field.group}` : "found";
+    const last = cards[cards.length - 1];
+    if (last?.key === key) last.fields.push(field);
+    else
+      cards.push({
+        key,
+        title: grouped ? tr(field.group || field.section) : "",
+        fields: [field],
+      });
+  }
 
   return (
     <>
-      {fields.map((field) => {
-        const headings: React.ReactNode[] = [];
-        if (grouped && field.section !== lastSection) {
-          lastSection = field.section;
-          lastGroup = null;
-          headings.push(
-            <h2 key={`s-${field.section}`} className="bw-settings-section">
-              {tr(field.section)}
-            </h2>,
-          );
-        }
-        if (grouped && field.group !== lastGroup) {
-          lastGroup = field.group;
-          if (field.group) {
-            headings.push(
-              <h3
-                key={`g-${field.section}-${field.group}`}
-                className="bw-settings-group"
-              >
-                {tr(field.group)}
-              </h3>,
-            );
-          }
-        }
-
-        return (
-          <div key={field.path} className="bw-settings-block">
-            {headings}
-            <Row field={field} config={config} onSet={onSet} />
+      {cards.map((card) => (
+        <section key={card.key} className="bw-settings-card">
+          {card.title ? <h2>{card.title}</h2> : null}
+          <div className="bw-settings-card-rows">
+            {card.fields.map((field) => (
+              <Row
+                key={field.path}
+                field={field}
+                config={config}
+                onSet={onSet}
+              />
+            ))}
           </div>
-        );
-      })}
+        </section>
+      ))}
     </>
   );
 }
@@ -259,10 +274,11 @@ function Row({
 
   return (
     <div className="bw-settings-row">
-      <div className="bw-settings-label">
+      {/* The dotted path is what `bw config set` takes; it is kept on the
+          label's tooltip, and a search still finds it. */}
+      <div className="bw-settings-label" title={field.path}>
         <span>{tr(field.label)}</span>
         {override?.hint ? <em>{override.hint()}</em> : null}
-        <code>{field.path}</code>
       </div>
       <div className="bw-settings-control">
         {override?.barSlot ? (

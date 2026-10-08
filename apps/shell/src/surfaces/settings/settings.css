@@ -1,8 +1,9 @@
 /* The settings screen.
  *
- * A page list on the left, rows on the right. Every row is generated, so the
- * layout has to work for two hundred of them without any one of them having
- * been looked at. */
+ * A page list on the left, rows on the right, laid out as the Mac's System
+ * Settings is: a coloured tile beside each page, and rows gathered into
+ * rounded cards. Every row is generated, so the layout has to work for two
+ * hundred of them without any one of them having been looked at. */
 
 .bw-settings {
   position: fixed;
@@ -43,17 +44,17 @@
 .bw-settings-pages button {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 6px 10px;
   border: 0;
-  border-radius: var(--rounding-full);
+  border-radius: var(--rounding-small);
   background: transparent;
   color: var(--on-surface);
   font-family: inherit;
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background var(--duration-small) var(--ease-effects-default);
+  transition: background var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-settings-pages button:hover {
@@ -63,6 +64,22 @@
 .bw-settings-pages button.selected {
   background: var(--primary);
   color: var(--primary-on);
+}
+
+.bw-settings-pages button[data-starts-group="true"] {
+  margin-top: 12px;
+}
+
+/* A fixed hue per page rather than the palette's: a page is found by its
+   colour, and the colour must not move when the wallpaper does. */
+.bw-settings-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: #ffffff;
 }
 
 .bw-settings-body {
@@ -79,11 +96,21 @@
   padding: 14px 14px 10px 20px;
 }
 
-.bw-settings-head h1 {
+.bw-settings-head > div {
   flex: 1;
+  min-width: 0;
+}
+
+.bw-settings-head h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+}
+
+.bw-settings-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--on-surface-variant);
 }
 
 .bw-settings-problem,
@@ -110,36 +137,38 @@
   padding: 0 20px 20px;
 }
 
-/* The section name is the config's own — `wallpaperSelector` — because that is
-   what the user types into the file and into `bw config set`. Translating it
-   would break the link between the screen and the thing it edits. */
-.bw-settings-section {
-  margin: 22px 0 6px;
-  font-family: var(--font-monospace, monospace);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--primary);
+/* One card per group of rows, its title above it in small grey type. */
+.bw-settings-card {
+  margin-top: 18px;
 }
 
-.bw-settings-block:first-child .bw-settings-section {
+.bw-settings-card:first-child {
   margin-top: 4px;
 }
 
-.bw-settings-group {
-  margin: 14px 0 4px;
+.bw-settings-card h2 {
+  margin: 0 0 6px 12px;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--outline);
+  color: var(--on-surface-variant);
+}
+
+.bw-settings-card-rows {
+  border-radius: var(--rounding-normal);
+  background: var(--layer1);
+  border: 1px solid var(--layer1-border);
 }
 
 .bw-settings-row {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--outline-variant);
+  min-height: 44px;
+  padding: 8px 14px;
+}
+
+.bw-settings-row + .bw-settings-row {
+  border-top: 1px solid var(--outline-variant);
 }
 
 .bw-settings-label {
@@ -158,16 +187,7 @@
   font-size: 11px;
   font-style: normal;
   line-height: 1.4;
-  color: var(--outline);
-}
-
-/* The dotted path, so what the screen changes and what `bw config set` takes
-   are visibly the same thing. */
-.bw-settings-label code {
-  font-family: var(--font-monospace, monospace);
-  font-size: 10px;
-  color: var(--outline);
-  opacity: 0.75;
+  color: var(--on-surface-variant);
 }
 
 .bw-settings-control {
@@ -237,7 +257,7 @@
   padding: 7px 10px;
   border: 1px solid var(--outline-variant);
   border-radius: var(--rounding-small);
-  background: var(--layer1);
+  background: var(--layer0);
   color: var(--on-surface);
   font-family: inherit;
   font-size: 12px;
