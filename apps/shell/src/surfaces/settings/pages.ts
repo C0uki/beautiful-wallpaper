@@ -238,13 +238,6 @@ export const NOT_SHOWN = [
   // Where each widget sits and what it is called are decided by dragging it
   // in edit mode, not typed here.
   /^background\.widgets\.\w+\.(id|x|y)$/,
-  // ponytail: these are in the schema but nothing reads them yet — only the
-  // clock draws a style, no surface draws a centred wallpaper, and the
-  // workspaces come from GlazeWM's port alone. A row that does nothing is
-  // worse than no row; show each again once something reads it.
-  /^background\.widgets\.(?!clock\.)\w+\.style$/,
-  /^background\.centeredWallpaper/,
-  /^windows\.(windowManager|komorebi\.)/,
 ];
 
 /** The page a field belongs on — the longest claim on its path — or nothing,

@@ -57,7 +57,6 @@ describe("the settings pages", () => {
     expect(at("background.widgets.clock.enable")).toBe("desktop");
     expect(at("background.widgets.clock.x")).toBeUndefined();
     expect(at("background.widgets.clock.style")).toBe("desktop");
-    expect(at("background.widgets.notes.style")).toBeUndefined();
   });
 
   it("gives every page a distinct id, a title and a summary", () => {

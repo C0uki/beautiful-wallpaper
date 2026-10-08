@@ -13,12 +13,6 @@ export type Background = {
    */
   wallpaperAnimation: string;
   transitionDuration: number;
-  /**
-   * Render the wallpaper clipped into a Material shape, centred.
-   */
-  centeredWallpaper: boolean;
-  centeredWallpaperShape: string;
-  centeredWallpaperSize: number;
   parallax: Parallax;
   widgets: DesktopWidgets;
 };

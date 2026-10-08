@@ -104,16 +104,11 @@ Windows has no workspace concept the shell can read — virtual desktops are not
 exposed in a usable way. Workspaces come from a third-party tiling window
 manager, and with none running there is nothing to show.
 
-`windows.windowManager` is `"auto"`, which probes for
-[GlazeWM](https://github.com/glzr-io/glazewm) and then
-[komorebi](https://github.com/LGUG2Z/komorebi). If one is running and the bar
-still shows nothing:
-
-- **GlazeWM** is read over its WebSocket IPC on port `6123`. A different port
-  goes in `windows.glazewm.port`.
-- **komorebi** is read over a named pipe, `windows.komorebi.pipeName`.
-
-Set `windows.windowManager` to `"none"` to stop probing entirely.
+Only [GlazeWM](https://github.com/glzr-io/glazewm) is read, over its
+WebSocket IPC on port `6123`. If it is running and the bar still shows nothing,
+check that port; a different one goes in `windows.glazewm.port`.
+[komorebi](https://github.com/LGUG2Z/komorebi) is not read yet. Without either,
+take the workspaces widget off the bar.
 
 ## Notifications from other applications never appear
 

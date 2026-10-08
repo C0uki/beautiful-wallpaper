@@ -142,19 +142,15 @@ Volume steps, and the guard against the volume jumping to something painful.
 
 The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
-| Setting                             | Value        | Default    |
-| ----------------------------------- | ------------ | ---------- |
-| `background.wallpaperPath`          | text         | `""`       |
-| `background.thumbnailPath`          | text         | `""`       |
-| `background.wallpaperAnimation`     | text         | `"circle"` |
-| `background.transitionDuration`     | whole number | `1200`     |
-| `background.centeredWallpaper`      | true / false | `false`    |
-| `background.centeredWallpaperShape` | text         | `"clover"` |
-| `background.centeredWallpaperSize`  | number       | `0.55`     |
+| Setting                         | Value        | Default    |
+| ------------------------------- | ------------ | ---------- |
+| `background.wallpaperPath`      | text         | `""`       |
+| `background.thumbnailPath`      | text         | `""`       |
+| `background.wallpaperAnimation` | text         | `"circle"` |
+| `background.transitionDuration` | whole number | `1200`     |
 
 - **`background.thumbnailPath`** — Extracted still frame, for video wallpapers.
 - **`background.wallpaperAnimation`** — Transition played when the wallpaper changes.
-- **`background.centeredWallpaper`** — Render the wallpaper clipped into a Material shape, centred.
 
 ### `background.parallax`
 
@@ -188,17 +184,17 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
 - **`background.widgets.clock.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.clock.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
+- **`background.widgets.clock.style`** — `"default"` or `"digital"`.
 
 ### `background.widgets.media`
 
-| Setting                                      | Value        | Default     |
-| -------------------------------------------- | ------------ | ----------- |
-| `background.widgets.media.id`                | text         | `"media"`   |
-| `background.widgets.media.enable`            | true / false | `true`      |
-| `background.widgets.media.x`                 | number       | `0.04`      |
-| `background.widgets.media.y`                 | number       | `0.3`       |
-| `background.widgets.media.placementStrategy` | text         | `"free"`    |
-| `background.widgets.media.style`             | text         | `"default"` |
+| Setting                                      | Value        | Default   |
+| -------------------------------------------- | ------------ | --------- |
+| `background.widgets.media.id`                | text         | `"media"` |
+| `background.widgets.media.enable`            | true / false | `true`    |
+| `background.widgets.media.x`                 | number       | `0.04`    |
+| `background.widgets.media.y`                 | number       | `0.3`     |
+| `background.widgets.media.placementStrategy` | text         | `"free"`  |
 
 - **`background.widgets.media.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.media.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
@@ -212,7 +208,6 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 | `background.widgets.weather.x`                 | number       | `0.72`      |
 | `background.widgets.weather.y`                 | number       | `0.05`      |
 | `background.widgets.weather.placementStrategy` | text         | `"free"`    |
-| `background.widgets.weather.style`             | text         | `"default"` |
 
 - **`background.widgets.weather.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.weather.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
@@ -226,7 +221,6 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 | `background.widgets.resources.x`                 | number       | `0.72`        |
 | `background.widgets.resources.y`                 | number       | `0.2`         |
 | `background.widgets.resources.placementStrategy` | text         | `"free"`      |
-| `background.widgets.resources.style`             | text         | `"default"`   |
 
 - **`background.widgets.resources.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.resources.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
@@ -240,7 +234,6 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 | `background.widgets.calendar.x`                 | number       | `0.72`       |
 | `background.widgets.calendar.y`                 | number       | `0.45`       |
 | `background.widgets.calendar.placementStrategy` | text         | `"free"`     |
-| `background.widgets.calendar.style`             | text         | `"default"`  |
 
 - **`background.widgets.calendar.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.calendar.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
@@ -254,21 +247,19 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 | `background.widgets.userCard.x`                 | number       | `0.72`       |
 | `background.widgets.userCard.y`                 | number       | `0.6`        |
 | `background.widgets.userCard.placementStrategy` | text         | `"free"`     |
-| `background.widgets.userCard.style`             | text         | `"default"`  |
 
 - **`background.widgets.userCard.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.userCard.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
 
 ### `background.widgets.notes`
 
-| Setting                                      | Value        | Default     |
-| -------------------------------------------- | ------------ | ----------- |
-| `background.widgets.notes.id`                | text         | `"notes"`   |
-| `background.widgets.notes.enable`            | true / false | `false`     |
-| `background.widgets.notes.x`                 | number       | `0.04`      |
-| `background.widgets.notes.y`                 | number       | `0.62`      |
-| `background.widgets.notes.placementStrategy` | text         | `"free"`    |
-| `background.widgets.notes.style`             | text         | `"default"` |
+| Setting                                      | Value        | Default   |
+| -------------------------------------------- | ------------ | --------- |
+| `background.widgets.notes.id`                | text         | `"notes"` |
+| `background.widgets.notes.enable`            | true / false | `false`   |
+| `background.widgets.notes.x`                 | number       | `0.04`    |
+| `background.widgets.notes.y`                 | number       | `0.62`    |
+| `background.widgets.notes.placementStrategy` | text         | `"free"`  |
 
 - **`background.widgets.notes.x`** — Fraction of the monitor's width, so placement survives resolution changes.
 - **`background.widgets.notes.placementStrategy`** — `"free"` keeps the stored position; `"leastBusy"` moves the widget to the calmest region of the current wallpaper.
@@ -717,13 +708,11 @@ The things that only mean anything on Windows: the system taskbar, starting with
 
 | Setting                     | Value        | Default  |
 | --------------------------- | ------------ | -------- |
-| `windows.windowManager`     | text         | `"auto"` |
 | `windows.hideSystemTaskbar` | true / false | `false`  |
 | `windows.startWithWindows`  | true / false | `false`  |
 | `windows.autoUpdate`        | true / false | `true`   |
 | `windows.backdrop`          | text         | `"auto"` |
 
-- **`windows.windowManager`** — `"auto"` probes for GlazeWM then komorebi; `"none"` disables workspace integration entirely.
 - **`windows.hideSystemTaskbar`** — Hide the stock Windows taskbar while the shell's own bar is running.
 - **`windows.autoUpdate`** — Install new releases on its own. Checked a minute after starting and every six hours after that; the shell says which version it is moving to, then restarts into it.
 - **`windows.backdrop`** — Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
@@ -733,12 +722,6 @@ The things that only mean anything on Windows: the system taskbar, starting with
 | Setting                | Value        | Default |
 | ---------------------- | ------------ | ------- |
 | `windows.glazewm.port` | whole number | `6123`  |
-
-### `windows.komorebi`
-
-| Setting                     | Value | Default      |
-| --------------------------- | ----- | ------------ |
-| `windows.komorebi.pipeName` | text  | `"komorebi"` |
 
 ## `workSafety`
 

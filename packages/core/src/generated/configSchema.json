@@ -182,27 +182,6 @@
     "kind": "integer"
   },
   {
-    "path": "background.centeredWallpaper",
-    "section": "background",
-    "label": "Centered wallpaper",
-    "group": "",
-    "kind": "toggle"
-  },
-  {
-    "path": "background.centeredWallpaperShape",
-    "section": "background",
-    "label": "Centered wallpaper shape",
-    "group": "",
-    "kind": "text"
-  },
-  {
-    "path": "background.centeredWallpaperSize",
-    "section": "background",
-    "label": "Centered wallpaper size",
-    "group": "",
-    "kind": "decimal"
-  },
-  {
     "path": "background.parallax.enable",
     "section": "background",
     "label": "Enable",
@@ -315,13 +294,6 @@
     "kind": "text"
   },
   {
-    "path": "background.widgets.media.style",
-    "section": "background",
-    "label": "Style",
-    "group": "Media",
-    "kind": "text"
-  },
-  {
     "path": "background.widgets.weather.id",
     "section": "background",
     "label": "ID",
@@ -353,13 +325,6 @@
     "path": "background.widgets.weather.placementStrategy",
     "section": "background",
     "label": "Placement strategy",
-    "group": "Weather",
-    "kind": "text"
-  },
-  {
-    "path": "background.widgets.weather.style",
-    "section": "background",
-    "label": "Style",
     "group": "Weather",
     "kind": "text"
   },
@@ -399,13 +364,6 @@
     "kind": "text"
   },
   {
-    "path": "background.widgets.resources.style",
-    "section": "background",
-    "label": "Style",
-    "group": "Resources",
-    "kind": "text"
-  },
-  {
     "path": "background.widgets.calendar.id",
     "section": "background",
     "label": "ID",
@@ -437,13 +395,6 @@
     "path": "background.widgets.calendar.placementStrategy",
     "section": "background",
     "label": "Placement strategy",
-    "group": "Calendar",
-    "kind": "text"
-  },
-  {
-    "path": "background.widgets.calendar.style",
-    "section": "background",
-    "label": "Style",
     "group": "Calendar",
     "kind": "text"
   },
@@ -483,13 +434,6 @@
     "kind": "text"
   },
   {
-    "path": "background.widgets.userCard.style",
-    "section": "background",
-    "label": "Style",
-    "group": "User card",
-    "kind": "text"
-  },
-  {
     "path": "background.widgets.notes.id",
     "section": "background",
     "label": "ID",
@@ -521,13 +465,6 @@
     "path": "background.widgets.notes.placementStrategy",
     "section": "background",
     "label": "Placement strategy",
-    "group": "Notes",
-    "kind": "text"
-  },
-  {
-    "path": "background.widgets.notes.style",
-    "section": "background",
-    "label": "Style",
     "group": "Notes",
     "kind": "text"
   },
@@ -1596,25 +1533,11 @@
     "kind": "integer"
   },
   {
-    "path": "windows.windowManager",
-    "section": "windows",
-    "label": "Window manager",
-    "group": "",
-    "kind": "text"
-  },
-  {
     "path": "windows.glazewm.port",
     "section": "windows",
     "label": "Port",
     "group": "GlazeWM",
     "kind": "integer"
-  },
-  {
-    "path": "windows.komorebi.pipeName",
-    "section": "windows",
-    "label": "Pipe name",
-    "group": "komorebi",
-    "kind": "text"
   },
   {
     "path": "windows.hideSystemTaskbar",
