@@ -84,8 +84,27 @@ pub fn unknown_keys(text: &str, config: &Config) -> Vec<String> {
     };
     let mut found = Vec::new();
     collect_unknown(&document, &known, "", &mut found);
+    found.retain(|key| !RETIRED.contains(&key.as_str()));
     found
 }
+
+/// Keys earlier versions wrote that no version reads: settings that were in
+/// the schema with nothing behind them. Every saved config has them, because
+/// every key is written, so they are dropped on save rather than kept for a
+/// newer version, and not named as unknown.
+const RETIRED: &[&str] = &[
+    "background.centeredWallpaper",
+    "background.centeredWallpaperShape",
+    "background.centeredWallpaperSize",
+    "background.widgets.media.style",
+    "background.widgets.weather.style",
+    "background.widgets.resources.style",
+    "background.widgets.calendar.style",
+    "background.widgets.userCard.style",
+    "background.widgets.notes.style",
+    "windows.windowManager",
+    "windows.komorebi",
+];
 
 fn collect_unknown(document: &Value, known: &Value, path: &str, into: &mut Vec<String>) {
     let (Value::Object(document), Value::Object(known)) = (document, known) else {
@@ -127,10 +146,17 @@ pub fn save(path: &Path, config: &Config) -> Result<(), ConfigError> {
     let mut document = serde_json::to_value(config).expect("config is always serialisable");
     // What a newer version wrote stays for when it comes back: this version
     // has no setting for those keys, and saving without them reset them all.
-    if let Some(before) = std::fs::read_to_string(path)
+    if let Some(mut before) = std::fs::read_to_string(path)
         .ok()
         .and_then(|text| serde_json::from_str::<Value>(&text).ok())
     {
+        for retired in RETIRED {
+            if let Some((parent, leaf)) = retired.rsplit_once('.') {
+                if let Some(Value::Object(map)) = walk_mut(&mut before, parent) {
+                    map.remove(leaf);
+                }
+            }
+        }
         keep_unknown(&before, &mut document);
     }
     let mut text = serde_json::to_string_pretty(&document).expect("a JSON value is serialisable");
@@ -365,6 +391,29 @@ mod tests {
         assert_eq!(saved["bar"]["later"], true);
         assert_eq!(saved["later"]["x"], 1);
         assert_eq!(load(&path).unwrap(), config);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn retired_keys_are_dropped_on_save_and_not_named() {
+        let dir = std::env::temp_dir().join(format!("bw-config-retired-{}", std::process::id()));
+        let path = dir.join("config.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = r#"{"background":{"centeredWallpaper":true,"widgets":{"notes":{"style":"x"},"clock":{"style":"digital"}}},"windows":{"komorebi":{"pipeName":"k"},"later":1}}"#;
+        std::fs::write(&path, text).unwrap();
+
+        let config = load(&path).unwrap();
+        assert_eq!(config.background.widgets.clock.style, "digital");
+        assert_eq!(unknown_keys(text, &config), ["windows.later"]);
+
+        save(&path, &config).unwrap();
+        let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(saved["background"].get("centeredWallpaper").is_none());
+        assert!(saved["background"]["widgets"]["notes"]
+            .get("style")
+            .is_none());
+        assert!(saved["windows"].get("komorebi").is_none());
+        assert_eq!(saved["windows"]["later"], 1);
         std::fs::remove_dir_all(&dir).ok();
     }
 

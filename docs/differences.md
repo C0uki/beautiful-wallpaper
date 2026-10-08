@@ -42,9 +42,9 @@ Windows refused or which two of yours collide, and offers a free alternative.
 
 Hyprland's workspaces have no Windows equivalent the shell can read. Virtual
 desktops are not exposed usefully, so workspaces come from
-[GlazeWM](https://github.com/glzr-io/glazewm) or
-[komorebi](https://github.com/LGUG2Z/komorebi) when one is running, and the bar
-simply omits them when neither is.
+[GlazeWM](https://github.com/glzr-io/glazewm) when it is running, and the bar
+simply omits them when it is not. [komorebi](https://github.com/LGUG2Z/komorebi)
+is not read yet.
 
 ### The shell is not the notification server
 

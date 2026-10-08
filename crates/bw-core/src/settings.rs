@@ -82,7 +82,6 @@ const ACRONYMS: &[(&str, &str)] = &[
     ("ram", "RAM"),
     ("fps", "FPS"),
     ("glazewm", "GlazeWM"),
-    ("komorebi", "komorebi"),
     ("usc", "USC"),
 ];
 
@@ -245,8 +244,6 @@ mod tests {
         // "Use usc units" reads as a typo; the units are United States
         // Customary, and the screen says so.
         assert_eq!(label_for("useUscUnits"), "Use USC units");
-        // A proper name that is deliberately lower case stays that way.
-        assert_eq!(label_for("komorebi"), "komorebi");
     }
 
     #[test]

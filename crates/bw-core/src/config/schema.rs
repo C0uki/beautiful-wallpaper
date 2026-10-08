@@ -191,10 +191,6 @@ config_struct! {
         /// Transition played when the wallpaper changes.
         pub wallpaper_animation: String = s("circle"),
         pub transition_duration: u32 = 1200,
-        /// Render the wallpaper clipped into a Material shape, centred.
-        pub centered_wallpaper: bool = false,
-        pub centered_wallpaper_shape: String = s("clover"),
-        pub centered_wallpaper_size: f64 = 0.55,
         pub parallax: Parallax = Parallax::default(),
         pub widgets: DesktopWidgets = DesktopWidgets::default(),
     }
@@ -214,7 +210,7 @@ config_struct! {
         pub enable: bool = true,
         /// Snap-to-grid step, in pixels, for dragged widgets.
         pub grid: u32 = 8,
-        pub clock: WidgetPlacement = WidgetPlacement::at("clock", 0.04, 0.06),
+        pub clock: ClockPlacement = ClockPlacement::default(),
         pub media: WidgetPlacement = WidgetPlacement::at("media", 0.04, 0.30),
         pub weather: WidgetPlacement = WidgetPlacement::at("weather", 0.72, 0.05),
         pub resources: WidgetPlacement = WidgetPlacement::at("resources", 0.72, 0.20),
@@ -235,6 +231,22 @@ config_struct! {
         /// `"free"` keeps the stored position; `"leastBusy"` moves the widget to
         /// the calmest region of the current wallpaper.
         pub placement_strategy: String = s("free"),
+    }
+}
+
+config_struct! {
+    /// [`WidgetPlacement`], plus a look: the clock is the one widget drawn
+    /// more than one way.
+    pub struct ClockPlacement {
+        pub id: String = s("clock"),
+        pub enable: bool = true,
+        /// Fraction of the monitor's width, so placement survives resolution changes.
+        pub x: f64 = 0.04,
+        pub y: f64 = 0.06,
+        /// `"free"` keeps the stored position; `"leastBusy"` moves the widget to
+        /// the calmest region of the current wallpaper.
+        pub placement_strategy: String = s("free"),
+        /// `"default"` or `"digital"`.
         pub style: String = s("default"),
     }
 }
@@ -800,11 +812,6 @@ config_struct! {
 config_struct! {
     /// The Windows counterpart of end4-pC's `hyprland` section.
     pub struct WindowsIntegration {
-        /// `"auto"` probes for GlazeWM then komorebi; `"none"` disables
-        /// workspace integration entirely.
-        pub window_manager: String = s("auto"),
-        pub glazewm: GlazeWm = GlazeWm::default(),
-        pub komorebi: Komorebi = Komorebi::default(),
         /// Hide the stock Windows taskbar while the shell's own bar is running.
         pub hide_system_taskbar: bool = false,
         pub start_with_windows: bool = false,
@@ -815,18 +822,13 @@ config_struct! {
         /// Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on
         /// Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
         pub backdrop: String = s("auto"),
+        pub glazewm: GlazeWm = GlazeWm::default(),
     }
 }
 
 config_struct! {
     pub struct GlazeWm {
         pub port: u16 = 6123,
-    }
-}
-
-config_struct! {
-    pub struct Komorebi {
-        pub pipe_name: String = s("komorebi"),
     }
 }
 

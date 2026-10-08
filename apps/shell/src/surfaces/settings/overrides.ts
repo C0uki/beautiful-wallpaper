@@ -128,9 +128,6 @@ export const OVERRIDES: Record<string, Override> = {
       },
     ]),
   ),
-  "background.centeredWallpaperSize": {
-    range: { min: 0.1, max: 1, step: 0.05 },
-  },
   "background.parallax.zoom": { range: { min: 1, max: 1.5, step: 0.01 } },
   "background.parallax.workspacePan": { range: { min: 0, max: 1, step: 0.05 } },
   "sidebar.width": { range: { min: 0.15, max: 0.6, step: 0.01 } },

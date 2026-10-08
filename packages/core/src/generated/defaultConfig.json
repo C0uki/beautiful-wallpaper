@@ -42,9 +42,6 @@
     "thumbnailPath": "",
     "wallpaperAnimation": "circle",
     "transitionDuration": 1200,
-    "centeredWallpaper": false,
-    "centeredWallpaperShape": "clover",
-    "centeredWallpaperSize": 0.55,
     "parallax": {
       "enable": true,
       "zoom": 1.07,
@@ -66,48 +63,42 @@
         "enable": true,
         "x": 0.04,
         "y": 0.3,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       },
       "weather": {
         "id": "weather",
         "enable": true,
         "x": 0.72,
         "y": 0.05,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       },
       "resources": {
         "id": "resources",
         "enable": true,
         "x": 0.72,
         "y": 0.2,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       },
       "calendar": {
         "id": "calendar",
         "enable": false,
         "x": 0.72,
         "y": 0.45,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       },
       "userCard": {
         "id": "userCard",
         "enable": false,
         "x": 0.72,
         "y": 0.6,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       },
       "notes": {
         "id": "notes",
         "enable": false,
         "x": 0.04,
         "y": 0.62,
-        "placementStrategy": "free",
-        "style": "default"
+        "placementStrategy": "free"
       }
     }
   },
@@ -332,17 +323,13 @@
     "refreshInterval": 900
   },
   "windows": {
-    "windowManager": "auto",
-    "glazewm": {
-      "port": 6123
-    },
-    "komorebi": {
-      "pipeName": "komorebi"
-    },
     "hideSystemTaskbar": false,
     "startWithWindows": false,
     "autoUpdate": true,
-    "backdrop": "auto"
+    "backdrop": "auto",
+    "glazewm": {
+      "port": 6123
+    }
   },
   "workSafety": {
     "blankWallpaper": false,
