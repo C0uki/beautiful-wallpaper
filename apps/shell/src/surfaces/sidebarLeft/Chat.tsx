@@ -5,27 +5,35 @@
 // is the interesting part. What it keeps from the original: the summarised
 // reasoning gets its own collapsible pane rather than being spliced into the
 // answer, searches and their sources are shown, and files can be attached.
+// The reasoning is React Bits' Thought Line and the input its Prompt Bar.
 
 import { useEffect, useRef, useState } from "react";
 import { IconButton, Placeholder, Symbol } from "../../widgets";
+import PromptBar from "../../widgets/reactbits/PromptBar";
+import ThoughtLine from "../../widgets/reactbits/ThoughtLine";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import { Markdown } from "./Markdown";
 import type { ChatMessage } from "@bw/core";
 import "./chat.css";
 
-/** The model's reasoning, folded away by default. */
-function Thinking({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-
+/** The model's reasoning: breathing while it thinks, folded away once the
+ *  answer begins, one step to a paragraph. */
+function Thinking({ text, working }: { text: string; working: boolean }) {
   return (
-    <div className="bw-chat-thinking" data-open={open}>
-      <button type="button" onClick={() => setOpen((value) => !value)}>
-        <Symbol name={open ? "expand_less" : "expand_more"} size={16} />
-        <span>{tr("Reasoning")}</span>
-      </button>
-      {open ? <p>{text}</p> : null}
-    </div>
+    <ThoughtLine
+      className="bw-chat-thinking"
+      label={tr("Thinking…")}
+      doneLabel={tr("Reasoning")}
+      steps={text
+        .split(/\n\s*\n/)
+        .map((step) => step.trim())
+        .filter(Boolean)}
+      working={working}
+      fontSize={13}
+      color="var(--on-surface-variant)"
+      glyphColor="var(--primary)"
+    />
   );
 }
 
@@ -52,7 +60,11 @@ function Turn({
       ) : null}
 
       {!isUser && message.thinking ? (
-        <Thinking text={message.thinking} />
+        // Thinking until the answer starts to arrive.
+        <Thinking
+          text={message.thinking}
+          working={streaming && !message.content}
+        />
       ) : null}
 
       {message.searches.map((query) => (
@@ -106,8 +118,13 @@ export function Chat() {
   const streaming = useShell((state) => state.chatStreaming);
   const hasKey = useShell((state) => state.hasAiKey);
 
-  const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<string[]>([]);
+  // What a send that failed gave back, for the bar to start again with; the
+  // count makes it a new bar each time.
+  const [restored, setRestored] = useState({
+    text: "",
+    files: [] as string[],
+    count: 0,
+  });
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -128,13 +145,8 @@ export function Chat() {
     );
   }
 
-  const send = async () => {
-    const text = draft.trim();
-    if ((!text && attachments.length === 0) || streaming) return;
-
-    setDraft("");
-    const files = attachments;
-    setAttachments([]);
+  const send = async (text: string, files: string[]) => {
+    if ((!text && files.length === 0) || streaming) return;
     setError(null);
     pinned.current = true;
 
@@ -143,14 +155,8 @@ export function Chat() {
     } catch (reason) {
       setError(String(reason));
       // Put the text back so it is not lost to a failed send.
-      setDraft(text);
-      setAttachments(files);
+      setRestored((last) => ({ text, files, count: last.count + 1 }));
     }
-  };
-
-  const attach = async () => {
-    const picked = await actions.pickFiles();
-    if (picked.length > 0) setAttachments((current) => [...current, ...picked]);
   };
 
   const last = chat.at(-1);
@@ -203,58 +209,35 @@ export function Chat() {
 
       {error ? <div className="bw-chat-error">{error}</div> : null}
 
-      {attachments.length > 0 ? (
-        <div className="bw-chat-pending">
-          {attachments.map((path) => (
-            <button
-              key={path}
-              type="button"
-              aria-label={tr("Remove")}
-              onClick={() =>
-                setAttachments((current) =>
-                  current.filter((other) => other !== path),
-                )
-              }
-            >
-              <Symbol name="attach_file" size={13} />
-              {path.split(/[\\/]/).pop()}
-              <Symbol name="close" size={13} />
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="bw-chat-input">
-        <IconButton
-          icon="attach_file"
-          size={34}
-          label={tr("Attach a file")}
-          disabled={streaming}
-          onClick={() => void attach()}
-        />
-        <textarea
-          value={draft}
-          rows={1}
-          placeholder={tr("Ask something")}
-          aria-label={tr("Message")}
-          disabled={streaming}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter sends; Shift+Enter is a newline, as every chat does.
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              void send();
-            }
-          }}
-        />
-        <IconButton
-          icon={streaming ? "hourglass_empty" : "send"}
-          size={34}
-          label={tr("Send")}
-          disabled={streaming || (!draft.trim() && attachments.length === 0)}
-          onClick={() => void send()}
-        />
-      </div>
+      <PromptBar
+        key={restored.count}
+        className="bw-chat-prompt"
+        defaultValue={restored.text}
+        defaultAttachments={restored.files}
+        placeholder={tr("Ask something")}
+        // Files are the only thing the plus offers: no models, no effort,
+        // no slash commands and no dictation here.
+        sources={[
+          {
+            key: "files",
+            name: tr("Attach a file"),
+            icon: <Symbol name="attach_file" size={15} />,
+            attach: true,
+          },
+        ]}
+        commands={[]}
+        models={[]}
+        efforts={[]}
+        busy={streaming}
+        // As wide as the tab: the bar is the smaller of this and 100%.
+        width={10000}
+        background="var(--layer2)"
+        color="var(--on-surface)"
+        menuBackground="var(--layer3)"
+        sparkColor="var(--primary)"
+        onAttach={() => actions.pickFiles()}
+        onSend={(text, detail) => void send(text, detail.attachments)}
+      />
     </div>
   );
 }
