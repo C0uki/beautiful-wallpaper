@@ -286,6 +286,15 @@ pub fn models_from(provider: Provider, value: &serde_json::Value) -> Vec<AiModel
         "instruct",
         "moderation",
         "aqa",
+        // Gemini's list names these by product rather than by what they do:
+        // images, video, music, robots and driving a computer.
+        "banana",
+        "imagen",
+        "veo",
+        "lyria",
+        "robotics",
+        "computer-use",
+        "antigravity",
     ];
     let chat = |id: &str| !NOT_CHAT.iter().any(|word| id.contains(word));
     let text = |item: &serde_json::Value, key: &str| {
@@ -500,7 +509,13 @@ mod tests {
             {"name":"models/gemini-3.8-flash-tts","displayName":"TTS",
              "supportedGenerationMethods":["generateContent"]},
             {"name":"models/text-embedding-004","displayName":"Embedding",
-             "supportedGenerationMethods":["embedContent"]}]});
+             "supportedGenerationMethods":["embedContent"]},
+            {"name":"models/nano-banana-pro-preview","displayName":"Nano Banana Pro",
+             "supportedGenerationMethods":["generateContent"]},
+            {"name":"models/lyria-3.5","displayName":"Lyria 3.5",
+             "supportedGenerationMethods":["generateContent"]},
+            {"name":"models/gemini-2.5-computer-use-preview-10-2025","displayName":"Computer Use",
+             "supportedGenerationMethods":["generateContent"]}]});
         assert_eq!(
             models_from(Provider::Gemini, &gemini),
             [AiModel {

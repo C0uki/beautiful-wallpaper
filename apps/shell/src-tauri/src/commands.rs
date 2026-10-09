@@ -2153,11 +2153,19 @@ async fn send_chat_inner(
     Ok(())
 }
 
-/// Drops the last exchange, for retrying after a failure.
+/// Drops the failed exchange, for the window to send its question again.
 #[tauri::command]
 pub fn retry_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::chat::ChatMessage> {
-    // Two pops: the empty assistant turn, and the user turn to be resent.
-    store.0.pop();
+    use bw_core::chat::Role;
+
+    // Two pops: the empty assistant turn, and the user turn to be resent —
+    // sending it adds it back. Only dropping the reply left the question
+    // with no answer and nothing asking again.
+    for role in [Role::Assistant, Role::User] {
+        if store.0.list().last().map(|message| message.role) == Some(role) {
+            store.0.pop();
+        }
+    }
     let list = store.0.list();
     let _ = app.emit(event::CHAT, &list);
     list

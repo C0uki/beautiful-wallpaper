@@ -401,11 +401,17 @@ describe("the mock backend", () => {
     expect(await backend.invoke<unknown[]>(Command.GetChat)).toEqual([]);
   });
 
-  it("retrying drops only the last turn", async () => {
+  it("retrying drops the failed reply and the question it answered", async () => {
     const backend = mockBackend();
-    const before = await backend.invoke<unknown[]>(Command.GetChat);
-    const after = await backend.invoke<unknown[]>(Command.RetryChat);
-    expect(after.length).toBe(before.length - 1);
+    const before = await backend.invoke<Array<{ role: string }>>(
+      Command.GetChat,
+    );
+    expect(before.at(-1)!.role).toBe("assistant");
+    const after = await backend.invoke<Array<{ role: string }>>(
+      Command.RetryChat,
+    );
+    // The question goes too: the window sends it again, which adds it back.
+    expect(after.length).toBe(before.length - 2);
   });
 
   it("a booru search returns a page of results", async () => {

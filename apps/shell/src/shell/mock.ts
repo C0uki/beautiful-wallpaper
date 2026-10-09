@@ -1797,7 +1797,9 @@ export function mockBackend(): Backend {
           return chat as T;
 
         case Command.RetryChat:
-          chat = chat.slice(0, -1);
+          // The failed reply, and the question the window sends again.
+          if (chat.at(-1)?.role === "assistant") chat = chat.slice(0, -1);
+          if (chat.at(-1)?.role === "user") chat = chat.slice(0, -1);
           emit(Event.Chat, chat);
           return chat as T;
 
@@ -1843,10 +1845,15 @@ export function mockBackend(): Backend {
               emit(Event.Chat, chat);
               return;
             }
-            emit(Event.ChatEvent, {
-              kind: "text",
-              value: (index === 0 ? "" : " ") + words[index],
-            });
+            const piece = (index === 0 ? "" : " ") + words[index];
+            // Kept, as the backend keeps it: the whole conversation sent at
+            // the end would otherwise wipe the reply that streamed in.
+            const last = chat.at(-1)!;
+            chat = [
+              ...chat.slice(0, -1),
+              { ...last, content: last.content + piece },
+            ];
+            emit(Event.ChatEvent, { kind: "text", value: piece });
             index += 1;
           }, 60);
 

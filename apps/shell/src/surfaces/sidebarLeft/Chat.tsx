@@ -14,7 +14,7 @@ import ThoughtLine from "../../widgets/reactbits/ThoughtLine";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import { Markdown } from "./Markdown";
-import type { ChatMessage } from "@bw/core";
+import type { AiError, ChatMessage } from "@bw/core";
 import "./chat.css";
 
 /** The model's reasoning: breathing while it thinks, folded away once the
@@ -113,10 +113,33 @@ function Turn({
   );
 }
 
+/** Why no reply came, said so the user knows whether waiting, the key or
+ *  the settings is the answer. */
+function failureMessage(error: AiError | null): string {
+  switch (error) {
+    case "noKey":
+      return tr("No API key is saved for this service.");
+    case "badKey":
+      return tr("That API key was rejected. Check it in settings.");
+    case "rateLimited":
+      return tr(
+        "The service is busy, or this key's limit has been reached. Try again later.",
+      );
+    case "refused":
+      return tr("The model would not answer that.");
+    case "unavailable":
+      return tr("Could not reach the API.");
+    default:
+      // A reply that ended with nothing in it, or one from before a restart.
+      return tr("No reply came back.");
+  }
+}
+
 export function Chat() {
   const chat = useShell((state) => state.chat);
   const streaming = useShell((state) => state.chatStreaming);
   const hasKey = useShell((state) => state.hasAiKey);
+  const failure = useShell((state) => state.chatError);
 
   // What a send that failed gave back, for the bar to start again with; the
   // count makes it a new bar each time.
@@ -202,7 +225,7 @@ export function Chat() {
 
       {failed ? (
         <div className="bw-chat-failed">
-          <span>{tr("No reply came back.")}</span>
+          <span>{failureMessage(failure)}</span>
           <button type="button" onClick={() => void actions.retryChat()}>
             {tr("Try again")}
           </button>
