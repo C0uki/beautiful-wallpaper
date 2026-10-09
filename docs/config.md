@@ -51,14 +51,19 @@ Three ways to change a value:
 
 The assistant in the left sidebar: which model answers, and what it is allowed to do while answering.
 
-| Setting           | Value        | Default           |
-| ----------------- | ------------ | ----------------- |
-| `ai.model`        | text         | `"claude-opus-5"` |
-| `ai.maxTokens`    | whole number | `4096`            |
-| `ai.webSearch`    | true / false | `true`            |
-| `ai.maxSearches`  | whole number | `5`               |
-| `ai.showThinking` | true / false | `true`            |
+| Setting           | Value        | Default              |
+| ----------------- | ------------ | -------------------- |
+| `ai.provider`     | text         | `"anthropic"`        |
+| `ai.model`        | text         | `"claude-opus-5"`    |
+| `ai.geminiModel`  | text         | `"gemini-3.8-flash"` |
+| `ai.openaiModel`  | text         | `"gpt-5.5"`          |
+| `ai.maxTokens`    | whole number | `4096`               |
+| `ai.webSearch`    | true / false | `true`               |
+| `ai.maxSearches`  | whole number | `5`                  |
+| `ai.showThinking` | true / false | `true`               |
 
+- **`ai.provider`** — `anthropic`, `gemini` or `openai`.
+- **`ai.model`** — The model each service answers with. Any the service lists can be chosen in the settings; these are only where a new install starts.
 - **`ai.webSearch`** — Let the model search the web when it needs to. Costs tokens, so it is a setting rather than always on.
 - **`ai.maxSearches`** — Searches per turn. Without a cap a single question can run several.
 - **`ai.showThinking`** — Show the model's summarised reasoning in its own pane.

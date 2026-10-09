@@ -123,6 +123,133 @@ pub fn parse_event(payload: &str) -> Option<StreamEvent> {
     }
 }
 
+/// Parses one `data:` payload of Gemini's `streamGenerateContent?alt=sse`.
+///
+/// Each payload is a whole response in miniature, and one can carry several
+/// things at once — a thought, a piece of the answer, and on the last the
+/// searches it ran and what they found — so this returns a list.
+pub fn parse_gemini(payload: &str) -> Vec<StreamEvent> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return Vec::new();
+    };
+    if let Some(error) = value.get("error") {
+        let code = error
+            .get("code")
+            .and_then(|code| code.as_u64())
+            .unwrap_or(0);
+        return vec![StreamEvent::Failed(AiError::from_response(
+            code as u16,
+            &error.to_string(),
+        ))];
+    }
+    if crate::ai::gemini_blocked(&value) {
+        return vec![StreamEvent::Failed(AiError::Refused)];
+    }
+    let Some(candidate) = value.pointer("/candidates/0") else {
+        return Vec::new();
+    };
+
+    let mut events = Vec::new();
+    for part in candidate
+        .pointer("/content/parts")
+        .and_then(|parts| parts.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let Some(text) = part.get("text").and_then(|text| text.as_str()) else {
+            continue;
+        };
+        if text.is_empty() {
+            continue;
+        }
+        events.push(
+            if part.get("thought").and_then(|thought| thought.as_bool()) == Some(true) {
+                StreamEvent::Thinking(text.to_owned())
+            } else {
+                StreamEvent::Text(text.to_owned())
+            },
+        );
+    }
+
+    if let Some(grounding) = candidate.get("groundingMetadata") {
+        for query in grounding
+            .get("webSearchQueries")
+            .and_then(|queries| queries.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|query| query.as_str())
+        {
+            events.push(StreamEvent::Search(query.to_owned()));
+        }
+        let sources: Vec<SearchSource> = grounding
+            .get("groundingChunks")
+            .and_then(|chunks| chunks.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|chunk| {
+                let web = chunk.get("web")?;
+                Some(SearchSource {
+                    title: web.get("title")?.as_str()?.to_owned(),
+                    url: web.get("uri")?.as_str()?.to_owned(),
+                })
+            })
+            .collect();
+        if !sources.is_empty() {
+            events.push(StreamEvent::Sources(sources));
+        }
+    }
+
+    if candidate.get("finishReason").is_some() {
+        events.push(StreamEvent::Done);
+    }
+    events
+}
+
+/// Parses one `data:` payload of OpenAI's Responses stream.
+pub fn parse_openai(payload: &str) -> Option<StreamEvent> {
+    let value: serde_json::Value = serde_json::from_str(payload).ok()?;
+    let text = |pointer: &str| {
+        value
+            .pointer(pointer)
+            .and_then(|text| text.as_str())
+            .map(str::to_owned)
+    };
+
+    match value.get("type")?.as_str()? {
+        "response.output_text.delta" => text("/delta").map(StreamEvent::Text),
+        // The query is only known once the search is done.
+        "response.output_item.done" if text("/item/type").as_deref() == Some("web_search_call") => {
+            text("/item/action/query").map(StreamEvent::Search)
+        }
+        "response.output_text.annotation.added"
+            if text("/annotation/type").as_deref() == Some("url_citation") =>
+        {
+            Some(StreamEvent::Sources(vec![SearchSource {
+                title: text("/annotation/title").unwrap_or_default(),
+                url: text("/annotation/url")?,
+            }]))
+        }
+        "response.refusal.done" => Some(StreamEvent::Failed(AiError::Refused)),
+        // Incomplete is a reply cut short by the token limit: what arrived is
+        // still the answer.
+        "response.completed" | "response.incomplete" => Some(StreamEvent::Done),
+        "response.failed" | "error" => {
+            let code = text("/response/error/code")
+                .or_else(|| text("/code"))
+                .or_else(|| text("/error/code"))
+                .unwrap_or_default();
+            Some(StreamEvent::Failed(match code.as_str() {
+                "invalid_api_key" => AiError::BadKey,
+                "rate_limit_exceeded" | "insufficient_quota" | "server_error" => {
+                    AiError::RateLimited
+                }
+                _ => AiError::Unavailable,
+            }))
+        }
+        _ => None,
+    }
+}
+
 /// The sources in a completed `web_search_tool_result` block.
 ///
 /// A successful result's `content` is a *list*; a failed one is a single error
@@ -469,6 +596,92 @@ mod tests {
             "content": {"type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"}
         });
         assert!(search_sources(&block).is_empty());
+    }
+
+    #[test]
+    fn a_gemini_chunk_can_carry_a_thought_text_searches_and_sources_at_once() {
+        let events = parse_gemini(
+            r#"{"candidates":[{"content":{"role":"model","parts":[
+                  {"text":"Checking","thought":true},{"text":"Sunny"}]},
+                "finishReason":"STOP",
+                "groundingMetadata":{"webSearchQueries":["weather in Tokyo"],
+                  "groundingChunks":[{"web":{"uri":"https://example.com/a","title":"example.com"}}]}}]}"#,
+        );
+        assert_eq!(
+            events,
+            [
+                StreamEvent::Thinking("Checking".to_owned()),
+                StreamEvent::Text("Sunny".to_owned()),
+                StreamEvent::Search("weather in Tokyo".to_owned()),
+                StreamEvent::Sources(vec![SearchSource {
+                    title: "example.com".to_owned(),
+                    url: "https://example.com/a".to_owned(),
+                }]),
+                StreamEvent::Done,
+            ]
+        );
+    }
+
+    #[test]
+    fn a_gemini_chunk_mid_stream_is_not_the_end_and_a_block_is_a_refusal() {
+        assert_eq!(
+            parse_gemini(r#"{"candidates":[{"content":{"parts":[{"text":"Hel"}]}}]}"#),
+            [StreamEvent::Text("Hel".to_owned())]
+        );
+        assert_eq!(
+            parse_gemini(r#"{"candidates":[{"finishReason":"SAFETY"}]}"#),
+            [StreamEvent::Failed(AiError::Refused)]
+        );
+        assert_eq!(
+            parse_gemini(r#"{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}"#),
+            [StreamEvent::Failed(AiError::RateLimited)]
+        );
+        assert!(parse_gemini("not json").is_empty());
+    }
+
+    #[test]
+    fn the_openai_stream_gives_text_searches_sources_and_an_end() {
+        assert_eq!(
+            parse_openai(r#"{"type":"response.output_text.delta","delta":"Hi"}"#),
+            Some(StreamEvent::Text("Hi".to_owned()))
+        );
+        assert_eq!(
+            parse_openai(
+                r#"{"type":"response.output_item.done","item":{"type":"web_search_call",
+                    "action":{"type":"search","query":"weather in Tokyo"}}}"#
+            ),
+            Some(StreamEvent::Search("weather in Tokyo".to_owned()))
+        );
+        // A finished message is not a search.
+        assert_eq!(
+            parse_openai(r#"{"type":"response.output_item.done","item":{"type":"message"}}"#),
+            None
+        );
+        assert_eq!(
+            parse_openai(
+                r#"{"type":"response.output_text.annotation.added","annotation":
+                    {"type":"url_citation","url":"https://example.com/a","title":"A"}}"#
+            ),
+            Some(StreamEvent::Sources(vec![SearchSource {
+                title: "A".to_owned(),
+                url: "https://example.com/a".to_owned(),
+            }]))
+        );
+        assert_eq!(
+            parse_openai(r#"{"type":"response.completed","response":{}}"#),
+            Some(StreamEvent::Done)
+        );
+        assert_eq!(
+            parse_openai(r#"{"type":"error","code":"invalid_api_key"}"#),
+            Some(StreamEvent::Failed(AiError::BadKey))
+        );
+        assert_eq!(
+            parse_openai(
+                r#"{"type":"response.failed","response":{"error":{"code":"insufficient_quota"}}}"#
+            ),
+            Some(StreamEvent::Failed(AiError::RateLimited))
+        );
+        assert_eq!(parse_openai(r#"{"type":"response.in_progress"}"#), None);
     }
 
     #[test]

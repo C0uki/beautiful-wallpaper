@@ -140,7 +140,9 @@ export function Chat() {
     return (
       <Placeholder
         icon="key"
-        text={tr("Add an Anthropic API key in settings to use the chat.")}
+        text={tr(
+          "Add an API key under AI and translation in settings to use the chat.",
+        )}
       />
     );
   }

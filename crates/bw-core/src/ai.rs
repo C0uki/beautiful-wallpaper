@@ -47,6 +47,15 @@ impl AiError {
         }
     }
 
+    /// As [`Self::from_status`], reading the body as well: Gemini answers a
+    /// wrong key with a 400 that only its body tells apart from a bad request.
+    pub fn from_response(status: u16, body: &str) -> Self {
+        if body.contains("API_KEY_INVALID") {
+            return Self::BadKey;
+        }
+        Self::from_status(status)
+    }
+
     /// Whether trying the identical request again could plausibly work.
     pub fn is_retryable(self) -> bool {
         matches!(self, Self::RateLimited | Self::Unavailable)
@@ -137,6 +146,220 @@ pub fn translation_prompt(from: &str, to: &str) -> String {
     )
 }
 
+/// The services the chat and the translator can talk to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Provider {
+    Anthropic,
+    Gemini,
+    OpenAi,
+}
+
+impl Provider {
+    /// Anything unrecognised is Anthropic: a typo in a hand-edited file should
+    /// leave the chat talking to the default service, not to none.
+    pub fn parse(name: &str) -> Self {
+        match name {
+            "gemini" => Self::Gemini,
+            "openai" => Self::OpenAi,
+            _ => Self::Anthropic,
+        }
+    }
+
+    /// The name in `ai.provider`, and the key's account in the credential
+    /// store.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Anthropic => "anthropic",
+            Self::Gemini => "gemini",
+            Self::OpenAi => "openai",
+        }
+    }
+
+    /// The model this service answers with.
+    pub fn model(self, ai: &crate::config::Ai) -> &str {
+        match self {
+            Self::Anthropic => &ai.model,
+            Self::Gemini => &ai.gemini_model,
+            Self::OpenAi => &ai.openai_model,
+        }
+    }
+}
+
+/// A model a service offers, for the settings to list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AiModel {
+    pub id: String,
+    pub name: String,
+}
+
+/// Gemini's ways of saying it would not answer.
+const GEMINI_BLOCKED: &[&str] = &[
+    "SAFETY",
+    "PROHIBITED_CONTENT",
+    "BLOCKLIST",
+    "SPII",
+    "RECITATION",
+    "IMAGE_SAFETY",
+];
+
+/// Whether a Gemini response, or one chunk of a stream, was blocked.
+pub fn gemini_blocked(value: &serde_json::Value) -> bool {
+    value.pointer("/promptFeedback/blockReason").is_some()
+        || value
+            .pointer("/candidates/0/finishReason")
+            .and_then(|reason| reason.as_str())
+            .is_some_and(|reason| GEMINI_BLOCKED.contains(&reason))
+}
+
+/// The answer's text in a Gemini `generateContent` response. Parts marked as
+/// thoughts are the model's reasoning, not its answer.
+pub fn gemini_text(value: &serde_json::Value) -> String {
+    value
+        .pointer("/candidates/0/content/parts")
+        .and_then(|parts| parts.as_array())
+        .into_iter()
+        .flatten()
+        .filter(|part| part.get("thought").and_then(|thought| thought.as_bool()) != Some(true))
+        .filter_map(|part| part.get("text").and_then(|text| text.as_str()))
+        .collect()
+}
+
+/// A Gemini `generateContent` reply's text, or why there is none.
+pub fn gemini_reply(value: &serde_json::Value) -> Result<String, AiError> {
+    if gemini_blocked(value) {
+        return Err(AiError::Refused);
+    }
+    let text = gemini_text(value);
+    if text.trim().is_empty() {
+        return Err(AiError::Unavailable);
+    }
+    Ok(text)
+}
+
+/// An OpenAI Responses reply's text, or why there is none. The text is in
+/// `output_text` parts of `message` items; a refusal is a part of its own.
+pub fn openai_reply(value: &serde_json::Value) -> Result<String, AiError> {
+    let parts: Vec<&serde_json::Value> = value
+        .get("output")
+        .and_then(|output| output.as_array())
+        .into_iter()
+        .flatten()
+        .filter(|item| item.get("type").and_then(|kind| kind.as_str()) == Some("message"))
+        .filter_map(|item| item.get("content").and_then(|content| content.as_array()))
+        .flatten()
+        .collect();
+
+    let text: String = parts
+        .iter()
+        .filter(|part| part.get("type").and_then(|kind| kind.as_str()) == Some("output_text"))
+        .filter_map(|part| part.get("text").and_then(|text| text.as_str()))
+        .collect();
+
+    if text.trim().is_empty() {
+        let refused = parts
+            .iter()
+            .any(|part| part.get("type").and_then(|kind| kind.as_str()) == Some("refusal"));
+        return Err(if refused {
+            AiError::Refused
+        } else {
+            AiError::Unavailable
+        });
+    }
+    Ok(text)
+}
+
+/// The models a service's model list offers for chatting, newest first where
+/// the service says which is newest.
+///
+/// ponytail: what is a chat model is told from the id for Gemini and OpenAI,
+/// whose lists also carry speech, image and embedding models; a new kind of
+/// non-chat model shows up in the list until it gets a word here.
+pub fn models_from(provider: Provider, value: &serde_json::Value) -> Vec<AiModel> {
+    const NOT_CHAT: &[&str] = &[
+        "audio",
+        "realtime",
+        "tts",
+        "transcribe",
+        "image",
+        "embedding",
+        "search",
+        "instruct",
+        "moderation",
+        "aqa",
+    ];
+    let chat = |id: &str| !NOT_CHAT.iter().any(|word| id.contains(word));
+    let text = |item: &serde_json::Value, key: &str| {
+        item.get(key)
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
+
+    match provider {
+        // Already newest first.
+        Provider::Anthropic => value
+            .get("data")
+            .and_then(|data| data.as_array())
+            .into_iter()
+            .flatten()
+            .map(|item| AiModel {
+                id: text(item, "id"),
+                name: text(item, "display_name"),
+            })
+            .filter(|model| !model.id.is_empty())
+            .collect(),
+
+        Provider::Gemini => value
+            .get("models")
+            .and_then(|models| models.as_array())
+            .into_iter()
+            .flatten()
+            .filter(|item| {
+                item.get("supportedGenerationMethods")
+                    .and_then(|methods| methods.as_array())
+                    .is_some_and(|methods| {
+                        methods
+                            .iter()
+                            .any(|method| method.as_str() == Some("generateContent"))
+                    })
+            })
+            .map(|item| AiModel {
+                id: text(item, "name").trim_start_matches("models/").to_owned(),
+                name: text(item, "displayName"),
+            })
+            .filter(|model| !model.id.is_empty() && chat(&model.id))
+            .collect(),
+
+        Provider::OpenAi => {
+            let mut found: Vec<(i64, AiModel)> = value
+                .get("data")
+                .and_then(|data| data.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|item| {
+                    let id = text(item, "id");
+                    let family = id.starts_with("gpt-")
+                        || id.starts_with("chatgpt-")
+                        || (id.starts_with('o')
+                            && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit()));
+                    (family && chat(&id)).then(|| {
+                        let created = item.get("created").and_then(|c| c.as_i64()).unwrap_or(0);
+                        (
+                            created,
+                            AiModel {
+                                name: id.clone(),
+                                id,
+                            },
+                        )
+                    })
+                })
+                .collect();
+            found.sort_by(|a, b| b.0.cmp(&a.0));
+            found.into_iter().map(|(_, model)| model).collect()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,5 +444,89 @@ mod tests {
         let detected = translation_prompt("auto", "fr");
         assert!(detected.contains("Detect the source language"));
         assert!(!detected.contains("source language is auto"));
+    }
+
+    #[test]
+    fn a_provider_round_trips_and_an_unknown_one_is_the_default() {
+        for provider in [Provider::Anthropic, Provider::Gemini, Provider::OpenAi] {
+            assert_eq!(Provider::parse(provider.as_str()), provider);
+        }
+        assert_eq!(Provider::parse("gemnii"), Provider::Anthropic);
+    }
+
+    #[test]
+    fn a_gemini_wrong_key_is_a_bad_key_although_it_is_a_400() {
+        let body = r#"{"error":{"code":400,"status":"INVALID_ARGUMENT",
+            "details":[{"reason":"API_KEY_INVALID"}]}}"#;
+        assert_eq!(AiError::from_response(400, body), AiError::BadKey);
+        assert_eq!(AiError::from_response(400, "{}"), AiError::Unavailable);
+    }
+
+    #[test]
+    fn a_gemini_reply_is_its_text_without_the_thoughts() {
+        let value = serde_json::json!({"candidates":[{"content":{"parts":[
+            {"text":"thinking it over","thought":true},{"text":"Bon"},{"text":"jour"}]},
+            "finishReason":"STOP"}]});
+        assert_eq!(gemini_reply(&value).unwrap(), "Bonjour");
+
+        let blocked = serde_json::json!({"promptFeedback":{"blockReason":"SAFETY"}});
+        assert_eq!(gemini_reply(&blocked), Err(AiError::Refused));
+        let stopped = serde_json::json!({"candidates":[{"finishReason":"PROHIBITED_CONTENT"}]});
+        assert_eq!(gemini_reply(&stopped), Err(AiError::Refused));
+    }
+
+    #[test]
+    fn an_openai_reply_is_its_output_text_and_a_refusal_is_told_apart() {
+        let value = serde_json::json!({"output":[
+            {"type":"reasoning","summary":[]},
+            {"type":"web_search_call","status":"completed"},
+            {"type":"message","content":[{"type":"output_text","text":"Bonjour","annotations":[]}]}]});
+        assert_eq!(openai_reply(&value).unwrap(), "Bonjour");
+
+        let refused = serde_json::json!({"output":[
+            {"type":"message","content":[{"type":"refusal","refusal":"No."}]}]});
+        assert_eq!(openai_reply(&refused), Err(AiError::Refused));
+        assert_eq!(
+            openai_reply(&serde_json::json!({})),
+            Err(AiError::Unavailable)
+        );
+    }
+
+    #[test]
+    fn the_model_lists_keep_the_chat_models_only() {
+        let gemini = serde_json::json!({"models":[
+            {"name":"models/gemini-3.8-flash","displayName":"Gemini 3.8 Flash",
+             "supportedGenerationMethods":["generateContent","countTokens"]},
+            {"name":"models/gemini-3.8-flash-tts","displayName":"TTS",
+             "supportedGenerationMethods":["generateContent"]},
+            {"name":"models/text-embedding-004","displayName":"Embedding",
+             "supportedGenerationMethods":["embedContent"]}]});
+        assert_eq!(
+            models_from(Provider::Gemini, &gemini),
+            [AiModel {
+                id: "gemini-3.8-flash".into(),
+                name: "Gemini 3.8 Flash".into()
+            }]
+        );
+
+        let openai = serde_json::json!({"data":[
+            {"id":"gpt-5.5","created":10},
+            {"id":"whisper-1","created":30},
+            {"id":"gpt-realtime","created":40},
+            {"id":"o4-mini","created":5},
+            {"id":"omni-moderation-latest","created":50},
+            {"id":"gpt-6-sol","created":20}]});
+        let ids: Vec<String> = models_from(Provider::OpenAi, &openai)
+            .into_iter()
+            .map(|model| model.id)
+            .collect();
+        assert_eq!(ids, ["gpt-6-sol", "gpt-5.5", "o4-mini"]);
+
+        let anthropic = serde_json::json!({"data":[
+            {"id":"claude-opus-5","display_name":"Claude Opus 5"}]});
+        assert_eq!(
+            models_from(Provider::Anthropic, &anthropic)[0].name,
+            "Claude Opus 5"
+        );
     }
 }

@@ -250,6 +250,7 @@
 }
 
 .bw-settings-control input[type="text"],
+.bw-settings-control input[type="password"],
 .bw-settings-control input[type="number"],
 .bw-settings-control select,
 .bw-settings-control textarea {
@@ -274,6 +275,29 @@
 .bw-settings-control select:focus,
 .bw-settings-control textarea:focus {
   border-color: var(--primary);
+}
+
+/* A key: the box, then Save and Remove beside it. */
+.bw-api-key {
+  gap: 6px;
+  align-items: center;
+}
+
+.bw-api-key .bw-button {
+  flex: none;
+}
+
+/* A model typed until its service's list can be read, with why under it. */
+.bw-model-picker {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bw-model-picker small {
+  color: var(--on-surface-variant);
+  font-size: 11px;
 }
 
 .bw-settings-slider {

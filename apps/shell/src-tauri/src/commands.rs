@@ -1965,16 +1965,36 @@ pub fn set_pinned(
 
 // --- Translation -----------------------------------------------------------
 
+/// The named service, or the one `ai.provider` names when none is.
+fn ai_provider(state: &AppState, provider: Option<String>) -> bw_core::ai::Provider {
+    match provider {
+        Some(name) => bw_core::ai::Provider::parse(&name),
+        None => crate::services::ai::provider(&state.config()),
+    }
+}
+
 /// Whether an API key has been configured, so the sidebar can show the
 /// translator or a pointer at the settings rather than a dead tab.
 #[tauri::command]
-pub fn has_ai_key() -> bool {
-    crate::services::ai::has_key()
+pub fn has_ai_key(state: State<'_, AppState>, provider: Option<String>) -> bool {
+    crate::services::ai::has_key(ai_provider(&state, provider))
 }
 
 #[tauri::command]
-pub fn set_ai_key(key: String) -> Result<(), String> {
-    crate::services::ai::set_key(&key)
+pub fn set_ai_key(
+    state: State<'_, AppState>,
+    key: String,
+    provider: Option<String>,
+) -> Result<(), String> {
+    crate::services::ai::set_key(ai_provider(&state, provider), &key)
+}
+
+/// The models a service offers, read from the service itself.
+#[tauri::command]
+pub async fn list_ai_models(
+    provider: String,
+) -> Result<Vec<bw_core::ai::AiModel>, bw_core::ai::AiError> {
+    crate::services::ai::list_models(bw_core::ai::Provider::parse(&provider)).await
 }
 
 /// The translator's result: the text, or a reason the UI can act on.

@@ -151,6 +151,7 @@ fn main() {
             commands::set_pinned,
             commands::has_ai_key,
             commands::set_ai_key,
+            commands::list_ai_models,
             commands::translate,
             commands::get_chat,
             commands::send_chat,

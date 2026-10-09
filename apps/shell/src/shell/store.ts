@@ -36,6 +36,8 @@ import {
   type BluetoothDeviceInfo,
   type DockApp,
   type TranslationResult,
+  type AiModel,
+  type AiProvider,
   type ActivateOutcome,
   type ChatMessage,
   type StreamEvent,
@@ -97,8 +99,11 @@ export interface ShellState {
    * carrying every application into every surface's store would be waste.
    */
   appsScanned: number;
-  /** Whether an Anthropic key is configured; the translator needs one. */
+  /** Whether the chosen AI service has a key; the chat and the translator
+   * need one. */
   hasAiKey: boolean;
+  /** Bumped when a key is saved or removed, so a model list asks again. */
+  aiKeyChanges: number;
   chat: ChatMessage[];
   /** True while a reply is streaming in. */
   chatStreaming: boolean;
@@ -168,6 +173,7 @@ const initial: ShellState = {
   dock: [],
   appsScanned: 0,
   hasAiKey: false,
+  aiKeyChanges: 0,
   chat: [],
   chatStreaming: false,
   wallpaper: { path: "", blanked: false },
@@ -584,9 +590,21 @@ export const actions = {
       to,
     });
   },
-  async setAiKey(key: string) {
-    await backend().invoke<void>(Command.SetAiKey, { key });
+  /** Asks again whether the chosen service has a key. Both the key and the
+   * choice of service are made in the settings window, which is another
+   * webview, so this window is not told. */
+  async checkAiKey() {
     set({ hasAiKey: await backend().invoke<boolean>(Command.HasAiKey) });
+  },
+  hasAiKeyFor(provider: AiProvider) {
+    return backend().invoke<boolean>(Command.HasAiKey, { provider });
+  },
+  async setAiKey(provider: AiProvider, key: string) {
+    await backend().invoke<void>(Command.SetAiKey, { provider, key });
+    set((state) => ({ aiKeyChanges: state.aiKeyChanges + 1 }));
+  },
+  listAiModels(provider: AiProvider) {
+    return backend().invoke<AiModel[]>(Command.ListAiModels, { provider });
   },
   /** Saves an online image locally and returns its path. */
   downloadWallpaper(url: string, provider: string) {

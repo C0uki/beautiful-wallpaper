@@ -124,12 +124,17 @@ collapsible pane instead of being spliced into the answer, web search is on
 with its queries and sources shown, and images and PDFs can be attached.
 Replies render as Markdown with highlighted code and a copy button per block.
 
-The original reaches three APIs through strategy objects; this reaches one,
-so the strategy layer is gone and the streaming is what is left. Its SSE
-parsing lives in bw-core under tests, including the three cases that are only
-obvious once seen: a fallback has no event type of its own, a failed web
-search arrives as HTTP 200 with an object where a list belongs, and thinking
-deltas must not be concatenated onto the reply.
+The original reaches three APIs through strategy objects; this reaches three
+too — Anthropic, Gemini and OpenAI, chosen in the settings — but as one
+request path with a branch per service rather than a strategy layer. Each
+service's key is entered on the AI page and kept in the credential manager,
+and each model is chosen from the list the service itself returns, so a new
+model needs no new version. The SSE parsing for all three lives in bw-core
+under tests, including the cases that are only obvious once seen: a fallback
+has no event type of its own, a failed web search arrives as HTTP 200 with an
+object where a list belongs, thinking deltas must not be concatenated onto
+the reply, one Gemini chunk can carry text, a thought and the sources at
+once, and Gemini answers a wrong key with a 400.
 
 ### Done: the image-board browser
 
