@@ -682,9 +682,11 @@ export function mockBackend(): Backend {
     },
   ];
 
-  // The mock has a key so the translator is exercised; flip to false to see
-  // the first-run state instead.
-  let hasAiKey = true;
+  // The mock has an Anthropic key so the translator is exercised; choose
+  // another service, or remove the key, to see the first-run state instead.
+  const aiKeys = new Set<string>(["anthropic"]);
+  const hasAiKey = (provider?: unknown) =>
+    aiKeys.has(String(provider ?? config.ai.provider));
 
   // A conversation that exercises what the window has to draw: a reply with
   // Markdown and a fenced code block, summarised thinking, and a web search
@@ -1714,15 +1716,33 @@ export function mockBackend(): Backend {
         }
 
         case Command.HasAiKey:
-          return hasAiKey as T;
+          return hasAiKey(args["provider"]) as T;
 
         case Command.SetAiKey:
-          hasAiKey = String(args["key"] ?? "").trim().length > 0;
+          {
+            const provider = String(args["provider"] ?? config.ai.provider);
+            if (String(args["key"] ?? "").trim()) aiKeys.add(provider);
+            else aiKeys.delete(provider);
+          }
           return undefined as T;
+
+        case Command.ListAiModels: {
+          const provider = String(args["provider"]);
+          // Rejects as the backend does, with the error's name.
+          if (!hasAiKey(provider)) throw "noKey";
+          return ({
+            anthropic: [
+              { id: "claude-opus-5", name: "Claude Opus 5" },
+              { id: "claude-sonnet-5", name: "Claude Sonnet 5" },
+            ],
+            gemini: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" }],
+            openai: [{ id: "gpt-5.5", name: "gpt-5.5" }],
+          }[provider] ?? []) as T;
+        }
 
         case Command.Translate: {
           const text = String(args["text"] ?? "");
-          if (!hasAiKey) return { text: "", error: "noKey" } as T;
+          if (!hasAiKey()) return { text: "", error: "noKey" } as T;
           if (!text.trim()) return { text: "", error: null } as T;
           // Obviously synthetic, like every other value here — it reverses the
           // words so it is visibly not a real translation.

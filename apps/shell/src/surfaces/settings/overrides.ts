@@ -13,6 +13,7 @@
 
 import { tr } from "../../i18n";
 import { TRANSITION_NAMES } from "../../gl/transitions";
+import type { AiProvider } from "@bw/core";
 import type { Swatch } from "./pickers";
 
 export interface Choice {
@@ -35,6 +36,8 @@ export interface Override {
   font?: "sans" | "mono";
   /** One of the bar's three slots: chips dragged between the three rows. */
   barSlot?: true;
+  /** A model: chosen from the ones this service lists. */
+  model?: AiProvider;
 }
 
 /** Values that are really a choice, keyed by config path. */
@@ -121,6 +124,16 @@ export const OVERRIDES: Record<string, Override> = {
   },
   "appearance.roundingScale": { range: { min: 0, max: 2, step: 0.05 } },
   "appearance.transparency.extra": { range: { min: 0, max: 1, step: 0.05 } },
+  "ai.provider": {
+    choices: [
+      { value: "anthropic", label: () => "Claude (Anthropic)" },
+      { value: "gemini", label: () => "Gemini (Google)" },
+      { value: "openai", label: () => "ChatGPT (OpenAI)" },
+    ],
+  },
+  "ai.model": { model: "anthropic" },
+  "ai.geminiModel": { model: "gemini" },
+  "ai.openaiModel": { model: "openai" },
   // Tri-state numbers. A box showing "1" is honest and says nothing.
   "policies.ai": {
     choices: [
@@ -266,6 +279,10 @@ const LABELS: Record<string, string> = {
   "sidebar.nightLight.to": "Turns off at",
   "overlay.crosshair.code": "Crosshair code",
   "policies.ai": "AI features",
+  "ai.provider": "Service",
+  "ai.model": "Claude model",
+  "ai.geminiModel": "Gemini model",
+  "ai.openaiModel": "ChatGPT model",
   "policies.weeb": "Anime and image-board features",
   "background.widgets.grid": "Snap to a grid",
   "appearance.fonts.pixelSize": "Text size",
@@ -392,11 +409,12 @@ const HINTS: Record<string, string> = {
   "overlay.clickthroughOpacity":
     "How solid a pinned panel looks while clicks go through it.",
   "session.force": "Close programs without letting them save. Best left off.",
-  "ai.model": "The Claude model that answers, such as claude-opus-5.",
+  "ai.provider":
+    "Which service answers in the chat and the translator. Each needs its own key, above.",
   "ai.maxTokens": "The longest answer, in tokens.",
   "ai.webSearch":
     "Let it search the web when it needs to. Searches cost tokens.",
-  "ai.maxSearches": "Searches allowed per question.",
+  "ai.maxSearches": "Searches allowed per question. Claude only.",
   "ai.showThinking": "Show a summary of how it reached its answer.",
   "policies.ai": "Local models only keeps everything on this computer.",
   "sidebar.left.translator.delay":

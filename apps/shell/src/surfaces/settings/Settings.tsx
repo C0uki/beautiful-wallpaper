@@ -25,6 +25,7 @@ import { Shortcuts } from "./Shortcuts";
 import { BarSlotEditor } from "./BarSlotEditor";
 import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
 import { ColorPicker, FontPicker } from "./pickers";
+import { ApiKeys, ModelPicker } from "./ai";
 import "./settings.css";
 
 /** Reads a dotted path out of the config. */
@@ -208,12 +209,17 @@ export function Settings() {
             ) : !searching && current?.custom === "shortcuts" ? (
               <Shortcuts config={config} onSet={set} />
             ) : shown.length ? (
-              <Rows
-                fields={shown}
-                config={config}
-                onSet={set}
-                grouped={!searching}
-              />
+              <>
+                {/* The keys are not settings — they never enter the config —
+                    so the AI page draws them above its rows. */}
+                {!searching && current?.id === "ai" ? <ApiKeys /> : null}
+                <Rows
+                  fields={shown}
+                  config={config}
+                  onSet={set}
+                  grouped={!searching}
+                />
+              </>
             ) : (
               <p className="bw-settings-empty">{tr("Nothing matched")}</p>
             )}
@@ -334,6 +340,15 @@ function Control({
       <ColorPicker
         value={typeof value === "string" ? value : ""}
         swatches={override.color}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+  if (override?.model) {
+    return (
+      <ModelPicker
+        provider={override.model}
+        value={typeof value === "string" ? value : ""}
         onChange={(next) => onSet(field.path, next)}
       />
     );

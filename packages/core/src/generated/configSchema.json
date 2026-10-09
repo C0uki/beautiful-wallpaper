@@ -1,8 +1,29 @@
 [
   {
+    "path": "ai.provider",
+    "section": "ai",
+    "label": "Provider",
+    "group": "",
+    "kind": "text"
+  },
+  {
     "path": "ai.model",
     "section": "ai",
     "label": "Model",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "ai.geminiModel",
+    "section": "ai",
+    "label": "Gemini model",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "ai.openaiModel",
+    "section": "ai",
+    "label": "OpenAI model",
     "group": "",
     "kind": "text"
   },

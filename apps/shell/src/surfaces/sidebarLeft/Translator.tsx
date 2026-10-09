@@ -29,7 +29,9 @@ const LANGUAGES: Array<{ code: string; label: string }> = [
 export function errorMessage(error: AiError): string {
   switch (error) {
     case "noKey":
-      return tr("Add an Anthropic API key in settings to use the translator.");
+      return tr(
+        "Add an API key under AI and translation in settings to use the translator.",
+      );
     case "badKey":
       return tr("That API key was rejected. Check it in settings.");
     case "rateLimited":
@@ -82,7 +84,9 @@ export function Translator() {
     return (
       <Placeholder
         icon="key"
-        text={tr("Add an Anthropic API key in settings to use the translator.")}
+        text={tr(
+          "Add an API key under AI and translation in settings to use the translator.",
+        )}
       />
     );
   }

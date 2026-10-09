@@ -78,6 +78,7 @@ const ACRONYMS: &[(&str, &str)] = &[
     ("id", "ID"),
     ("url", "URL"),
     ("api", "API"),
+    ("openai", "OpenAI"),
     ("cpu", "CPU"),
     ("ram", "RAM"),
     ("fps", "FPS"),
@@ -241,6 +242,7 @@ mod tests {
         assert_eq!(label_for("ui"), "UI");
         assert_eq!(label_for("osd"), "OSD");
         assert_eq!(label_for("glazewm"), "GlazeWM");
+        assert_eq!(label_for("openaiModel"), "OpenAI model");
         // "Use usc units" reads as a typo; the units are United States
         // Customary, and the screen says so.
         assert_eq!(label_for("useUscUnits"), "Use USC units");

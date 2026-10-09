@@ -720,13 +720,19 @@ config_struct! {
 }
 
 config_struct! {
-    /// Anthropic's API, used by the translator today and by the chat later.
+    /// The chat and the translator: which service answers, with which model.
     ///
-    /// The key itself is never stored here — it lives in the Windows
+    /// The keys themselves are never stored here — they live in the Windows
     /// credential manager, reached through the `keyring` crate, the same way
     /// the online wallpaper providers' keys are.
     pub struct Ai {
+        /// `anthropic`, `gemini` or `openai`.
+        pub provider: String = s("anthropic"),
+        /// The model each service answers with. Any the service lists can be
+        /// chosen in the settings; these are only where a new install starts.
         pub model: String = s("claude-opus-5"),
+        pub gemini_model: String = s("gemini-3.8-flash"),
+        pub openai_model: String = s("gpt-5.5"),
         pub max_tokens: u32 = 4096,
         /// Let the model search the web when it needs to. Costs tokens, so it
         /// is a setting rather than always on.

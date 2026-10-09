@@ -33,6 +33,13 @@ export function SidebarLeft() {
     void connectSidebarLeft();
   }, []);
 
+  // The key and the service are chosen in the settings, another window; ask
+  // again each time the sidebar opens and whenever the service changes.
+  const provider = useShell((state) => state.config.ai.provider);
+  useEffect(() => {
+    if (open) void actions.checkAiKey();
+  }, [open, provider]);
+
   // Escape closes, as every other overlay does.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

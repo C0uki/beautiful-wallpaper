@@ -1,23 +1,27 @@
-//! Talking to the Anthropic API.
+//! Talking to the chat services: Anthropic, Gemini and OpenAI.
 //!
-//! Rust has no official Anthropic SDK, so this is the Messages API over plain
-//! HTTP with the `reqwest` already in the tree. Only one caller exists today —
-//! the sidebar's translator — but the shape is a conversation rather than a
-//! single string, because the chat that comes later sends the same request
-//! with more messages in it.
+//! None of the three has an official Rust SDK, so each is its HTTP API over
+//! the `reqwest` already in the tree: Anthropic's Messages API, Gemini's
+//! `generateContent`, OpenAI's Responses API. The chat and the translator go
+//! to whichever `ai.provider` names; what differs is only the request's shape
+//! and the stream's, and the stream's is parsed in `bw_core::chat`.
 //!
-//! The key is never written to `config.json`. It goes to the Windows
+//! The keys are never written to `config.json`. They go to the Windows
 //! credential manager through `keyring`, the same store the online wallpaper
 //! providers use, so a config file someone pastes into an issue carries no
 //! secret.
 
 use base64::Engine as _;
-use bw_core::ai::{AiError, AiMessage, ApiResponse};
+use bw_core::ai::{AiError, AiMessage, AiModel, ApiResponse, Provider};
 use bw_core::chat::{self, ChatMessage, Role, StreamEvent};
 use bw_core::Config;
 use futures_util::StreamExt as _;
+use serde_json::{json, Value};
 
 const ENDPOINT: &str = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODELS: &str = "https://api.anthropic.com/v1/models";
+const GEMINI: &str = "https://generativelanguage.googleapis.com/v1beta";
+const OPENAI: &str = "https://api.openai.com/v1";
 
 /// The API version header. Pinned rather than tracking latest: a version bump
 /// can change the response shape, and that should be a deliberate edit here.
@@ -39,20 +43,25 @@ const WEB_SEARCH_TOOL: &str = "web_search_20260209";
 /// 32 MB for the whole request.
 const MAX_ATTACHMENT_BYTES: u64 = 12 * 1024 * 1024;
 
-/// Where the key lives, alongside the wallpaper providers' keys.
+/// Where the keys live, alongside the wallpaper providers' keys. Each
+/// service's key is under its own name, Anthropic's where it always was.
 const KEYRING_SERVICE: &str = "beautiful-wallpaper";
-const KEYRING_ACCOUNT: &str = "anthropic";
 
-/// Whether a key has been configured, without revealing it.
-///
-/// The sidebar uses this to decide between showing the translator and showing
-/// a pointer at the settings — a first run is not an error state.
-pub fn has_key() -> bool {
-    read_key().is_some()
+/// The service `ai.provider` names.
+pub fn provider(config: &Config) -> Provider {
+    Provider::parse(&config.ai.provider)
 }
 
-fn read_key() -> Option<String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).ok()?;
+/// Whether a key has been configured for a service, without revealing it.
+///
+/// The sidebar uses this to decide between showing the chat and showing a
+/// pointer at the settings — a first run is not an error state.
+pub fn has_key(provider: Provider) -> bool {
+    read_key(provider).is_some()
+}
+
+fn read_key(provider: Provider) -> Option<String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, provider.as_str()).ok()?;
     entry
         .get_password()
         .ok()
@@ -60,10 +69,10 @@ fn read_key() -> Option<String> {
         .filter(|key| !key.is_empty())
 }
 
-/// Stores the key, or clears it when given an empty string.
-pub fn set_key(key: &str) -> Result<(), String> {
-    let entry =
-        keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).map_err(|error| error.to_string())?;
+/// Stores a service's key, or clears it when given an empty string.
+pub fn set_key(provider: Provider, key: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, provider.as_str())
+        .map_err(|error| error.to_string())?;
 
     if key.trim().is_empty() {
         // Deleting a key that was never set is not an error worth reporting.
@@ -75,36 +84,36 @@ pub fn set_key(key: &str) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-/// Sends a conversation and returns the reply's text.
-pub async fn ask(
-    config: &Config,
-    system: Option<String>,
-    messages: Vec<AiMessage>,
-) -> Result<String, AiError> {
-    let Some(key) = read_key() else {
-        return Err(AiError::NoKey);
-    };
-
-    let mut body = serde_json::json!({
-        "model": config.ai.model,
-        "max_tokens": config.ai.max_tokens,
-        "messages": messages,
-    });
-    if let Some(system) = system {
-        body["system"] = serde_json::Value::String(system);
+/// A request to a service with its key on it.
+fn post(provider: Provider, key: &str, model: &str, streaming: bool) -> reqwest::RequestBuilder {
+    let client = reqwest::Client::new();
+    match provider {
+        Provider::Anthropic => client
+            .post(ENDPOINT)
+            .header("x-api-key", key)
+            .header("anthropic-version", API_VERSION),
+        Provider::Gemini => {
+            let method = if streaming {
+                "streamGenerateContent?alt=sse"
+            } else {
+                "generateContent"
+            };
+            // The list names models `models/…`; either spelling is accepted.
+            let model = model.trim_start_matches("models/");
+            client
+                .post(format!("{GEMINI}/models/{model}:{method}"))
+                .header("x-goog-api-key", key)
+        }
+        Provider::OpenAi => client.post(format!("{OPENAI}/responses")).bearer_auth(key),
     }
+}
 
-    let response = reqwest::Client::new()
-        .post(ENDPOINT)
-        .header("x-api-key", key)
-        .header("anthropic-version", API_VERSION)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::debug!(%error, "the API could not be reached");
-            AiError::Unavailable
-        })?;
+/// Sends a request, turning a refusal into the outcome the UI acts on.
+async fn send(request: reqwest::RequestBuilder) -> Result<reqwest::Response, AiError> {
+    let response = request.send().await.map_err(|error| {
+        tracing::debug!(%error, "the API could not be reached");
+        AiError::Unavailable
+    })?;
 
     let status = response.status();
     if !status.is_success() {
@@ -113,15 +122,138 @@ pub async fn ask(
         // to read. The classified error is what the UI acts on.
         let detail = response.text().await.unwrap_or_default();
         tracing::warn!(status = status.as_u16(), %detail, "the API refused a request");
-        return Err(AiError::from_status(status.as_u16()));
+        return Err(AiError::from_response(status.as_u16(), &detail));
     }
+    Ok(response)
+}
 
-    let parsed: ApiResponse = response.json().await.map_err(|error| {
+/// The request body, in the shape the service wants. `messages` are already
+/// in that shape; `chat` adds what the chat asks for and the translator does
+/// not — streaming, the web search, the model's reasoning.
+fn body(
+    provider: Provider,
+    config: &Config,
+    system: Option<String>,
+    messages: Vec<Value>,
+    chat: bool,
+) -> Value {
+    let model = provider.model(&config.ai);
+    let max_tokens = config.ai.max_tokens;
+
+    match provider {
+        Provider::Anthropic => {
+            let mut body = json!({
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": messages,
+            });
+            if let Some(system) = system {
+                body["system"] = Value::String(system);
+            }
+            if chat {
+                body["stream"] = json!(true);
+                // Adaptive thinking is the current shape; `budget_tokens` is
+                // rejected on this model. `summarized` is needed explicitly —
+                // the default is `omitted`, which streams thinking blocks with
+                // no text in them.
+                body["thinking"] = json!({ "type": "adaptive", "display": "summarized" });
+                // Routes a refusal to whichever model is recommended for its
+                // category rather than pinning one here.
+                body["fallbacks"] = json!("default");
+                if config.ai.web_search {
+                    body["tools"] = json!([{
+                        "type": WEB_SEARCH_TOOL,
+                        "name": "web_search",
+                        "max_uses": config.ai.max_searches,
+                    }]);
+                }
+            }
+            body
+        }
+
+        Provider::Gemini => {
+            let mut generation = json!({ "maxOutputTokens": max_tokens });
+            let mut body = json!({ "contents": messages });
+            if let Some(system) = system {
+                body["systemInstruction"] = json!({ "parts": [{ "text": system }] });
+            }
+            if chat {
+                if config.ai.show_thinking {
+                    generation["thinkingConfig"] = json!({ "includeThoughts": true });
+                }
+                // ponytail: Gemini's search has no per-turn cap, so
+                // `ai.maxSearches` does not apply to it.
+                if config.ai.web_search {
+                    body["tools"] = json!([{ "google_search": {} }]);
+                }
+            }
+            body["generationConfig"] = generation;
+            body
+        }
+
+        Provider::OpenAi => {
+            let mut body = json!({
+                "model": model,
+                "input": messages,
+                "max_output_tokens": max_tokens,
+            });
+            if let Some(system) = system {
+                body["instructions"] = Value::String(system);
+            }
+            if chat {
+                body["stream"] = json!(true);
+                // ponytail: no reasoning summaries — OpenAI only gives them to
+                // organisations it has verified, and asking without that fails
+                // the whole request. The search has no per-turn cap either.
+                if config.ai.web_search {
+                    body["tools"] = json!([{ "type": "web_search" }]);
+                }
+            }
+            body
+        }
+    }
+}
+
+/// Sends a conversation and returns the reply's text.
+pub async fn ask(
+    config: &Config,
+    system: Option<String>,
+    messages: Vec<AiMessage>,
+) -> Result<String, AiError> {
+    let provider = provider(config);
+    let Some(key) = read_key(provider) else {
+        return Err(AiError::NoKey);
+    };
+
+    let messages = messages
+        .into_iter()
+        .map(|message| match provider {
+            Provider::Gemini => {
+                let role = if message.role == "assistant" {
+                    "model"
+                } else {
+                    "user"
+                };
+                json!({ "role": role, "parts": [{ "text": message.content }] })
+            }
+            _ => json!({ "role": message.role, "content": message.content }),
+        })
+        .collect();
+
+    let request = post(provider, &key, provider.model(&config.ai), false)
+        .json(&body(provider, config, system, messages, false));
+    let reply: Value = send(request).await?.json().await.map_err(|error| {
         tracing::warn!(%error, "the API returned something unreadable");
         AiError::Unavailable
     })?;
 
-    parsed.text()
+    match provider {
+        Provider::Anthropic => serde_json::from_value::<ApiResponse>(reply)
+            .map_err(|_| AiError::Unavailable)?
+            .text(),
+        Provider::Gemini => bw_core::ai::gemini_reply(&reply),
+        Provider::OpenAi => bw_core::ai::openai_reply(&reply),
+    }
 }
 
 /// Translates one piece of text.
@@ -139,6 +271,36 @@ pub async fn translate(
 
     let system = bw_core::ai::translation_prompt(from, to);
     ask(config, Some(system), vec![AiMessage::user(text)]).await
+}
+
+/// The models a service offers, for the settings to choose from — so a model
+/// released tomorrow is in the list without a new version of the shell.
+pub async fn list_models(provider: Provider) -> Result<Vec<AiModel>, AiError> {
+    let Some(key) = read_key(provider) else {
+        return Err(AiError::NoKey);
+    };
+
+    let client = reqwest::Client::new();
+    // Each list is paged; one page as large as each allows holds them all.
+    let request = match provider {
+        Provider::Anthropic => client
+            .get(format!("{ANTHROPIC_MODELS}?limit=1000"))
+            .header("x-api-key", key.as_str())
+            .header("anthropic-version", API_VERSION),
+        Provider::Gemini => client
+            .get(format!("{GEMINI}/models?pageSize=1000"))
+            .header("x-goog-api-key", key.as_str()),
+        Provider::OpenAi => client
+            .get(format!("{OPENAI}/models"))
+            .bearer_auth(key.as_str()),
+    };
+
+    let list: Value = send(request)
+        .await?
+        .json()
+        .await
+        .map_err(|_| AiError::Unavailable)?;
+    Ok(bw_core::ai::models_from(provider, &list))
 }
 
 /// A file to send alongside a message.
@@ -197,12 +359,16 @@ pub fn read_attachment(path: &std::path::Path) -> Result<Attachment, String> {
     })
 }
 
-/// Builds the `messages` array from the stored conversation.
+/// Builds the conversation, in the service's shape, from the stored one.
 ///
 /// Attachments are only ever on the newest user turn: the bytes are not kept
 /// in the history, so replaying an older turn's files is not possible — and
 /// re-uploading them every turn would be expensive even if it were.
-fn build_messages(history: &[ChatMessage], attachments: &[Attachment]) -> Vec<serde_json::Value> {
+fn build_messages(
+    provider: Provider,
+    history: &[ChatMessage],
+    attachments: &[Attachment],
+) -> Vec<Value> {
     let last = history.len().saturating_sub(1);
 
     history
@@ -210,33 +376,60 @@ fn build_messages(history: &[ChatMessage], attachments: &[Attachment]) -> Vec<se
         .enumerate()
         .filter(|(_, message)| !message.content.trim().is_empty())
         .map(|(index, message)| {
-            let role = match message.role {
-                Role::User => "user",
-                Role::Assistant => "assistant",
+            let role = match (message.role, provider) {
+                (Role::User, _) => "user",
+                (Role::Assistant, Provider::Gemini) => "model",
+                (Role::Assistant, _) => "assistant",
             };
+            let files: &[Attachment] = if index == last { attachments } else { &[] };
 
-            if index != last || attachments.is_empty() {
-                return serde_json::json!({ "role": role, "content": message.content });
+            // Files go before the text, which is what each API asks for and
+            // what the model reads best.
+            match provider {
+                Provider::Gemini => {
+                    let mut parts: Vec<Value> = files
+                        .iter()
+                        .map(|file| {
+                            json!({ "inlineData": { "mimeType": file.media_type, "data": file.data } })
+                        })
+                        .collect();
+                    parts.push(json!({ "text": message.content }));
+                    json!({ "role": role, "parts": parts })
+                }
+                _ if files.is_empty() => json!({ "role": role, "content": message.content }),
+                Provider::Anthropic => {
+                    let mut blocks: Vec<Value> = files
+                        .iter()
+                        .map(|file| {
+                            json!({
+                                "type": file.kind,
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": file.media_type,
+                                    "data": file.data,
+                                }
+                            })
+                        })
+                        .collect();
+                    blocks.push(json!({ "type": "text", "text": message.content }));
+                    json!({ "role": role, "content": blocks })
+                }
+                Provider::OpenAi => {
+                    let mut blocks: Vec<Value> = files
+                        .iter()
+                        .map(|file| {
+                            let url = format!("data:{};base64,{}", file.media_type, file.data);
+                            if file.kind == "image" {
+                                json!({ "type": "input_image", "image_url": url })
+                            } else {
+                                json!({ "type": "input_file", "filename": file.name, "file_data": url })
+                            }
+                        })
+                        .collect();
+                    blocks.push(json!({ "type": "input_text", "text": message.content }));
+                    json!({ "role": role, "content": blocks })
+                }
             }
-
-            // Documents and images go before the text, which is what the API
-            // asks for and what the model reads best.
-            let mut blocks: Vec<serde_json::Value> = attachments
-                .iter()
-                .map(|attachment| {
-                    serde_json::json!({
-                        "type": attachment.kind,
-                        "source": {
-                            "type": "base64",
-                            "media_type": attachment.media_type,
-                            "data": attachment.data,
-                        }
-                    })
-                })
-                .collect();
-            blocks.push(serde_json::json!({ "type": "text", "text": message.content }));
-
-            serde_json::json!({ "role": role, "content": blocks })
         })
         .collect()
 }
@@ -252,61 +445,34 @@ pub async fn stream(
     attachments: &[Attachment],
     on_event: impl Fn(StreamEvent),
 ) {
-    let Some(key) = read_key() else {
+    let provider = provider(config);
+    let Some(key) = read_key(provider) else {
         on_event(StreamEvent::Failed(AiError::NoKey));
         return;
     };
 
-    let mut body = serde_json::json!({
-        "model": config.ai.model,
-        "max_tokens": config.ai.max_tokens,
-        "messages": build_messages(history, attachments),
-        "stream": true,
-        // Adaptive thinking is the current shape; `budget_tokens` is rejected
-        // on this model. `summarized` is needed explicitly — the default is
-        // `omitted`, which streams thinking blocks with no text in them.
-        "thinking": { "type": "adaptive", "display": "summarized" },
-        // Routes a refusal to whichever model is recommended for its category
-        // rather than pinning one here.
-        "fallbacks": "default",
-    });
-
-    if config.ai.web_search {
-        body["tools"] = serde_json::json!([
-            { "type": WEB_SEARCH_TOOL, "name": "web_search", "max_uses": config.ai.max_searches }
-        ]);
+    let messages = build_messages(provider, history, attachments);
+    let mut request = post(provider, &key, provider.model(&config.ai), true)
+        .json(&body(provider, config, None, messages, true));
+    if provider == Provider::Anthropic {
+        request = request.header("anthropic-beta", FALLBACK_BETA);
     }
 
-    let response = reqwest::Client::new()
-        .post(ENDPOINT)
-        .header("x-api-key", key)
-        .header("anthropic-version", API_VERSION)
-        .header("anthropic-beta", FALLBACK_BETA)
-        .json(&body)
-        .send()
-        .await;
-
-    let response = match response {
+    let response = match send(request).await {
         Ok(response) => response,
         Err(error) => {
-            tracing::debug!(%error, "the API could not be reached");
-            on_event(StreamEvent::Failed(AiError::Unavailable));
+            on_event(StreamEvent::Failed(error));
             return;
         }
     };
 
-    let status = response.status();
-    if !status.is_success() {
-        let detail = response.text().await.unwrap_or_default();
-        tracing::warn!(status = status.as_u16(), %detail, "the API refused a request");
-        on_event(StreamEvent::Failed(AiError::from_status(status.as_u16())));
-        return;
-    }
-
     let mut stream = response.bytes_stream();
     // SSE frames are split on blank lines and arrive across arbitrary chunk
     // boundaries, so a partial frame has to survive until the rest turns up.
-    let mut buffer = String::new();
+    // Kept as bytes until a frame is whole: a character split across two
+    // chunks — any Japanese one can be — decoded half at a time comes out as
+    // two replacement characters.
+    let mut buffer: Vec<u8> = Vec::new();
     let mut finished = false;
 
     while let Some(chunk) = stream.next().await {
@@ -314,23 +480,30 @@ pub async fn stream(
             on_event(StreamEvent::Failed(AiError::Unavailable));
             return;
         };
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        // Gemini ends its lines with CRLF. A payload never holds a raw CR —
+        // JSON escapes it — so dropping them all is safe.
+        buffer.extend(chunk.iter().filter(|byte| **byte != b'\r'));
 
-        while let Some(split) = buffer.find("\n\n") {
-            let frame = buffer[..split].to_owned();
+        while let Some(split) = buffer.windows(2).position(|pair| pair == b"\n\n") {
+            let frame = String::from_utf8_lossy(&buffer[..split]).into_owned();
             buffer.drain(..split + 2);
 
             for line in frame.lines() {
                 let Some(payload) = line.strip_prefix("data:") else {
                     continue;
                 };
-                let Some(event) = chat::parse_event(payload.trim()) else {
-                    continue;
+                let payload = payload.trim();
+                let events: Vec<StreamEvent> = match provider {
+                    Provider::Anthropic => chat::parse_event(payload).into_iter().collect(),
+                    Provider::Gemini => chat::parse_gemini(payload),
+                    Provider::OpenAi => chat::parse_openai(payload).into_iter().collect(),
                 };
-                if matches!(event, StreamEvent::Done | StreamEvent::Failed(_)) {
-                    finished = true;
+                for event in events {
+                    if matches!(event, StreamEvent::Done | StreamEvent::Failed(_)) {
+                        finished = true;
+                    }
+                    on_event(event);
                 }
-                on_event(event);
             }
         }
     }

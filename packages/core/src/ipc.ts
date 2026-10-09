@@ -177,6 +177,7 @@ export const Command = {
   SetPinned: "set_pinned",
   HasAiKey: "has_ai_key",
   SetAiKey: "set_ai_key",
+  ListAiModels: "list_ai_models",
   Translate: "translate",
   GetChat: "get_chat",
   SendChat: "send_chat",
@@ -352,6 +353,16 @@ export type ActivateOutcome =
   | "flashed"
   /** The window has gone since the dock last looked. */
   | "gone";
+
+/** The services the chat and the translator can talk to (`ai.provider`). */
+export type AiProvider = "anthropic" | "gemini" | "openai";
+
+/** A model a service lists, for the settings to offer. */
+export interface AiModel {
+  id: string;
+  /** The service's own name for it; empty where it has none (OpenAI). */
+  name: string;
+}
 
 export interface TranslationResult {
   text: string;

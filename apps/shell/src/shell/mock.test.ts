@@ -323,6 +323,27 @@ describe("the mock backend", () => {
     expect(outcome.error).toBe("noKey");
   });
 
+  it("each service has its own key, and lists its models only with one", async () => {
+    const backend = mockBackend();
+    await expect(
+      backend.invoke(Command.ListAiModels, { provider: "gemini" }),
+    ).rejects.toBe("noKey");
+
+    await backend.invoke(Command.SetAiKey, { provider: "gemini", key: "k" });
+    expect(
+      await backend.invoke<boolean>(Command.HasAiKey, { provider: "gemini" }),
+    ).toBe(true);
+    // The other services' keys are untouched.
+    expect(
+      await backend.invoke<boolean>(Command.HasAiKey, { provider: "openai" }),
+    ).toBe(false);
+    const models = await backend.invoke<{ id: string }[]>(
+      Command.ListAiModels,
+      { provider: "gemini" },
+    );
+    expect(models.length).toBeGreaterThan(0);
+  });
+
   it("translating nothing is not an error", async () => {
     const backend = mockBackend();
     const outcome = await backend.invoke<{
