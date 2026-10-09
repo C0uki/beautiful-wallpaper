@@ -30,7 +30,7 @@ Hyprland の IPC ソケットと会話し、すべてのパネルを `wlr-layer-
 | `switchwall.sh` → matugen → `colors.json` | `material-colors` クレートをプロセス内で                       |
 | MPRIS                                     | Windows のメディアセッション (SMTC)                            |
 | UPower / PipeWire / `/proc`               | `GetSystemPowerStatus` / WASAPI / `sysinfo`                    |
-| Hyprland のワークスペース                 | GlazeWM / komorebi（動いていれば）                             |
+| Hyprland のワークスペース                 | GlazeWM（動いていれば）                                        |
 | `IpcHandler` のターゲット                 | `bw.exe <ターゲット> <関数>`（6 つは同名）                     |
 
 本家が選んだ接合面は、そのまま Windows でも通用します。設定キー名、

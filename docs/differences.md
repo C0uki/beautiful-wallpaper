@@ -96,8 +96,7 @@ plus `WM_DISPLAYCHANGE` handling, which is not written yet.
 
 **Config key names.** The schema mirrors `modules/common/Config.qml`, so the
 vocabulary is the same one. `hyprland.*` is the exception, replaced by
-[`windows.*`](config.md#windows) for GlazeWM/komorebi, taskbar hiding and accent
-sync.
+[`windows.*`](config.md#windows) for GlazeWM, taskbar hiding and accent sync.
 
 **`colors.json`.** The generated theme is written in matugen's shape, in the
 same role vocabulary. Nothing in the shell reads it back — the theme is passed

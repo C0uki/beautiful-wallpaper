@@ -32,7 +32,7 @@ What the original does with a Wayland protocol, this does with Win32:
 | `switchwall.sh` → matugen → `colors.json` | the `material-colors` crate, in process                |
 | MPRIS                                     | the Windows media session (SMTC)                       |
 | UPower, PipeWire, `/proc`                 | `GetSystemPowerStatus`, WASAPI, `sysinfo`              |
-| Hyprland workspaces                       | GlazeWM / komorebi, when one is running                |
+| Hyprland workspaces                       | GlazeWM, when it is running                            |
 | `IpcHandler` targets                      | `bw.exe <target> <function>`; six names carry over     |
 
 The seams the original chose turn out to travel well. Its config key names, its
