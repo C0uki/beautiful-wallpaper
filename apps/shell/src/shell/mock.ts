@@ -198,7 +198,7 @@ const LIGHT_COLORS: Record<string, string> = {
   ),
 };
 
-function sampleTheme(mode: "light" | "dark"): GeneratedTheme {
+export function sampleTheme(mode: "light" | "dark"): GeneratedTheme {
   return {
     mode,
     variant: "tonalSpot",

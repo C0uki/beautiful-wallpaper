@@ -64,7 +64,7 @@
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: background var(--duration-small) var(--ease-effects-default);
+  transition: background var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-overlay-taskbar button:hover {

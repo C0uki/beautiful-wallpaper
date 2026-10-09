@@ -69,7 +69,7 @@
   cursor: grab;
   /* Nothing here is text to select: a drag on a row is a drag of the file. */
   user-select: none;
-  transition: background var(--duration-small) var(--ease-effects-default);
+  transition: background var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-shelf-item:hover {
@@ -125,7 +125,7 @@
   display: flex;
   gap: 2px;
   opacity: 0;
-  transition: opacity var(--duration-small) var(--ease-effects-default);
+  transition: opacity var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-shelf-item:hover .bw-shelf-actions,

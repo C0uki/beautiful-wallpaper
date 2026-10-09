@@ -696,7 +696,7 @@ new one. `windows.autoUpdate` turns it off.
 - **A polkit agent.** UAC cannot be hosted by a third-party process.
 - **An on-screen keyboard.** Windows ships `osk.exe` and TabTip.
 - **The Hyprland and niri settings pages**, replaced by a `windows.*` page for
-  GlazeWM/komorebi, taskbar hiding and accent sync.
+  GlazeWM, taskbar hiding and accent sync.
 - **GTK, Kvantum and xsettingsd theming**, EasyEffects, the screen-share privacy
   indicator, and the Arch package integrations — none have a Windows counterpart.
 
