@@ -386,7 +386,6 @@ fn describe_packaged(entry: &windows::ApplicationModel::Core::AppListEntry) -> O
 /// A packaged application's logo, cached as a PNG like every other icon.
 fn packaged_logo(display: &windows::ApplicationModel::AppDisplayInfo, key: &str) -> Option<String> {
     use windows::Foundation::Size;
-    use windows::Storage::Streams::DataReader;
 
     let logo = display
         .GetLogo(Size {
@@ -398,18 +397,5 @@ fn packaged_logo(display: &windows::ApplicationModel::AppDisplayInfo, key: &str)
         .OpenReadAsync()
         .and_then(|operation| operation.get())
         .ok()?;
-
-    let size = u32::try_from(stream.Size().ok()?).ok()?;
-    if size == 0 {
-        return None;
-    }
-    let reader = DataReader::CreateDataReader(&stream).ok()?;
-    reader
-        .LoadAsync(size)
-        .and_then(|operation| operation.get())
-        .ok()?;
-
-    let mut bytes = vec![0u8; size as usize];
-    reader.ReadBytes(&mut bytes).ok()?;
-    appicon::store_image(key, &bytes)
+    appicon::store_image(key, &appicon::stream_bytes(&stream)?)
 }

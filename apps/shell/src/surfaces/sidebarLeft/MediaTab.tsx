@@ -11,6 +11,7 @@ import { IconButton, Placeholder, Symbol } from "../../widgets";
 import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
+import { backend } from "../../shell/backend";
 import { Visualizer } from "../../widgets/Visualizer";
 
 /** The playing track's lyrics, with the line being sung kept in view. */
@@ -107,7 +108,7 @@ export function MediaTab() {
     <div className="bw-media-tab">
       <div className="bw-media-tab-art">
         {media.artwork ? (
-          <img src={media.artwork} alt="" />
+          <img src={backend().assetUrl(media.artwork)} alt="" />
         ) : (
           <Symbol name="album" size={64} />
         )}

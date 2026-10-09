@@ -162,6 +162,46 @@ pub fn store_image(key: &str, bytes: &[u8]) -> Option<String> {
     Some(target.to_string_lossy().into_owned())
 }
 
+/// Everything in a WinRT stream — a packaged logo, a track's artwork — read
+/// into memory. Nothing, for an empty or unreadable one.
+pub fn stream_bytes(
+    stream: &windows::Storage::Streams::IRandomAccessStreamWithContentType,
+) -> Option<Vec<u8>> {
+    use windows::Storage::Streams::DataReader;
+
+    let size = u32::try_from(stream.Size().ok()?).ok()?;
+    if size == 0 {
+        return None;
+    }
+    let reader = DataReader::CreateDataReader(stream).ok()?;
+    reader
+        .LoadAsync(size)
+        .and_then(|operation| operation.get())
+        .ok()?;
+    let mut bytes = vec![0u8; size as usize];
+    reader.ReadBytes(&mut bytes).ok()?;
+    Some(bytes)
+}
+
+/// The playing track's artwork, saved as a PNG named for the track so a new
+/// track is a new address and the webview cannot show the last one from its
+/// cache. Only the current track's is kept: the folder is emptied of every
+/// other file on each new one.
+pub fn store_artwork(track: &str, bytes: &[u8]) -> Option<String> {
+    let folder = bw_core::paths::cache_dir().join("artwork");
+    std::fs::create_dir_all(&folder).ok()?;
+    let target = folder.join(format!("{}.png", hash_key(track)));
+    if !target.exists() {
+        image::load_from_memory(bytes).ok()?.save(&target).ok()?;
+    }
+    for entry in std::fs::read_dir(&folder).ok()?.flatten() {
+        if entry.path() != target {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+    Some(target.to_string_lossy().into_owned())
+}
+
 /// Where a cache key's PNG lives, creating the directory on the way.
 fn cache_path(key: &str) -> Option<std::path::PathBuf> {
     let cache = bw_core::paths::cache_dir().join("appIcons");
