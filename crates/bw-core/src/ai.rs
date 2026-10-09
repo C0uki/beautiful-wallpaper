@@ -354,7 +354,7 @@ pub fn models_from(provider: Provider, value: &serde_json::Value) -> Vec<AiModel
                     })
                 })
                 .collect();
-            found.sort_by(|a, b| b.0.cmp(&a.0));
+            found.sort_by_key(|(created, _)| std::cmp::Reverse(*created));
             found.into_iter().map(|(_, model)| model).collect()
         }
     }
