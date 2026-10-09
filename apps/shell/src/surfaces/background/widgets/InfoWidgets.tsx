@@ -6,6 +6,7 @@
 import { Card, IconButton, ProgressRing, Symbol } from "../../../widgets";
 import { tr } from "../../../i18n";
 import { actions, useShell } from "../../../shell/store";
+import { backend } from "../../../shell/backend";
 import { formatBytes, formatClock } from "../../../lib/format";
 
 export function WeatherWidget() {
@@ -244,7 +245,7 @@ export function MediaWidget() {
         >
           {media.artwork ? (
             <img
-              src={media.artwork}
+              src={backend().assetUrl(media.artwork)}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
