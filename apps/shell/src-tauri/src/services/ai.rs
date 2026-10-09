@@ -452,13 +452,33 @@ pub async fn stream(
     };
 
     let messages = build_messages(provider, history, attachments);
-    let mut request = post(provider, &key, provider.model(&config.ai), true)
-        .json(&body(provider, config, None, messages, true));
-    if provider == Provider::Anthropic {
-        request = request.header("anthropic-beta", FALLBACK_BETA);
+    let mut body = body(provider, config, None, messages, true);
+    let request = |body: &Value| {
+        let request = post(provider, &key, provider.model(&config.ai), true).json(body);
+        if provider == Provider::Anthropic {
+            request.header("anthropic-beta", FALLBACK_BETA)
+        } else {
+            request
+        }
+    };
+
+    let mut response = send(request(&body)).await;
+    // A free Gemini key has no quota for Google Search, and says so with the
+    // same 429 as any other limit — so with the search on, every question
+    // failed. Asked again without it, the question is still answered, only
+    // not from the web.
+    let without_search = provider == Provider::Gemini
+        && matches!(response, Err(AiError::RateLimited))
+        && body
+            .as_object_mut()
+            .and_then(|fields| fields.remove("tools"))
+            .is_some();
+    if without_search {
+        tracing::info!("asking Gemini again without its search");
+        response = send(request(&body)).await;
     }
 
-    let response = match send(request).await {
+    let response = match response {
         Ok(response) => response,
         Err(error) => {
             on_event(StreamEvent::Failed(error));
