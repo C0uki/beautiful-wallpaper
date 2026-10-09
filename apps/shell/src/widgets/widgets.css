@@ -243,7 +243,8 @@
 }
 
 .bw-list-row[data-selected="true"] {
-  background: var(--primary-container, var(--layer3));
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
 }
 
 .bw-list-row-text {
