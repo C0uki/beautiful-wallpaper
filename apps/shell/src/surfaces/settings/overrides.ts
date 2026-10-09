@@ -13,6 +13,7 @@
 
 import { tr } from "../../i18n";
 import { TRANSITION_NAMES } from "../../gl/transitions";
+import type { Swatch } from "./pickers";
 
 export interface Choice {
   value: string;
@@ -28,6 +29,10 @@ export interface Override {
   hint?: () => string;
   /** A label for where the mechanical one reads wrongly. */
   label?: () => string;
+  /** A colour: picked from these wells, or from the system's picker. */
+  color?: Swatch[];
+  /** A font stack: picked from the installed families of this kind. */
+  font?: "sans" | "mono";
   /** One of the bar's three slots: chips dragged between the three rows. */
   barSlot?: true;
 }
@@ -55,6 +60,36 @@ const CORNER_ACTIONS = named([
 ]);
 
 export const OVERRIDES: Record<string, Override> = {
+  // The Mac's accent colours, after the wallpaper's own. Empty is what
+  // `services/theme.rs` reads as "take it from the wallpaper".
+  "appearance.palette.accentColor": {
+    color: [
+      { value: "", paint: "var(--primary)", label: "From the wallpaper" },
+      { value: "#007aff", paint: "#007aff", label: "Blue" },
+      { value: "#a550a7", paint: "#a550a7", label: "Purple" },
+      { value: "#f74f9e", paint: "#f74f9e", label: "Pink" },
+      { value: "#ff5257", paint: "#ff5257", label: "Red" },
+      { value: "#f7821b", paint: "#f7821b", label: "Orange" },
+      { value: "#ffc600", paint: "#ffc600", label: "Yellow" },
+      { value: "#62ba46", paint: "#62ba46", label: "Green" },
+      { value: "#8c8c8c", paint: "#8c8c8c", label: "Graphite" },
+    ],
+  },
+  // The palette's roles follow the wallpaper; black and white do not.
+  "bar.frameColor": {
+    color: [
+      { value: "black", paint: "#000000", label: "Black" },
+      { value: "white", paint: "#ffffff", label: "White" },
+      { value: "primary", paint: "var(--primary)", label: "Primary" },
+      { value: "secondary", paint: "var(--secondary)", label: "Secondary" },
+      { value: "tertiary", paint: "var(--tertiary)", label: "Tertiary" },
+      { value: "surface", paint: "var(--m3-surface)", label: "Surface" },
+      { value: "outline", paint: "var(--outline)", label: "Outline" },
+    ],
+  },
+  "appearance.fonts.main": { font: "sans" },
+  "appearance.fonts.title": { font: "sans" },
+  "appearance.fonts.monospace": { font: "mono" },
   "language.ui": {
     choices: [
       { value: "auto", label: () => tr("Automatic") },
@@ -252,12 +287,9 @@ const HINTS: Record<string, string> = {
   "windows.autoUpdate":
     "Check for a new version a minute after starting and every six hours, and install it.",
   "appearance.palette.accentColor":
-    "A colour such as #4f8cff to build the colours from. Empty takes it from the wallpaper.",
+    "The colour the palette is built from. The first well takes it from the wallpaper.",
   "appearance.palette.mode": "Automatic picks by how bright the wallpaper is.",
-  "appearance.fonts.main":
-    "Font names as Windows lists them. Later names are used when an earlier one is missing.",
-  "appearance.fonts.reading": "Used for long passages, such as AI answers.",
-  "appearance.fonts.expressive": "Used for large text, such as the clock.",
+  "appearance.fonts.main": "Each font is listed in its own lettering.",
   "appearance.fonts.pixelSize": "Everything else is sized from this.",
   "appearance.transparency.extra":
     "How much more see-through panels are, on top of what the wallpaper calls for.",
@@ -300,7 +332,7 @@ const HINTS: Record<string, string> = {
     "Pixels left showing while it is hidden, for the pointer to find.",
   "bar.showFrame": "A thin border around the whole screen.",
   "bar.frameColor":
-    "A colour such as #000000, or a palette name such as primary.",
+    "Primary, secondary, tertiary, surface and outline follow the wallpaper.",
   "dock.pinnedApps": "Full paths of programs, one per line.",
   "dock.ignored":
     "File names never shown on the dock, one per line. * matches anything.",

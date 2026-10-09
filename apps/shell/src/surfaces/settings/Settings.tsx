@@ -24,6 +24,7 @@ import { Presets } from "./Presets";
 import { Shortcuts } from "./Shortcuts";
 import { BarSlotEditor } from "./BarSlotEditor";
 import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
+import { ColorPicker, FontPicker } from "./pickers";
 import "./settings.css";
 
 /** Reads a dotted path out of the config. */
@@ -326,6 +327,27 @@ function Control({
   override: (typeof OVERRIDES)[string] | undefined;
   onSet: (path: string, value: unknown) => void;
 }) {
+  // A colour or a font is picked rather than typed: the schema only knows
+  // either is a string.
+  if (override?.color) {
+    return (
+      <ColorPicker
+        value={typeof value === "string" ? value : ""}
+        swatches={override.color}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+  if (override?.font) {
+    return (
+      <FontPicker
+        value={typeof value === "string" ? value : ""}
+        kind={override.font}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+
   // A curated choice wins over the generated kind: the schema knows a bar
   // style is a string, not that it is one of four.
   if (override?.choices) {
