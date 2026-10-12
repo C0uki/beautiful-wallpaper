@@ -24,43 +24,31 @@ export function WeatherWidget() {
     <Card style={{ minWidth: 300 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-title)",
-                fontSize: "2.5em",
-                fontWeight: 500,
-                lineHeight: 1,
-              }}
-            >
-              {Math.round(weather.temperature)}°
-            </span>
-            <span style={{ color: "var(--on-surface-variant)" }}>
-              {weather.description}
-            </span>
-          </div>
+          <div style={{ fontWeight: 600 }}>{weather.city}</div>
           <div
             style={{
-              marginTop: 4,
-              color: "var(--on-surface-variant)",
-              fontSize: "0.9em",
+              fontFamily: "var(--font-title)",
+              fontSize: "2.6em",
+              fontWeight: 300,
+              lineHeight: 1.1,
             }}
           >
-            {weather.city}
+            {Math.round(weather.temperature)}°
           </div>
         </div>
         <div
           style={{
-            display: "grid",
-            placeItems: "center",
-            width: 46,
-            height: 46,
-            borderRadius: 14,
-            background: "var(--primary)",
-            color: "var(--primary-on)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 4,
+            fontSize: "0.9em",
           }}
         >
-          <Symbol name={weather.icon} size={24} filled />
+          <Symbol name={weather.icon} size={26} />
+          <span style={{ color: "var(--on-surface-variant)" }}>
+            {weather.description}
+          </span>
         </div>
       </div>
 
@@ -68,7 +56,7 @@ export function WeatherWidget() {
         style={{
           display: "flex",
           gap: 16,
-          marginTop: 14,
+          marginTop: 12,
           color: "var(--on-surface-variant)",
           fontSize: "0.86em",
         }}
@@ -236,7 +224,7 @@ export function MediaWidget() {
             width: 74,
             height: 74,
             flexShrink: 0,
-            borderRadius: 14,
+            borderRadius: 10,
             overflow: "hidden",
             background: "var(--layer3)",
             display: "grid",
@@ -296,7 +284,6 @@ export function MediaWidget() {
             <IconButton
               icon={media.playing ? "pause" : "play_arrow"}
               size={38}
-              active
               label={media.playing ? tr("Pause") : tr("Play")}
               onClick={() => void actions.mediaCommand("playPause")}
             />
@@ -367,13 +354,11 @@ export function CalendarWidget() {
     <Card style={{ minWidth: 264 }}>
       <div
         style={{
-          display: "inline-block",
-          padding: "4px 12px",
-          borderRadius: 999,
-          background: "var(--primary)",
-          color: "var(--primary-on)",
-          fontWeight: 600,
-          marginBottom: 10,
+          color: "var(--error)",
+          fontSize: "0.78em",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          marginBottom: 8,
         }}
       >
         {today.toLocaleDateString(undefined, {
@@ -414,8 +399,9 @@ export function CalendarWidget() {
                 borderRadius: 999,
                 fontSize: "0.86em",
                 fontVariantNumeric: "tabular-nums",
-                background: isToday ? "var(--primary)" : "transparent",
-                color: isToday ? "var(--primary-on)" : "var(--on-surface)",
+                fontWeight: isToday ? 600 : undefined,
+                background: isToday ? "var(--error)" : "transparent",
+                color: isToday ? "var(--error-on)" : "var(--on-surface)",
               }}
             >
               {day ?? ""}
@@ -439,13 +425,13 @@ export function UserCardWidget() {
             width: 44,
             height: 44,
             borderRadius: "50%",
-            background: "var(--primary)",
-            color: "var(--primary-on)",
+            background: "var(--layer3)",
+            color: "var(--on-surface-variant)",
             display: "grid",
             placeItems: "center",
           }}
         >
-          <Symbol name="person" size={24} filled />
+          <Symbol name="person" size={24} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-title)", fontWeight: 500 }}>

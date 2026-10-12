@@ -1,11 +1,12 @@
 // The desktop clock.
 //
-// end4-pC ships several styles; the two ported here are the ones the screenshots
-// lead with: a large "cookie" analogue face with a scalloped edge, and a plain
-// digital readout.
+// Two styles: a Mac's clock widget — a round face with the twelve hours, dark
+// hands and an orange second hand — and a plain digital readout.
 
 import { useEffect, useState } from "react";
-import { tr } from "../../../i18n";
+
+/** The orange of a Mac's clock widget's second hand, in either appearance. */
+const SECOND_HAND = "#ff9500";
 
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
@@ -26,21 +27,7 @@ function useNow(): Date {
   return now;
 }
 
-/** A scalloped disc, the shape Material calls a "cookie". */
-function cookiePath(radius: number, lobes = 12, depth = 0.055): string {
-  const points: string[] = [];
-  const steps = lobes * 12;
-  for (let index = 0; index <= steps; index += 1) {
-    const angle = (index / steps) * Math.PI * 2;
-    const wobble = 1 + depth * Math.cos(angle * lobes);
-    const x = Math.cos(angle) * radius * wobble;
-    const y = Math.sin(angle) * radius * wobble;
-    points.push(`${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-  return `${points.join("")}Z`;
-}
-
-export function ClockWidget({ style = "cookie" }: { style?: string }) {
+export function ClockWidget({ style = "default" }: { style?: string }) {
   const now = useNow();
 
   if (style === "digital") {
@@ -77,8 +64,8 @@ export function ClockWidget({ style = "cookie" }: { style?: string }) {
     );
   }
 
-  const size = 200;
-  const radius = size / 2 - 12;
+  const size = 180;
+  const radius = size / 2 - 8;
   const seconds = now.getSeconds();
   const minutes = now.getMinutes() + seconds / 60;
   const hours = (now.getHours() % 12) + minutes / 60;
@@ -104,74 +91,40 @@ export function ClockWidget({ style = "cookie" }: { style?: string }) {
   };
 
   return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}
-      >
-        <path d={cookiePath(radius)} fill="var(--primary)" />
-        {[12, 3, 6, 9].map((hour, index) => {
-          const angle = (index / 4) * Math.PI * 2 - Math.PI / 2;
-          return (
-            <text
-              key={hour}
-              x={Math.cos(angle) * radius * 0.66}
-              y={Math.sin(angle) * radius * 0.66}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontFamily="var(--font-title)"
-              fontSize={radius * 0.42}
-              fontWeight={500}
-              fill="var(--primary-on)"
-              opacity={0.3}
-            >
-              {hour}
-            </text>
-          );
-        })}
-        {hand(hours / 12, radius * 0.46, 9, "var(--primary-on)")}
-        {hand(minutes / 60, radius * 0.74, 6, "var(--primary)")}
-        <circle r={5.5} fill="var(--primary)" />
-      </svg>
-
-      <div
-        style={{
-          position: "absolute",
-          top: -6,
-          left: -6,
-          minWidth: 46,
-          padding: "6px 10px",
-          borderRadius: 999,
-          background: "var(--tertiary)",
-          color: "var(--tertiary-on)",
-          fontFamily: "var(--font-title)",
-          fontSize: "1.25em",
-          fontWeight: 600,
-          textAlign: "center",
-        }}
-      >
-        {now.getDate()}
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          right: -18,
-          top: "56%",
-          minWidth: 44,
-          padding: "5px 9px",
-          borderRadius: 999,
-          background: "var(--layer3)",
-          color: "var(--on-surface-variant)",
-          fontVariantNumeric: "tabular-nums",
-          fontSize: "0.95em",
-          textAlign: "center",
-        }}
-        title={tr("Mo")}
-      >
-        {seconds.toString().padStart(2, "0")}
-      </div>
-    </div>
+    <svg
+      width={size}
+      height={size}
+      viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}
+      style={{ filter: "drop-shadow(0 6px 18px var(--shadow))" }}
+    >
+      <circle
+        r={radius}
+        fill="var(--layer1)"
+        stroke="var(--outline-variant)"
+        strokeWidth={0.5}
+      />
+      {Array.from({ length: 12 }, (_, index) => {
+        const angle = ((index + 1) / 12) * Math.PI * 2 - Math.PI / 2;
+        return (
+          <text
+            key={index}
+            x={Math.cos(angle) * radius * 0.78}
+            y={Math.sin(angle) * radius * 0.78}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily="var(--font-title)"
+            fontSize={radius * 0.2}
+            fontWeight={500}
+            fill="var(--on-surface)"
+          >
+            {index + 1}
+          </text>
+        );
+      })}
+      {hand(hours / 12, radius * 0.5, 6, "var(--on-surface)")}
+      {hand(minutes / 60, radius * 0.72, 4, "var(--on-surface)")}
+      {hand(seconds / 60, radius * 0.82, 1.5, SECOND_HAND)}
+      <circle r={4} fill={SECOND_HAND} />
+    </svg>
   );
 }

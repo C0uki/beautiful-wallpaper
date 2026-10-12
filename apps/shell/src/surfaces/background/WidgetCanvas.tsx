@@ -22,6 +22,7 @@ import type { WidgetPlacement } from "@bw/core";
 import { actions } from "../../shell/store";
 import { Symbol } from "../../widgets";
 import { busyness, calmestSpot, type Box } from "./calm";
+import "./desktopWidgets.css";
 
 export interface CanvasItem {
   id: string;
@@ -287,6 +288,7 @@ export function WidgetCanvas({
   return (
     <div
       ref={rootRef}
+      className="bw-desktop-widgets"
       style={{
         position: "absolute",
         inset: 0,
@@ -331,7 +333,7 @@ export function WidgetCanvas({
                   style={{
                     position: "absolute",
                     inset: -6,
-                    borderRadius: 22,
+                    borderRadius: 28,
                     border: "2px dashed var(--primary)",
                     pointerEvents: "none",
                   }}
