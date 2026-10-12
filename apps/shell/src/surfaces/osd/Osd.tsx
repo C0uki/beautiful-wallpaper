@@ -57,7 +57,7 @@ export function Osd() {
   return (
     <div className="bw-osd" data-muted={muted}>
       <div className="bw-osd-icon">
-        <Symbol name={icon} size={22} filled />
+        <Symbol name={icon} size={20} />
       </div>
       <div className="bw-osd-track">
         <div className="bw-osd-fill" style={{ width: `${percent}%` }} />
