@@ -176,11 +176,14 @@ function Tile({
         display: "block",
         width: "100%",
         textAlign: "left",
-        borderRadius: 18,
+        // A Mac's picture well: small corners, and the chosen one ringed in
+        // the accent just outside its edge.
+        borderRadius: "var(--rounding-normal)",
         overflow: "hidden",
-        background: "var(--layer3)",
+        background: "var(--layer2)",
+        boxShadow: "inset 0 0 0 0.5px var(--outline-variant)",
         outline: selected ? "3px solid var(--primary)" : "none",
-        outlineOffset: -3,
+        outlineOffset: 2,
         transition: "transform var(--duration-fast) var(--ease-spatial-fast)",
       }}
     >
@@ -439,7 +442,7 @@ export function WallpaperSelector() {
         width: "100%",
         height: "100%",
         padding: 16,
-        borderRadius: 26,
+        borderRadius: "var(--rounding-verylarge)",
       }}
     >
       <header
@@ -533,8 +536,8 @@ export function WallpaperSelector() {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "10px 12px",
-            borderRadius: 14,
+            padding: "8px 12px",
+            borderRadius: "var(--rounding-small)",
             background: "var(--error)",
             color: "var(--error-on)",
             fontSize: "0.88em",
