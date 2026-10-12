@@ -187,7 +187,7 @@ export function Session() {
                   {endsTheSession(action) ? (
                     <HoldButton
                       className={className}
-                      icon={<Symbol name={symbol(action)} size={34} />}
+                      icon={<Symbol name={symbol(action)} size={30} />}
                       fillDirection="up"
                       holdTime={1200}
                       radius={16}
@@ -206,7 +206,7 @@ export function Session() {
                       className={className}
                       onClick={() => void take(action)}
                     >
-                      <Symbol name={symbol(action)} size={34} />
+                      <Symbol name={symbol(action)} size={30} />
                       <span>{label(action)}</span>
                     </button>
                   )}

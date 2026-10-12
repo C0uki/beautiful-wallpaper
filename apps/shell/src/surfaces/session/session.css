@@ -1,8 +1,8 @@
-/* The session screen.
- *
- * A row of large targets over a scrim. Large because these are the buttons
- * nobody wants to press by accident, and a row because the order they are in
- * is fixed and meaningful — least drastic on the left. */
+/* The session screen, drawn as a Mac's alert: one translucent panel over a
+ * dimmed screen, holding a row of large targets. Large because these are the
+ * buttons nobody wants to press by accident, and a row because the order
+ * they are in is fixed and meaningful — least drastic on the left. The one
+ * the keyboard is on wears the accent focus ring. */
 
 .bw-session {
   position: fixed;
@@ -20,11 +20,13 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  padding: 28px 32px;
-  border-radius: var(--rounding-verylarge);
-  background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 12px 48px var(--shadow);
+  padding: 24px 28px 18px;
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
+  background: color-mix(in srgb, var(--layer0) 88%, transparent);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 20px 60px var(--shadow);
   max-width: 92vw;
 }
 
@@ -43,20 +45,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 116px;
-  height: 116px;
+  gap: 8px;
+  width: 100px;
+  height: 100px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--rounding-large);
+  border: none;
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer1);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
   color: var(--on-surface);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
   transition:
-    background var(--duration-normal) var(--ease-effects-default),
-    border-color var(--duration-normal) var(--ease-effects-default);
+    background var(--duration-fast) var(--ease-effects-default),
+    box-shadow var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-session-action:hover {
@@ -67,13 +70,16 @@
    so hover and the arrow keys can never disagree about what Enter would do. */
 .bw-session-action.focused {
   background: var(--layer1-hover);
-  border-color: var(--primary);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    var(--bw-focus-ring);
 }
 
 /* The three that close every open program are marked as such. Not hidden, not
-   confirmed twice — just visibly not the same kind of thing as "lock". */
+   confirmed twice — just visibly not the same kind of thing as "lock": their
+   glyph is red, as a Mac marks a destructive action. */
 .bw-session-action.ends .symbol {
-  color: var(--primary);
+  color: var(--error);
 }
 
 .bw-session-problem {
@@ -82,20 +88,20 @@
   font-size: 13px;
   line-height: 1.5;
   text-align: center;
-  color: var(--primary);
+  color: var(--error);
 }
 
 .bw-session-hint {
   margin: 0;
-  font-size: 12px;
-  color: var(--outline);
+  font-size: 11px;
+  color: var(--on-surface-variant);
 }
 
 /* The three held ones are React Bits' Hold Button in the same square, with
    the icon over the label like the rest. */
 .bw-session-action.hold-button {
-  width: 116px;
-  height: 116px;
+  width: 100px;
+  height: 100px;
   padding: 0;
   font-size: 13px;
 }
