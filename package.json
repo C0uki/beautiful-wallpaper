@@ -15,7 +15,7 @@
     "screenshots": "pnpm --filter @bw/shell screenshots",
     "gen:types": "TS_RS_EXPORT_DIR=$PWD/packages/core/src/generated cargo test -p bw-core --quiet && cargo run -q -p bw-core --example emit_defaults -- packages/core/src/generated && pnpm exec prettier --write --log-level warn packages/core/src/generated",
     "gen:docs": "cargo run -q -p bw-core --example config_reference -- docs/config.md && pnpm exec prettier --write --log-level warn docs/config.md",
-    "gen:icons": "python3 apps/shell/scripts/gen_icons.py"
+    "gen:icons": "node apps/shell/scripts/gen_icons.mjs && pnpm exec prettier --write --log-level warn apps/shell/src/widgets/icons.gen.ts"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
