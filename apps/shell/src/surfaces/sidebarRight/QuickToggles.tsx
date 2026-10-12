@@ -5,7 +5,7 @@
 // a dialog. The grid also has an edit mode for enabling, disabling, resizing
 // and reordering tiles, which is what most of the code below is about.
 
-import { Symbol, useRipple } from "../../widgets";
+import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import {
@@ -207,8 +207,6 @@ function Tile({
   canMoveDown: boolean;
   onDetail?: (() => void) | undefined;
 }) {
-  const ripple = useRipple();
-
   return (
     <div
       className="bw-toggle-tile"
@@ -222,7 +220,6 @@ function Tile({
         className="bw-toggle-tile-main"
         aria-pressed={editing ? undefined : on}
         aria-label={toggle.label()}
-        onPointerDown={ripple.spawn}
         onClick={onActivate}
       >
         <Symbol
@@ -236,7 +233,6 @@ function Tile({
             <span className="bw-toggle-tile-detail">{detailText}</span>
           ) : null}
         </span>
-        {ripple.layer}
       </button>
 
       {editing ? (
