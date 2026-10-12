@@ -24,6 +24,7 @@ import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
 import { Button, IconButton, Switch, Symbol } from "../../widgets";
 import { availableLocales, tr } from "../../i18n";
+import { OVERRIDES } from "../settings/overrides";
 import { resumeAt, STEPS } from "./steps";
 import "./wizard.css";
 
@@ -35,7 +36,8 @@ const PLACES = [
   { id: "right", icon: "arrow_forward", bottom: true, vertical: true },
 ] as const;
 
-const STYLES = ["m3", "hug", "float", "islands"] as const;
+/** The bar's styles, named as the settings name them: `m3` is the menu bar. */
+const STYLES = OVERRIDES["bar.style"]!.choices!;
 
 export function Wizard() {
   const ready = useShell((state) => state.ready);
@@ -305,12 +307,14 @@ export function Wizard() {
                   <div className="bw-wizard-choices">
                     {STYLES.map((style) => (
                       <button
-                        key={style}
+                        key={style.value}
                         type="button"
-                        className={config.bar.style === style ? "selected" : ""}
-                        onClick={() => void set("bar.style", style)}
+                        className={
+                          config.bar.style === style.value ? "selected" : ""
+                        }
+                        onClick={() => void set("bar.style", style.value)}
                       >
-                        <span>{style}</span>
+                        <span>{style.label()}</span>
                       </button>
                     ))}
                   </div>
