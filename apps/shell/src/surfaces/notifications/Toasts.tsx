@@ -87,19 +87,23 @@ function Toast({
     <SwipeToast
       inline
       closeButton
-      width={360}
+      // A Mac's banner: no fuse running down along the edge, the app's
+      // tile on the left — red for a critical one, rather than the whole
+      // banner — and the close button only under the pointer.
+      width={344}
       radius={16}
-      background={critical ? "var(--error)" : "var(--layer1)"}
-      color={critical ? "var(--error-on)" : "var(--on-surface)"}
-      fuseColor={critical ? "var(--error)" : "var(--primary)"}
+      fuse="none"
+      background="var(--layer1)"
+      color="var(--on-surface)"
       // A critical one waits to be dismissed.
       duration={critical ? 0 : Math.max(0, life)}
       icon={
-        <Symbol
-          name={notification.image ? "image" : "notifications"}
-          size={20}
-          filled
-        />
+        <span className="bw-toast-icon" data-critical={critical}>
+          <Symbol
+            name={notification.image ? "image" : "notifications"}
+            size={18}
+          />
+        </span>
       }
       title={notification.summary}
       description={
