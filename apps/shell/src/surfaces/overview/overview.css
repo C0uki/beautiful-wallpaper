@@ -1,7 +1,9 @@
-/* The search overlay.
+/* The search overlay, drawn as Spotlight.
  *
- * Its window covers the screen, so the scrim is the page rather than a layer
- * over one, and everything else is a single panel floating on it. */
+ * Its window covers the screen, but as with Spotlight nothing dims behind
+ * it: a single translucent panel floats over whatever was there, a large
+ * search field on top and the results under it, the chosen one in the
+ * accent with white text. */
 
 .bw-overview {
   position: fixed;
@@ -11,8 +13,8 @@
   /* Not centred: a list that grows downwards from a fixed point is steadier to
      read than one that pushes the search box up the screen as it fills. */
   align-items: flex-start;
-  padding-top: 14vh;
-  background: var(--scrim);
+  padding-top: 18vh;
+  background: transparent;
   color: var(--on-surface);
 }
 
@@ -20,21 +22,23 @@
   display: flex;
   flex-direction: column;
   width: min(680px, 82vw);
-  max-height: 66vh;
-  border-radius: var(--rounding-large);
-  background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 12px 48px var(--shadow);
+  max-height: 62vh;
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
+  background: color-mix(in srgb, var(--layer0) 88%, transparent);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 20px 60px var(--shadow);
   overflow: hidden;
 }
 
 .bw-overview-field {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--layer0-border);
-  color: var(--outline);
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--outline-variant);
+  color: var(--on-surface-variant);
   /* The row is the only thing at this size in the shell, and it must not
      shrink when the list below it fills. */
   flex: none;
@@ -48,12 +52,17 @@
   background: transparent;
   color: var(--on-surface);
   font-family: inherit;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 300;
   line-height: 1.4;
 }
 
+.bw-overview-field input:focus-visible {
+  box-shadow: none;
+}
+
 .bw-overview-field input::placeholder {
-  color: var(--outline);
+  color: var(--on-surface-variant);
 }
 
 .bw-overview-results {
@@ -70,9 +79,9 @@
 .bw-overview-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: var(--rounding-normal);
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--rounding-verysmall);
   cursor: pointer;
 }
 
@@ -80,20 +89,29 @@
    painting a second one, so the pointer and the arrow keys can never disagree
    about which row Enter would take. */
 .bw-overview-row.selected {
-  background: var(--layer1-hover);
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+/* On the accent everything in the row is the accent's own text colour. */
+.bw-overview-row.selected .bw-overview-glyph,
+.bw-overview-row.selected .bw-overview-subtitle,
+.bw-overview-row.selected .bw-overview-enter,
+.bw-overview-row.selected .bw-overview-title mark {
+  color: inherit;
 }
 
 .bw-overview-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   flex: none;
   object-fit: contain;
 }
 
 .bw-overview-glyph {
-  width: 28px;
+  width: 26px;
   flex: none;
-  color: var(--outline);
+  color: var(--on-surface-variant);
 }
 
 .bw-overview-text {
@@ -113,7 +131,7 @@
 }
 
 .bw-overview-title {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 /* An answer is the thing that was asked for, not one candidate among several,
@@ -131,12 +149,12 @@
 
 .bw-overview-subtitle {
   font-size: 12px;
-  color: var(--outline);
+  color: var(--on-surface-variant);
 }
 
 .bw-overview-enter {
   flex: none;
-  color: var(--outline);
+  color: var(--on-surface-variant);
 }
 
 .bw-overview-empty,
@@ -145,11 +163,11 @@
   padding: 18px 20px;
   font-size: 13px;
   text-align: center;
-  color: var(--outline);
+  color: var(--on-surface-variant);
 }
 
 .bw-overview-failure {
   color: var(--primary);
   text-align: left;
-  border-bottom: 1px solid var(--layer0-border);
+  border-bottom: 0.5px solid var(--outline-variant);
 }
