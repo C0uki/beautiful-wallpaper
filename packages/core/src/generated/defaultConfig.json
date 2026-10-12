@@ -109,7 +109,7 @@
     "enable": true,
     "bottom": false,
     "vertical": false,
-    "height": 40,
+    "height": 30,
     "reserveSpace": true,
     "autoHide": false,
     "perMonitor": false,

@@ -55,7 +55,8 @@ export function HoverPopup({
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 30,
-            padding: "10px 12px",
+            padding: "8px 10px",
+            borderRadius: "var(--rounding-small)",
             fontSize: "0.85em",
             pointerEvents: "none",
             animation:

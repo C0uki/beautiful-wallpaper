@@ -154,7 +154,15 @@ export const OVERRIDES: Record<string, Override> = {
       { value: "1", label: () => tr("On") },
     ],
   },
-  "bar.style": { choices: plain(["m3", "hug", "float", "islands"]) },
+  // `m3` is what existing files say for the default, now a Mac's menu bar.
+  "bar.style": {
+    choices: named([
+      ["m3", "Menu bar"],
+      ["hug", "Opaque strip"],
+      ["float", "Floating"],
+      ["islands", "Islands"],
+    ]),
+  },
   "bar.left": { barSlot: true },
   "bar.center": { barSlot: true },
   "bar.right": { barSlot: true },

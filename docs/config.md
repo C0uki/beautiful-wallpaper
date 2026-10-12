@@ -278,7 +278,7 @@ The strip along one edge of the screen: where it sits, how it looks, and what it
 | `bar.enable`            | true / false | `true`                                                                          |
 | `bar.bottom`            | true / false | `false`                                                                         |
 | `bar.vertical`          | true / false | `false`                                                                         |
-| `bar.height`            | whole number | `40`                                                                            |
+| `bar.height`            | whole number | `30`                                                                            |
 | `bar.reserveSpace`      | true / false | `true`                                                                          |
 | `bar.autoHide`          | true / false | `false`                                                                         |
 | `bar.perMonitor`        | true / false | `false`                                                                         |
@@ -292,6 +292,7 @@ The strip along one edge of the screen: where it sits, how it looks, and what it
 | `bar.frameColor`        | text         | `"black"`                                                                       |
 
 - **`bar.bottom`** — Anchor the bar to the bottom edge instead of the top.
+- **`bar.height`** — A Mac's menu bar is 24 points; 30 leaves room for a pointer.
 - **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
 - **`bar.autoHide`** — Slide off the screen edge until the pointer reaches it.
 - **`bar.perMonitor`** — Put a bar on every monitor rather than only the primary one. Each gets its own window along the same edge of its own screen, and reserves that edge on that monitor. The bars draw the same thing: nothing in `left`/`center`/`right` is per-monitor yet.

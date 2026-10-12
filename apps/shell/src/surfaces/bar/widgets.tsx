@@ -37,6 +37,8 @@ export function ClockWidget() {
     }
   }, [format, now]);
 
+  // The date beside the time, as a Mac's menu bar has it: "Mon 12 Oct",
+  // "10月12日(月)" — and the whole date, year and all, on hover.
   const date = useMemo(
     () =>
       now.toLocaleDateString(undefined, {
@@ -46,20 +48,25 @@ export function ClockWidget() {
       }),
     [now],
   );
+  const full = useMemo(
+    () => now.toLocaleDateString(undefined, { dateStyle: "full" }),
+    [now],
+  );
 
   return (
-    <HoverPopup content={<div style={{ whiteSpace: "nowrap" }}>{date}</div>}>
+    <HoverPopup content={<div style={{ whiteSpace: "nowrap" }}>{full}</div>}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
-          padding: "0 10px",
+          padding: "0 8px",
           fontVariantNumeric: "tabular-nums",
-          fontWeight: 600,
+          whiteSpace: "nowrap",
         }}
       >
-        {time}
+        <span>{date}</span>
+        <span>{time}</span>
       </div>
     </HoverPopup>
   );
@@ -325,7 +332,7 @@ export function MediaWidget() {
     >
       <IconButton
         icon={media.playing ? "pause" : "play_arrow"}
-        size={28}
+        size={24}
         label={media.playing ? tr("Pause") : tr("Play")}
         onClick={() => void actions.mediaCommand("playPause")}
       />
@@ -343,7 +350,7 @@ export function MediaWidget() {
       </span>
       <IconButton
         icon="skip_next"
-        size={28}
+        size={24}
         label={tr("Next track")}
         onClick={() => void actions.mediaCommand("next")}
       />
@@ -409,20 +416,20 @@ export function UtilButtonsWidget() {
     >
       <IconButton
         icon="photo_library"
-        size={30}
+        size={26}
         label={tr("Wallpapers")}
         active={states.wallpaperSelectorOpen}
         onClick={() => void actions.toggleState("wallpaperSelectorOpen")}
       />
       <IconButton
         icon="shuffle"
-        size={30}
+        size={26}
         label={tr("Random")}
         onClick={() => void actions.randomWallpaper()}
       />
       <IconButton
         icon="settings"
-        size={30}
+        size={26}
         label={tr("Settings")}
         active={states.settingsOpen}
         onClick={() => void actions.toggleState("settingsOpen")}
@@ -439,7 +446,7 @@ export function SidebarLeftWidget() {
   return (
     <IconButton
       icon="left_panel_open"
-      size={30}
+      size={26}
       label={tr("Sidebar left")}
       active={open}
       onClick={() => void actions.toggleState("sidebarLeftOpen")}
@@ -452,7 +459,7 @@ export function SidebarRightWidget() {
   return (
     <IconButton
       icon="right_panel_open"
-      size={30}
+      size={26}
       label={tr("Sidebar right")}
       active={open}
       onClick={() => void actions.toggleState("sidebarRightOpen")}
