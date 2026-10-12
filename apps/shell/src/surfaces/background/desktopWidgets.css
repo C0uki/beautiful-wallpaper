@@ -1,0 +1,10 @@
+/* The desktop's widgets, drawn as a Mac's: rounder than a panel's cards —
+   22 points, as macOS draws them — and floating a little higher off the
+   wallpaper. */
+
+.bw-desktop-widgets .bw-card {
+  border-radius: calc(22px * var(--rounding-scale, 1));
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 6px 24px var(--shadow);
+}
