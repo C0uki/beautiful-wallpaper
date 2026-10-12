@@ -17,12 +17,9 @@ import { actions, useShell } from "../../../shell/store";
 import type { WifiNetwork } from "@bw/core";
 
 /**
- * Signal strength, as one of the three wifi glyphs that survive subsetting.
- *
- * Material Symbols does have a per-bar set, but every one of those names
- * contains `_digit_` — they are aliases whose output glyph the subsetter
- * prunes, so they render as the literal word. Three states carry the meaning;
- * the exact bar count goes in the row's text, where it cannot be misread.
+ * Signal strength, as one of three wifi icons: strong, weak and none. Three
+ * states carry the meaning; the exact bar count goes in the row's text, where
+ * it cannot be misread.
  */
 export function signalIcon(bars: number): string {
   if (bars >= 3) return "wifi";

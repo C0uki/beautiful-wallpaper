@@ -189,11 +189,12 @@ That last one is the important one: it type-checks every Win32 and WinRT call
 without needing a Windows machine or a cross compiler. `cargo check` for the
 Windows target works from Linux and macOS too — only linking needs Windows.
 
-The bundled icon font is a subset of Material Symbols covering only the icons
-the shell draws, listed in `apps/shell/scripts/icons.json`. A name outside that
-list renders as the literal word rather than a glyph, so adding an icon to the
-UI means adding it there and running `pnpm gen:icons` (which needs `fonttools`
-and `brotli`).
+The icons are [Lucide](https://lucide.dev)'s, drawn as inline SVG.
+`apps/shell/scripts/icons.json` maps each name the code uses to a Lucide icon,
+and `pnpm gen:icons` fetches them at the pinned version into
+`apps/shell/src/widgets/icons.gen.ts`. Adding an icon to the UI means adding its
+name there and running that; a test fails on any name the code uses that the
+map does not have.
 
 The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup installs the
 same compiler CI uses, along with clippy, rustfmt and the Windows target. That

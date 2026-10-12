@@ -3,6 +3,7 @@ import { displayToPosition, positionToDisplay } from "./QuickSliders";
 import { daysInMonth, leadingBlanks } from "./Calendar";
 import { formatDuration } from "./Timer";
 import { signalIcon } from "./dialogs/WifiDialog";
+import { ICONS } from "../../widgets/icons.gen";
 
 describe("the brightness slider's split travel", () => {
   it("puts real brightness above the tint band and nothing below it", () => {
@@ -85,11 +86,9 @@ describe("the Wi-Fi signal icon", () => {
     expect(signalIcon(1)).not.toBe(signalIcon(4));
   });
 
-  it("uses no name the font subset drops", () => {
-    // Every Material Symbols name containing `_digit_` is an alias whose
-    // output glyph the subsetter prunes, so it renders as the literal word.
+  it("draws every strength with an icon the map has", () => {
     for (const bars of [0, 1, 2, 3, 4]) {
-      expect(signalIcon(bars)).not.toContain("_digit_");
+      expect(ICONS[signalIcon(bars)], String(bars)).toBeTruthy();
     }
   });
 
