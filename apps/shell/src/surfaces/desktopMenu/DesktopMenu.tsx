@@ -222,7 +222,7 @@ export function DesktopMenu() {
                 onMouseEnter={() => setFocused(index)}
                 onClick={() => void pick(item)}
               >
-                <Symbol name={symbol(item)} size={20} />
+                <Symbol name={symbol(item)} size={16} />
                 <span>{label(item)}</span>
               </button>
             </li>
