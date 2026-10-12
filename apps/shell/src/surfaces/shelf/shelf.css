@@ -10,19 +10,22 @@
   height: 100%;
   padding: 10px;
   gap: 8px;
-  border-radius: var(--rounding-large);
-  background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 10px 40px var(--shadow);
+  border-radius: var(--rounding-verylarge);
+  background: color-mix(in srgb, var(--layer0) 88%, transparent);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 10px 40px var(--shadow);
   color: var(--on-surface);
   overflow: hidden;
 }
 
-/* Something is being dragged over. Said with the border rather than a colour
-   wash, so the names stay readable while it is being aimed at. */
+/* Something is being dragged over. Said with an accent ring rather than a
+   colour wash, so the names stay readable while it is being aimed at. */
 .bw-shelf.hovering {
-  border-color: var(--primary);
   background: var(--layer1);
+  box-shadow:
+    inset 0 0 0 2px var(--primary),
+    0 10px 40px var(--shadow);
 }
 
 .bw-shelf-head {
@@ -63,9 +66,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 8px;
-  border-radius: var(--rounding-small);
-  border: 1px solid transparent;
+  padding: 5px 8px;
+  border-radius: var(--rounding-verysmall);
   cursor: grab;
   /* Nothing here is text to select: a drag on a row is a drag of the file. */
   user-select: none;
@@ -73,12 +75,18 @@
 }
 
 .bw-shelf-item:hover {
-  background: var(--layer1-hover);
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
 }
 
+/* Selected as a Mac's file list selects: the accent, with white text. */
 .bw-shelf-item.selected {
-  background: var(--layer1-active);
-  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.bw-shelf-item.selected .bw-shelf-glyph,
+.bw-shelf-item.selected .bw-shelf-detail {
+  color: inherit;
 }
 
 /* The file is not where the shelf left it. Dimmed and named, rather than
@@ -90,7 +98,7 @@
 
 .bw-shelf-item.missing .bw-shelf-glyph,
 .bw-shelf-item.missing .bw-shelf-detail {
-  color: var(--primary);
+  color: var(--error);
 }
 
 .bw-shelf-glyph {
@@ -160,5 +168,5 @@
   margin: 0 6px;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--primary);
+  color: var(--error);
 }
