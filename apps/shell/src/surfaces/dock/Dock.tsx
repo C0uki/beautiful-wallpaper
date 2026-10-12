@@ -38,7 +38,7 @@ function carriesFiles(event: DragEvent): boolean {
   return event.dataTransfer.types.includes("Files");
 }
 
-/** One application: an icon, plus a dot per open window. */
+/** One application: an icon, and a dot under it while it is running. */
 function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
   const size = useShell((state) => state.config.dock.iconSize);
   const [flashed, setFlashed] = useState(false);
@@ -124,13 +124,7 @@ function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
         <Symbol name="apps" size={Math.round(size * 0.55)} />
       )}
 
-      {running ? (
-        <span
-          className="bw-dock-dot"
-          data-many={app.windows.length > 1}
-          aria-hidden="true"
-        />
-      ) : null}
+      {running ? <span className="bw-dock-dot" aria-hidden="true" /> : null}
     </button>
   );
 }
