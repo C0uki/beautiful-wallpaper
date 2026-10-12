@@ -1,9 +1,31 @@
-/* The Material 3 widget kit.
+/* The shared controls, drawn as macOS draws them.
  *
- * Ported from end4-pC's modules/common/widgets. Everything binds to the CSS
- * variables the theme provider sets, so a wallpaper change restyles the whole
- * kit without a re-render.
+ * Everything binds to the CSS variables the theme provider sets, so an
+ * accent or appearance change restyles the whole kit without a re-render.
+ * `--bw-raised` is what a Mac raises a control's face with — the white of a
+ * push button or a segmented control's thumb in light mode, a lighter grey
+ * in dark — and `light-dark()` picks it by the `color-scheme` the theme
+ * provider sets.
  */
+
+:root {
+  --bw-raised: light-dark(#ffffff, #636366);
+  /* A Mac's focus ring: a soft halo of the accent around the control. */
+  --bw-focus-ring: 0 0 0 3.5px
+    color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+:where(
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [tabindex]
+):focus-visible {
+  outline: none;
+  box-shadow: var(--bw-focus-ring);
+}
 
 /* --- Card ------------------------------------------------------------- */
 
@@ -14,7 +36,10 @@
   border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   padding: 16px;
   overflow: hidden;
-  box-shadow: 0 2px 10px var(--shadow);
+  /* A hairline edge and a soft shadow, as a Mac's popovers and widgets. */
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 2px 10px var(--shadow);
   transition:
     background var(--duration-normal) var(--ease-effects-default),
     box-shadow var(--duration-normal) var(--ease-effects-default);
@@ -31,45 +56,52 @@
 }
 
 .bw-card[data-elevation="0"] {
-  box-shadow: none;
+  box-shadow: 0 0 0 0.5px var(--outline-variant);
 }
 
 .bw-card[data-elevation="2"] {
-  box-shadow: 0 8px 28px var(--shadow);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 10px 30px var(--shadow);
 }
 
-/* --- Button ----------------------------------------------------------- */
+/* --- Button -----------------------------------------------------------
+ *
+ * A Mac's three: the default button filled with the accent, the push button
+ * with a raised face and a hairline edge, and the borderless one written in
+ * the accent. Pressing darkens rather than shrinks. */
 
 .bw-button {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 20px;
-  border-radius: calc(var(--rounding-full) * 1px);
-  font-weight: 600;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 14px;
+  border-radius: var(--rounding-verysmall);
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   transition:
     background var(--duration-fast) var(--ease-effects-default),
     color var(--duration-fast) var(--ease-effects-default),
-    transform var(--duration-fast) var(--ease-spatial-fast);
+    filter var(--duration-quick) var(--ease-effects-default);
 }
 
 .bw-button:active:not(:disabled) {
-  transform: scale(0.96);
+  filter: brightness(0.88);
 }
 
 .bw-button:disabled {
-  opacity: 0.38;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .bw-button[data-variant="filled"] {
   background: var(--primary);
   color: var(--primary-on);
+  box-shadow: 0 1px 1px var(--shadow);
 }
 
 .bw-button[data-variant="filled"]:hover:not(:disabled) {
@@ -77,18 +109,17 @@
 }
 
 .bw-button[data-variant="tonal"] {
-  background: var(--layer3);
+  background: var(--bw-raised);
   color: var(--on-surface);
-}
-
-.bw-button[data-variant="tonal"]:hover:not(:disabled) {
-  background: var(--layer3-hover);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 1px 1px var(--shadow);
 }
 
 .bw-button[data-variant="text"] {
   background: transparent;
   color: var(--primary);
-  padding: 0 12px;
+  padding: 0 8px;
 }
 
 .bw-button[data-variant="text"]:hover:not(:disabled) {
@@ -100,7 +131,10 @@
   color: var(--primary-on);
 }
 
-/* --- Icon button ------------------------------------------------------ */
+/* --- Icon button ------------------------------------------------------
+ *
+ * Borderless until the pointer is over it, as in a Mac's toolbar; on, it
+ * becomes the accent circle with a white glyph, as in Control Center. */
 
 .bw-icon-button {
   display: inline-flex;
@@ -111,7 +145,7 @@
   transition:
     background var(--duration-fast) var(--ease-effects-default),
     color var(--duration-fast) var(--ease-effects-default),
-    transform var(--duration-fast) var(--ease-spatial-fast);
+    filter var(--duration-quick) var(--ease-effects-default);
 }
 
 .bw-icon-button:hover:not(:disabled) {
@@ -120,7 +154,7 @@
 }
 
 .bw-icon-button:active:not(:disabled) {
-  transform: scale(0.9);
+  background: var(--layer2-active);
 }
 
 .bw-icon-button[data-active="true"] {
@@ -128,29 +162,13 @@
   color: var(--primary-on);
 }
 
+.bw-icon-button[data-active="true"]:active:not(:disabled) {
+  filter: brightness(0.88);
+}
+
 .bw-icon-button:disabled {
-  opacity: 0.38;
+  opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* --- Ripple ----------------------------------------------------------- */
-
-.bw-ripple {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  background: currentColor;
-  opacity: 0.22;
-  transform: scale(0);
-  animation: bw-ripple-expand var(--duration-slower) var(--ease-effects-default)
-    forwards;
-}
-
-@keyframes bw-ripple-expand {
-  to {
-    transform: scale(1);
-    opacity: 0;
-  }
 }
 
 /* --- Ring ------------------------------------------------------------- */
@@ -165,24 +183,32 @@
   transition: stroke-dashoffset var(--duration-slow) var(--ease-effects-default);
 }
 
-/* --- Text field ------------------------------------------------------- */
+/* --- Text field -------------------------------------------------------
+ *
+ * A Mac's search field: a rounded rectangle, a quiet fill, the magnifier
+ * inside, and the focus ring around it when typing. */
 
 .bw-field {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--layer3);
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--rounding-small);
+  background: var(--layer2);
   color: var(--on-surface);
-  transition: background var(--duration-fast) var(--ease-effects-default);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
+  transition: box-shadow var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-field > .symbol {
+  color: var(--on-surface-variant);
 }
 
 .bw-field:focus-within {
-  background: var(--layer3-active);
-  outline: 2px solid var(--primary);
-  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    var(--bw-focus-ring);
 }
 
 .bw-field input {
@@ -195,9 +221,12 @@
   cursor: text;
 }
 
+.bw-field input:focus-visible {
+  box-shadow: none;
+}
+
 .bw-field input::placeholder {
   color: var(--on-surface-variant);
-  opacity: 0.7;
 }
 
 /* A popup entering under its trigger. Lives here rather than in one surface's
@@ -212,9 +241,9 @@
 .bw-slider {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  color: var(--on-surface);
+  color: var(--on-surface-variant);
 }
 
 .bw-slider[data-disabled="true"] {
@@ -222,13 +251,58 @@
   pointer-events: none;
 }
 
+/* A Mac's slider: a 4px track, the accent up to the knob, and a round white
+   knob with a hairline edge and a small shadow. `--fill` is the value as a
+   percentage, set by Slider. */
+.bw-range {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+}
+
+.bw-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--primary) var(--fill, 0%),
+    var(--layer4) var(--fill, 0%)
+  );
+}
+
+.bw-range::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.25),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  appearance: none;
+}
+
+.bw-range:focus-visible {
+  box-shadow: none;
+}
+
+.bw-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.25),
+    var(--bw-focus-ring);
+}
+
 .bw-list-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: calc(var(--rounding-normal) * var(--rounding-scale, 1));
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: calc(var(--rounding-verysmall) * var(--rounding-scale, 1));
   color: var(--on-surface);
   overflow: hidden;
 }
@@ -276,13 +350,16 @@
   min-height: 0;
 }
 
-/* Tabs -------------------------------------------------------------------- */
+/* Tabs ----------------------------------------------------------------------
+ *
+ * A Mac's segmented control: a grey track, and the chosen tab on a raised
+ * face with a small shadow. */
 
 .bw-tabs {
   display: flex;
   gap: 2px;
-  padding: 4px;
-  border-radius: var(--rounding-full);
+  padding: 2px;
+  border-radius: var(--rounding-small);
   background: var(--layer2);
 }
 
@@ -292,39 +369,45 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 4px 10px;
   border: none;
-  border-radius: var(--rounding-full);
+  border-radius: calc(var(--rounding-small) - 2px);
   background: transparent;
-  color: var(--on-surface-variant);
+  color: var(--on-surface);
   font: inherit;
-  font-size: 0.86em;
+  font-size: 0.92em;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   transition:
     background var(--duration-fast) var(--ease-effects-default),
-    color var(--duration-fast) var(--ease-effects-default);
+    box-shadow var(--duration-fast) var(--ease-effects-default);
 }
 
-.bw-tab:hover {
+.bw-tab:hover:not([data-active="true"]) {
   background: var(--layer2-hover);
 }
 
 .bw-tab[data-active="true"] {
-  background: var(--layer3);
-  color: var(--on-surface);
+  background: var(--bw-raised);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 1px 2px var(--shadow);
 }
 
-/* Dialog ------------------------------------------------------------------ */
+/* Sheet ---------------------------------------------------------------------
+ *
+ * A Mac's sheet: it slides down from the top of its panel over a light
+ * dimming, with a large shadow, rather than appearing in the middle. */
 
 .bw-dialog-scrim {
   position: absolute;
   inset: 0;
   z-index: 10;
-  display: grid;
-  place-items: center;
-  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 12px 12px;
   /* The token already carries its own alpha; mixing it down again
      leaves it invisible against a dark panel. */
   background: var(--scrim);
@@ -337,25 +420,34 @@
   width: 100%;
   max-height: 100%;
   min-height: 0;
-  border-radius: var(--rounding-large);
+  border-radius: 0 0 var(--rounding-large) var(--rounding-large);
   background: var(--layer1);
   color: var(--on-surface);
-  box-shadow: 0 8px 32px var(--shadow);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 16px 40px var(--shadow);
   overflow: hidden;
+  animation: bw-sheet-in var(--duration-slow) var(--ease-spatial-default);
+}
+
+@keyframes bw-sheet-in {
+  from {
+    transform: translateY(-100%);
+  }
 }
 
 .bw-dialog-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 10px 10px 16px;
+  gap: 8px;
+  padding: 12px 8px 8px 14px;
 }
 
 .bw-dialog-header h2 {
   flex: 1;
   margin: 0;
-  font-size: 1.05em;
-  font-weight: 500;
+  font-size: 1em;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -425,8 +517,11 @@
   height: 56px;
 }
 
-/* The Wake Slider takes what is left beside the icon. */
-.bw-slider-wake {
-  flex: 1;
-  min-width: 0;
+/* The React Bits controls' faces, raised as a Mac's are: a hairline edge and
+   a small shadow on the switch's knob and the segmented control's thumb. */
+.squish-switch__thumb,
+.rubber-segment__thumb {
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.25);
 }

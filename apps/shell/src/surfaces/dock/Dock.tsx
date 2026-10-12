@@ -14,7 +14,7 @@
 // bottom edge belongs to the windows under it.
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { Symbol, useRipple } from "../../widgets";
+import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { backend } from "../../shell/backend";
 import { sendDroppedFiles } from "../../lib/dropped";
@@ -40,7 +40,6 @@ function carriesFiles(event: DragEvent): boolean {
 
 /** One application: an icon, plus a dot per open window. */
 function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
-  const ripple = useRipple();
   const size = useShell((state) => state.config.dock.iconSize);
   const [flashed, setFlashed] = useState(false);
   const [fileOver, setFileOver] = useState(false);
@@ -113,7 +112,6 @@ function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
           ? `${app.name} — ${app.windows.length}`
           : (app.windows[0]?.title ?? app.name)
       }
-      onPointerDown={ripple.spawn}
       onClick={() => void activate()}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -133,7 +131,6 @@ function DockIcon({ app, drag }: { app: DockApp; drag?: Drag }) {
           aria-hidden="true"
         />
       ) : null}
-      {ripple.layer}
     </button>
   );
 }
