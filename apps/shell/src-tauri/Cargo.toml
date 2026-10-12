@@ -1,6 +1,6 @@
 [package]
 name = "beautiful-wallpaper"
-description = "A Material 3 desktop shell for Windows"
+description = "A macOS-style desktop shell for Windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
