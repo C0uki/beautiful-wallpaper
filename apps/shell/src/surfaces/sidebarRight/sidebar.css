@@ -1,4 +1,7 @@
-/* The right sidebar: one column of cards on the shared panel. */
+/* The right sidebar, drawn as a Mac's Control Center: one column of
+   modules on the shared panel. A switch in it is a circle around its glyph,
+   grey when off and the accent with a white glyph when on; the module
+   around it never fills with the accent. */
 
 .bw-sidebar-scroll {
   display: flex;
@@ -12,7 +15,8 @@
 
 .bw-banner {
   position: relative;
-  border-radius: var(--rounding-normal);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
   background: var(--layer1);
   overflow: hidden;
   flex: none;
@@ -21,7 +25,9 @@
 .bw-banner-image {
   height: 120px;
   margin: 2px 2px 0;
-  border-radius: calc(var(--rounding-normal) - 2px);
+  border-radius: calc(
+    var(--rounding-verylarge) * var(--rounding-scale, 1) - 2px
+  );
   background-color: var(--layer2);
   background-size: cover;
   background-position: center;
@@ -36,7 +42,7 @@
 }
 
 .bw-banner-plain {
-  border-radius: var(--rounding-normal);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer1);
   flex: none;
 }
@@ -49,7 +55,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: var(--primary);
+  background: var(--layer3);
   color: var(--on-surface);
 }
 
@@ -116,15 +122,15 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  background: var(--layer2);
-  color: var(--on-surface-variant);
+  background: var(--layer3);
+  color: var(--on-surface);
   transition:
     background var(--duration-fast) var(--ease-effects-default),
     color var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-toggle-round:hover {
-  background: var(--layer2-hover);
+  background: var(--layer3-hover);
 }
 
 .bw-toggle-round[data-on="true"] {
@@ -143,21 +149,36 @@
   position: relative;
   display: flex;
   align-items: center;
-  border-radius: var(--rounding-normal);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer1);
-  color: var(--on-surface-variant);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
+  color: var(--on-surface);
   overflow: hidden;
   min-width: 0;
-  transition:
-    background var(--duration-normal) var(--ease-effects-default),
-    color var(--duration-normal) var(--ease-effects-default);
+  transition: background var(--duration-fast) var(--ease-effects-default);
+}
+
+.bw-toggle-tile:hover {
+  background: var(--layer1-hover);
 }
 
 .bw-toggle-tile[data-wide="true"] {
   grid-column: span 2;
 }
 
-.bw-toggle-tile[data-on="true"] {
+/* The glyph in its circle: grey off, the accent with a white glyph on. */
+.bw-toggle-tile-main > .symbol {
+  box-sizing: content-box;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--layer3);
+  color: var(--on-surface);
+  transition:
+    background var(--duration-normal) var(--ease-effects-default),
+    color var(--duration-normal) var(--ease-effects-default);
+}
+
+.bw-toggle-tile[data-on="true"] .bw-toggle-tile-main > .symbol {
   background: var(--primary);
   color: var(--primary-on);
 }
@@ -172,8 +193,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px;
   border: none;
   background: transparent;
   color: inherit;
@@ -191,6 +212,7 @@
 
 .bw-toggle-tile-label {
   font-size: 0.86em;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -198,7 +220,7 @@
 
 .bw-toggle-tile-detail {
   font-size: 0.74em;
-  opacity: 0.7;
+  color: var(--on-surface-variant);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -232,10 +254,32 @@
 
 /* Sliders ----------------------------------------------------------------- */
 
+/* Display and Sound, as Control Center's modules draw them: a tall rounded
+   track filled in white up to a white knob. */
 .bw-quick-sliders {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.bw-quick-sliders .bw-range {
+  height: 22px;
+}
+
+.bw-quick-sliders .bw-range::-webkit-slider-runnable-track {
+  height: 22px;
+  border-radius: 11px;
+  background: linear-gradient(
+    to right,
+    #ffffff var(--fill, 0%),
+    var(--layer3) var(--fill, 0%)
+  );
+}
+
+.bw-quick-sliders .bw-range::-webkit-slider-thumb {
+  width: 22px;
+  height: 22px;
+  margin-top: 0;
 }
 
 .bw-quick-slider {
@@ -268,10 +312,10 @@
 }
 
 .bw-media-art {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   flex: none;
-  border-radius: 12px;
+  border-radius: var(--rounding-small);
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -295,7 +339,7 @@
 
 .bw-media-title {
   font-size: 0.9em;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -303,7 +347,7 @@
 
 .bw-media-artist {
   font-size: 0.78em;
-  opacity: 0.7;
+  color: var(--on-surface-variant);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -381,13 +425,15 @@
   background: var(--layer2);
 }
 
+/* A notification as Notification Center lists one: a rounded block with
+   the title in bold above the text. */
 .bw-notification {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: 8px;
+  gap: 8px;
+  padding: 10px;
   margin-bottom: 4px;
-  border-radius: 12px;
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer2);
 }
 
@@ -413,7 +459,7 @@
   flex: 1;
   min-width: 0;
   font-size: 0.86em;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -427,7 +473,7 @@
 
 .bw-notification-body {
   font-size: 0.8em;
-  opacity: 0.8;
+  color: var(--on-surface-variant);
   overflow-wrap: anywhere;
 }
 
