@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  border-radius: var(--rounding-large);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer0);
   border: 1px solid var(--layer0-border);
   color: var(--on-surface);
@@ -24,9 +24,12 @@
   background: color-mix(in srgb, var(--layer0) 55%, transparent);
 }
 
+/* A module, as a Mac's Control Center draws one: a rounded block a step
+   lighter than the panel, with a hairline edge rather than a shadow. */
 .bw-sidebar .bw-card {
-  border-radius: var(--rounding-normal);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer1);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
   padding: 10px;
   /* The column is a flexbox: without this every card shrinks to fit, and the
      media card and sliders collapse into strips. Only the notification centre
