@@ -28,6 +28,7 @@ export function SidebarRight() {
   const config = useShell((state) => state.config.sidebar);
   const style = useShell((state) => state.config.sidebar.quickToggles.style);
   const open = useShell((state) => state.states.sidebarRightOpen);
+  const backdrop = useShell((state) => state.config.windows.backdrop);
   const ready = useShell((state) => state.ready);
 
   const [dialog, setDialog] = useState<DetailDialog | null>(null);
@@ -60,7 +61,13 @@ export function SidebarRight() {
   if (!ready) return null;
 
   return (
-    <div className="bw-sidebar" data-open={open}>
+    <div
+      className="bw-sidebar"
+      data-open={open}
+      // Windows blurs the desktop behind this window (`surfaces.rs`); the
+      // panel lets it through.
+      data-backdrop={backdrop !== "none"}
+    >
       <ScrollArea className="bw-sidebar-scroll">
         <Banner />
 

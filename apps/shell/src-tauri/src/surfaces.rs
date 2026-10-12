@@ -1248,6 +1248,24 @@ fn apply_layer(
     if window.label() == HOT_CORNERS.label {
         win::set_hot_corners(hwnd);
     }
+
+    // The desktop blurred behind the panel, as a Mac's Control Center is.
+    // Only the right sidebar for now: it is the one surface whose window is
+    // exactly its panel, so the blur cannot show in empty space around it.
+    // `auto` is Acrylic, the blur of what is behind; Mica only tints by the
+    // wallpaper.
+    // ponytail: one surface, to see on real hardware how the blur behaves
+    // while the panel is inactive and at its corners before the others get it.
+    if window.label() == SIDEBAR_RIGHT.label && config.windows.backdrop != "none" {
+        let backdrop = if config.windows.backdrop == "mica" {
+            win::Backdrop::Mica
+        } else {
+            win::Backdrop::Acrylic
+        };
+        unsafe {
+            win::set_backdrop(hwnd, backdrop, config.appearance.palette.mode != "light");
+        }
+    }
     if layer == Layer::Bar || window.label() == DOCK.label || window.label() == HOT_CORNERS.label {
         let app = app.clone();
         unsafe {
