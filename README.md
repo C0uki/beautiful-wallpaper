@@ -1,9 +1,11 @@
 # beautiful-wallpaper
 
-A Material 3 desktop shell for Windows 10 and 11 — the experience of
+A desktop shell for Windows 10 and 11 — the experience of
 [end4-pC](https://github.com/pctrade/end4-pC) and
 [illogical-impulse](https://github.com/end-4/dots-hyprland), rebuilt on Windows'
-own APIs.
+own APIs, and being redrawn after Apple's
+[Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines)
+to look and behave as much like macOS as Windows allows.
 
 日本語版は [README.ja.md](README.ja.md) にあります。
 
@@ -44,10 +46,13 @@ and the six IPC targets that still mean the same thing.
 
 ## What works today
 
-- **Wallpaper-driven Material 3 theming.** The dominant colour of the wallpaper
-  is quantised and scored, a scheme variant is chosen to suit the image, and the
-  full role set — plus a `success` quad and sixteen terminal colours — is
-  derived. Optionally pushed into the Windows accent colour and Windows Terminal.
+- **macOS colours, with the wallpaper's if you want them.** Panels use the
+  Mac's neutral greys, label and separator colours and system red and green,
+  with Apple's blue as the accent — or any other, or the wallpaper's. For that,
+  the dominant colour of the wallpaper is quantised and scored, a Material 3
+  scheme variant is chosen to suit the image, and its roles — plus a `success`
+  quad and sixteen terminal colours — are derived. Optionally pushed into the
+  Windows accent colour and Windows Terminal.
 - **The background surface**: the wallpaper — a picture or an mp4/webm video —
   with fourteen GPU transitions, and desktop widgets — clock, media, weather,
   CPU/RAM/disk, calendar, user card — that can be dragged and snapped to a

@@ -243,8 +243,8 @@
 }
 
 .bw-list-row[data-selected="true"] {
-  background: var(--m3-primary-container);
-  color: var(--m3-on-primary-container);
+  background: var(--primary);
+  color: var(--primary-on);
 }
 
 .bw-list-row-text {

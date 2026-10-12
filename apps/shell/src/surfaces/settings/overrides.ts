@@ -32,6 +32,8 @@ export interface Override {
   label?: () => string;
   /** A colour: picked from these wells, or from the system's picker. */
   color?: Swatch[];
+  /** The value a well stands for while the setting is unset (null). */
+  unset?: string;
   /** A font stack: picked from the installed families of this kind. */
   font?: "sans" | "mono";
   /** One of the bar's three slots: chips dragged between the three rows. */
@@ -63,11 +65,15 @@ const CORNER_ACTIONS = named([
 ]);
 
 export const OVERRIDES: Record<string, Override> = {
-  // The Mac's accent colours, after the wallpaper's own. Empty is what
-  // `services/theme.rs` reads as "take it from the wallpaper".
+  // The Mac's accent colours, after the wallpaper's own. Unset is Apple's
+  // blue (`deriveTokens`); empty is what `services/theme.rs` reads as "take it
+  // from the wallpaper". The wallpaper's well is grey with the wallpaper
+  // glyph: while another accent is chosen there is no wallpaper colour to
+  // paint it with.
   "appearance.palette.accentColor": {
+    unset: "#007aff",
     color: [
-      { value: "", paint: "var(--primary)", label: "From the wallpaper" },
+      { value: "", paint: "var(--layer3)", label: "From the wallpaper" },
       { value: "#007aff", paint: "#007aff", label: "Blue" },
       { value: "#a550a7", paint: "#a550a7", label: "Purple" },
       { value: "#f74f9e", paint: "#f74f9e", label: "Pink" },
@@ -86,7 +92,7 @@ export const OVERRIDES: Record<string, Override> = {
       { value: "primary", paint: "var(--primary)", label: "Primary" },
       { value: "secondary", paint: "var(--secondary)", label: "Secondary" },
       { value: "tertiary", paint: "var(--tertiary)", label: "Tertiary" },
-      { value: "surface", paint: "var(--m3-surface)", label: "Surface" },
+      { value: "surface", paint: "var(--layer0)", label: "Surface" },
       { value: "outline", paint: "var(--outline)", label: "Outline" },
     ],
   },
@@ -304,7 +310,7 @@ const HINTS: Record<string, string> = {
   "windows.autoUpdate":
     "Check for a new version a minute after starting and every six hours, and install it.",
   "appearance.palette.accentColor":
-    "The colour the palette is built from. The first well takes it from the wallpaper.",
+    "The colour of selections, switches and buttons. The first well takes it from the wallpaper.",
   "appearance.palette.mode": "Automatic picks by how bright the wallpaper is.",
   "appearance.fonts.main": "Each font is listed in its own lettering.",
   "appearance.fonts.pixelSize": "Everything else is sized from this.",

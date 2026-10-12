@@ -436,7 +436,7 @@
   gap: 4px;
   font-size: 11px;
   font-style: normal;
-  color: var(--m3-error, var(--error));
+  color: var(--error);
 }
 
 .bw-shortcuts-name em button {

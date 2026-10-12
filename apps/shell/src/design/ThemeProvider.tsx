@@ -54,9 +54,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         ? deriveTokens(theme, {
             transparencyEnabled: appearance.transparency.enable,
             extraTransparency: appearance.transparency.extra,
+            accent: appearance.palette.accentColor,
           })
         : null,
-    [theme, appearance.transparency.enable, appearance.transparency.extra],
+    [
+      theme,
+      appearance.transparency.enable,
+      appearance.transparency.extra,
+      appearance.palette.accentColor,
+    ],
   );
 
   useEffect(() => {

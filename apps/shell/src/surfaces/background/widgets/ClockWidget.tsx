@@ -110,7 +110,7 @@ export function ClockWidget({ style = "cookie" }: { style?: string }) {
         height={size}
         viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}
       >
-        <path d={cookiePath(radius)} fill="var(--m3-primary-container)" />
+        <path d={cookiePath(radius)} fill="var(--primary)" />
         {[12, 3, 6, 9].map((hour, index) => {
           const angle = (index / 4) * Math.PI * 2 - Math.PI / 2;
           return (
@@ -123,14 +123,14 @@ export function ClockWidget({ style = "cookie" }: { style?: string }) {
               fontFamily="var(--font-title)"
               fontSize={radius * 0.42}
               fontWeight={500}
-              fill="var(--m3-on-primary-container)"
+              fill="var(--primary-on)"
               opacity={0.3}
             >
               {hour}
             </text>
           );
         })}
-        {hand(hours / 12, radius * 0.46, 9, "var(--m3-on-primary-container)")}
+        {hand(hours / 12, radius * 0.46, 9, "var(--primary-on)")}
         {hand(minutes / 60, radius * 0.74, 6, "var(--primary)")}
         <circle r={5.5} fill="var(--primary)" />
       </svg>
