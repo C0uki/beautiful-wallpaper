@@ -21,8 +21,10 @@
   height: min(760px, 92vh);
   border-radius: var(--rounding-verylarge);
   background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 16px 56px var(--shadow);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 20px 60px var(--shadow);
   overflow: hidden;
 }
 
@@ -156,7 +158,7 @@
 .bw-settings-card-rows {
   border-radius: var(--rounding-normal);
   background: var(--layer1);
-  border: 1px solid var(--layer1-border);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
 }
 
 .bw-settings-row {
@@ -167,8 +169,11 @@
   padding: 8px 14px;
 }
 
+/* A Mac's grouped rows: a hairline between them, inset from the edge. */
 .bw-settings-row + .bw-settings-row {
-  border-top: 1px solid var(--outline-variant);
+  border-top: 0.5px solid var(--outline-variant);
+  margin-left: 14px;
+  padding-left: 0;
 }
 
 .bw-settings-label {
@@ -255,14 +260,20 @@
 .bw-settings-control select,
 .bw-settings-control textarea {
   width: 100%;
-  padding: 7px 10px;
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--rounding-small);
-  background: var(--layer0);
+  padding: 5px 8px;
+  border: 0.5px solid var(--outline-variant);
+  border-radius: var(--rounding-verysmall);
+  background: var(--layer2);
   color: var(--on-surface);
   font-family: inherit;
   font-size: 12px;
   outline: none;
+}
+
+/* A choice is a Mac's pop-up button: a raised face, not a well. */
+.bw-settings-control select {
+  background: var(--bw-raised);
+  box-shadow: 0 1px 1px var(--shadow);
 }
 
 .bw-settings-control textarea {
@@ -274,7 +285,7 @@
 .bw-settings-control input:focus,
 .bw-settings-control select:focus,
 .bw-settings-control textarea:focus {
-  border-color: var(--primary);
+  box-shadow: var(--bw-focus-ring);
 }
 
 /* A key: the box, then Save and Remove beside it. */
@@ -353,8 +364,9 @@
   height: min(520px, 84vh);
   border-radius: var(--rounding-large);
   background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 16px 56px var(--shadow);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 20px 60px var(--shadow);
   overflow: hidden;
 }
 
