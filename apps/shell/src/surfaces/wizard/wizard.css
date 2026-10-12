@@ -1,6 +1,8 @@
-/* The first-run screen.
- *
- * A rail of steps on the left and one step's content on the right. Full
+/* The first-run screen, drawn as a Mac's Setup Assistant and System
+ * Settings: a rail of steps on the left — rounded rows, the current one in
+ * the accent — and one step's content on the right, its choices as push
+ * buttons and pop-up buttons.
+ * Full
  * screen, because on a fresh install there is nothing behind it worth seeing:
  * no wallpaper has been chosen and the bar has not been placed. */
 
@@ -17,10 +19,13 @@
   grid-template-columns: 232px 1fr;
   width: min(920px, 92vw);
   height: min(620px, 88vh);
-  border-radius: var(--rounding-large);
+  border-radius: var(--rounding-verylarge);
   background: var(--layer0);
   color: var(--on-surface);
-  box-shadow: 0 12px 48px var(--shadow);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 0 0 0.5px rgba(0, 0, 0, 0.3),
+    0 20px 60px var(--shadow);
   overflow: hidden;
 }
 
@@ -56,11 +61,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 6px 10px;
   border: 0;
-  border-radius: var(--rounding-full);
+  border-radius: var(--rounding-verysmall);
   background: transparent;
-  color: var(--on-surface-variant);
+  color: var(--on-surface);
   font: inherit;
   font-size: 13px;
   text-align: left;
@@ -142,10 +147,11 @@
 }
 
 .bw-wizard-field select {
-  padding: 8px 10px;
-  border-radius: var(--rounding-small);
-  border: 1px solid var(--outline-variant);
-  background: var(--layer1);
+  padding: 5px 8px;
+  border-radius: var(--rounding-verysmall);
+  border: 0.5px solid var(--outline-variant);
+  background: var(--bw-raised);
+  box-shadow: 0 1px 1px var(--shadow);
   color: var(--on-surface);
   font: inherit;
   font-size: 13px;
@@ -163,25 +169,26 @@
   gap: 8px;
   min-width: 46px;
   justify-content: center;
-  padding: 9px 14px;
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--rounding-full);
-  background: var(--layer1);
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--rounding-verysmall);
+  background: var(--bw-raised);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 1px 1px var(--shadow);
   color: var(--on-surface);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
 
-.bw-wizard-choices button:hover {
-  background: var(--layer1-hover);
+.bw-wizard-choices button:active {
+  filter: brightness(0.88);
 }
 
 .bw-wizard-choices button.selected {
   background: var(--primary);
-  border-color: var(--primary);
   color: var(--primary-on);
-  font-weight: 600;
 }
 
 .bw-wizard-wallpaper {
