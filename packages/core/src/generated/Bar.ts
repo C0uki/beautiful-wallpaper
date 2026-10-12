@@ -7,6 +7,9 @@ export type Bar = {
    */
   bottom: boolean;
   vertical: boolean;
+  /**
+   * A Mac's menu bar is 24 points; 30 leaves room for a pointer.
+   */
   height: number;
   /**
    * Reserve screen space through `SHAppBarMessage` so maximised windows

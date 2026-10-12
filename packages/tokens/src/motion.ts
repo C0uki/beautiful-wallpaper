@@ -46,7 +46,7 @@ export const shape = {
   },
   /** Panel and widget sizing that several surfaces need to agree on. */
   sizes: {
-    barHeight: 40,
+    barHeight: 30,
     elevationMargin: 10,
     hoverPopupDelay: 300,
     widgetMinWidth: 180,

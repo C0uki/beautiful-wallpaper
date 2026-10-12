@@ -275,7 +275,8 @@ config_struct! {
         /// Anchor the bar to the bottom edge instead of the top.
         pub bottom: bool = false,
         pub vertical: bool = false,
-        pub height: u32 = 40,
+        /// A Mac's menu bar is 24 points; 30 leaves room for a pointer.
+        pub height: u32 = 30,
         /// Reserve screen space through `SHAppBarMessage` so maximised windows
         /// keep clear of the bar.
         ///

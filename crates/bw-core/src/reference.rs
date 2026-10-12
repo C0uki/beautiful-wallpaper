@@ -458,7 +458,7 @@ mod tests {
         let out = markdown();
 
         assert!(out.contains("| `bar.reserveSpace` | true / false | `true` |"));
-        assert!(out.contains("| `bar.height` | whole number | `40` |"));
+        assert!(out.contains("| `bar.height` | whole number | `30` |"));
         assert!(out.contains("| `appearance.roundingScale` | number | `1.0` |"));
     }
 
