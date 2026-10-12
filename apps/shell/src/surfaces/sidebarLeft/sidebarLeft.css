@@ -1,4 +1,7 @@
-/* The left sidebar: a vertical tab rail beside one panel of content. */
+/* The left sidebar: a vertical tab rail beside one panel of content, drawn
+   as a Mac's sidebar — the chosen tab on a quiet grey fill with its glyph in
+   the accent, never a block of the accent — and the content in a rounded
+   module. Fields are rounded rectangles with the Mac's focus ring. */
 
 /* Both classes, deliberately: the shared panel sets `column`, and at equal
    specificity whichever sheet loaded last would win — which is not something
@@ -17,10 +20,10 @@
 }
 
 .bw-sidebar-left-tabs button {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border: none;
-  border-radius: var(--rounding-normal);
+  border-radius: var(--rounding-verysmall);
   display: grid;
   place-items: center;
   background: transparent;
@@ -32,20 +35,21 @@
 }
 
 .bw-sidebar-left-tabs button:hover {
-  background: var(--layer2-hover);
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
 }
 
 .bw-sidebar-left-tabs button[data-active="true"] {
-  background: var(--primary);
-  color: var(--primary-on);
+  background: color-mix(in srgb, var(--on-surface) 14%, transparent);
+  color: var(--primary);
 }
 
 .bw-sidebar-left-body {
   flex: 1;
   min-width: 0;
   padding: 10px;
-  border-radius: var(--rounding-normal);
+  border-radius: calc(var(--rounding-verylarge) * var(--rounding-scale, 1));
   background: var(--layer1);
+  box-shadow: inset 0 0 0 0.5px var(--outline-variant);
 }
 
 /* Translator --------------------------------------------------------------- */
@@ -66,10 +70,10 @@
 .bw-translator-languages select {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--outline);
-  border-radius: var(--rounding-full);
-  background: var(--layer2);
+  padding: 5px 8px;
+  border: 0.5px solid var(--outline-variant);
+  border-radius: var(--rounding-verysmall);
+  background: var(--bw-raised);
   color: inherit;
   font: inherit;
   font-size: 0.82em;
@@ -78,9 +82,9 @@
 .bw-translator-input {
   min-height: 120px;
   resize: vertical;
-  padding: 10px 12px;
-  border: 1px solid var(--outline);
-  border-radius: var(--rounding-normal);
+  padding: 8px 10px;
+  border: 0.5px solid var(--outline-variant);
+  border-radius: var(--rounding-small);
   background: var(--layer2);
   color: inherit;
   font: inherit;
@@ -89,16 +93,16 @@
 }
 
 .bw-translator-input:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: var(--bw-focus-ring);
 }
 
 .bw-translator-output {
   position: relative;
   flex: 1;
   min-height: 120px;
-  padding: 10px 12px;
-  border-radius: var(--rounding-normal);
+  padding: 8px 10px;
+  border-radius: var(--rounding-small);
   background: var(--layer2);
   font-size: 0.88em;
   line-height: 1.5;
@@ -137,10 +141,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border: none;
-  border-radius: var(--rounding-full);
-  background: var(--layer2);
+  border-radius: var(--rounding-verysmall);
+  background: var(--bw-raised);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 1px 1px var(--shadow);
   color: inherit;
   font: inherit;
   font-size: 0.82em;
@@ -166,7 +173,8 @@
   width: 100%;
   aspect-ratio: 1;
   max-width: 240px;
-  border-radius: var(--rounding-large);
+  border-radius: var(--rounding-small);
+  box-shadow: 0 8px 24px var(--shadow);
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -205,12 +213,12 @@
 
 .bw-media-tab-artist {
   font-size: 0.86em;
-  opacity: 0.8;
+  color: var(--on-surface-variant);
 }
 
 .bw-media-tab-album {
   font-size: 0.78em;
-  opacity: 0.55;
+  color: var(--on-surface-variant);
 }
 
 .bw-media-tab-progress {
