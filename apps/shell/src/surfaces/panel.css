@@ -18,6 +18,12 @@
   overflow: hidden;
 }
 
+/* Over the blur Windows draws behind the window, the panel is a tint rather
+   than a fill: a Mac's Control Center, where the desktop shows through. */
+.bw-sidebar[data-backdrop="true"] {
+  background: color-mix(in srgb, var(--layer0) 55%, transparent);
+}
+
 .bw-sidebar .bw-card {
   border-radius: var(--rounding-normal);
   background: var(--layer1);
