@@ -47,7 +47,7 @@
   margin: 0;
   padding: 8px 14px;
   border-radius: var(--rounding-large);
-  background: color-mix(in srgb, var(--layer0) 88%, transparent);
+  background: var(--bw-popover);
   box-shadow:
     inset 0 0 0 0.5px var(--outline-variant),
     0 8px 24px var(--shadow);
@@ -91,7 +91,7 @@
   overflow-y: auto;
   padding: 14px 16px;
   border-radius: var(--rounding-verylarge);
-  background: color-mix(in srgb, var(--layer0) 88%, transparent);
+  background: var(--bw-popover);
   box-shadow:
     inset 0 0 0 0.5px var(--outline-variant),
     0 0 0 0.5px rgba(0, 0, 0, 0.3),

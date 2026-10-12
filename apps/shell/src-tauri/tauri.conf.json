@@ -39,8 +39,8 @@
       "icons/256x256.png",
       "icons/icon.ico"
     ],
-    "shortDescription": "A Material 3 desktop shell for Windows",
-    "longDescription": "Wallpaper-driven Material 3 theming, desktop widgets and a wallpaper browser for Windows 10 and 11.",
+    "shortDescription": "A macOS-style desktop shell for Windows",
+    "longDescription": "A macOS-style shell for Windows 10 and 11: a menu bar, a dock, Control Center, Spotlight, desktop widgets and a wallpaper browser, coloured by the wallpaper.",
     "licenseFile": "../../../LICENSE",
     "windows": {
       "nsis": {

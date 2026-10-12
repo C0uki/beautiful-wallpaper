@@ -3,7 +3,7 @@
 A desktop shell for Windows 10 and 11 — the experience of
 [end4-pC](https://github.com/pctrade/end4-pC) and
 [illogical-impulse](https://github.com/end-4/dots-hyprland), rebuilt on Windows'
-own APIs, and being redrawn after Apple's
+own APIs, and redrawn after Apple's
 [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines)
 to look and behave as much like macOS as Windows allows.
 

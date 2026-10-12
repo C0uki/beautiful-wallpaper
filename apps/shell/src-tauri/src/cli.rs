@@ -12,7 +12,7 @@ use crate::services;
 use crate::state::AppState;
 
 const USAGE: &str = "\
-beautiful-wallpaper — a Material 3 desktop shell for Windows
+beautiful-wallpaper — a macOS-style desktop shell for Windows
 
   bw                                     start the shell
   bw wallpapers apply <path>             set the wallpaper

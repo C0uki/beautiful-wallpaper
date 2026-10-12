@@ -3,9 +3,9 @@
 Windows 10 / 11 向けのデスクトップシェルです。
 [end4-pC](https://github.com/pctrade/end4-pC) と
 [illogical-impulse](https://github.com/end-4/dots-hyprland) の体験を、Windows
-自身の API の上に作り直したものです。いま、Apple の
+自身の API の上に作り直したものです。さらに Apple の
 [Human Interface Guidelines](https://developer.apple.com/jp/design/human-interface-guidelines)
-に沿って、Windows でできる範囲で macOS に近い見た目と操作に作り直しています。
+に沿って、Windows でできる範囲で macOS に近い見た目と操作に作り直しました。
 
 壁紙が配色を決め、デスクトップウィジェットも壁紙セレクタも、これから作るパネル
 群も、すべてそこから導かれます。
