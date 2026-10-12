@@ -22,10 +22,10 @@
 .bw-booru-controls select {
   flex: none;
   max-width: 110px;
-  padding: 6px 8px;
-  border: 1px solid var(--outline);
-  border-radius: var(--rounding-full);
-  background: var(--layer2);
+  padding: 4px 8px;
+  border: 0.5px solid var(--outline-variant);
+  border-radius: var(--rounding-verysmall);
+  background: var(--bw-raised);
   color: inherit;
   font: inherit;
   font-size: 0.78em;
