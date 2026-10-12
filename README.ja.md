@@ -1,9 +1,11 @@
 # beautiful-wallpaper
 
-Windows 10 / 11 向けの Material 3 デスクトップシェルです。
+Windows 10 / 11 向けのデスクトップシェルです。
 [end4-pC](https://github.com/pctrade/end4-pC) と
 [illogical-impulse](https://github.com/end-4/dots-hyprland) の体験を、Windows
-自身の API の上に作り直したものです。
+自身の API の上に作り直したものです。いま、Apple の
+[Human Interface Guidelines](https://developer.apple.com/jp/design/human-interface-guidelines)
+に沿って、Windows でできる範囲で macOS に近い見た目と操作に作り直しています。
 
 壁紙が配色を決め、デスクトップウィジェットも壁紙セレクタも、これから作るパネル
 群も、すべてそこから導かれます。
@@ -42,10 +44,12 @@ Hyprland の IPC ソケットと会話し、すべてのパネルを `wlr-layer-
 
 ## 現時点で動くもの
 
-- **壁紙からの Material 3 配色生成。** 壁紙の代表色を量子化・スコアリングし、
-  画像に合うスキームバリアントを選び、全ロール（本家独自の `success` 4 色と
-  ターミナル 16 色を含む）を導出します。Windows のアクセントカラーと Windows
-  Terminal への反映も任意で行えます。
+- **macOS の配色と、選べる壁紙の色。** パネルは Mac の灰色・文字と区切り線の色・
+  システムの赤と緑を使い、アクセント色は Apple の青です。ほかの色や、壁紙の色にも
+  できます。壁紙の色を使うときは、壁紙の代表色を量子化・スコアリングし、画像に
+  合う Material 3 のスキームバリアントを選び、各ロール（本家独自の `success`
+  4 色とターミナル 16 色を含む）を導出します。Windows のアクセントカラーと
+  Windows Terminal への反映も任意で行えます。
 - **背景サーフェス**: 14 種の GPU トランジション付きの壁紙表示（画像のほか
   mp4 / webm の動画も可）と、デスクトップウィジェット（時計・メディア・天気・
   CPU/RAM/ディスク・カレンダー・ユーザーカード）。ドラッグしてグリッドに

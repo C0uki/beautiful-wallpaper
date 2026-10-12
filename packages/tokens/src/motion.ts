@@ -1,17 +1,17 @@
-// Motion and shape tokens, from `Appearance.qml`'s `animationCurves`, `rounding`
-// and `sizes`.
+// Motion and shape tokens.
 //
-// Material 3 Expressive splits easing into *spatial* curves (things that move,
-// which overshoot slightly) and *effects* curves (things that only fade or
-// recolour, which must not). Keeping the distinction is most of why the original
-// feels the way it does.
+// Easing is split into *spatial* curves (things that move) and *effects*
+// curves (things that only fade or recolour). As on macOS, neither
+// overshoots: a panel decelerates into place rather than bouncing past it.
+// Corners are macOS's — small controls at 6, cards and popovers at 10, large
+// panels at 16.
 
 export const motion = {
   easing: {
     // Spatial — position, size, rotation.
-    "spatial-fast": "cubic-bezier(0.42, 1.67, 0.21, 0.90)",
-    "spatial-default": "cubic-bezier(0.38, 1.21, 0.22, 1.00)",
-    "spatial-slow": "cubic-bezier(0.39, 1.29, 0.35, 0.98)",
+    "spatial-fast": "cubic-bezier(0.25, 0.1, 0.25, 1.0)",
+    "spatial-default": "cubic-bezier(0.2, 0.8, 0.2, 1.0)",
+    "spatial-slow": "cubic-bezier(0.16, 1.0, 0.3, 1.0)",
     // Effects — opacity and colour, which never overshoot.
     "effects-fast": "cubic-bezier(0.31, 0.94, 0.34, 1.00)",
     "effects-default": "cubic-bezier(0.34, 0.80, 0.34, 1.00)",
@@ -37,11 +37,11 @@ export const motion = {
 export const shape = {
   rounding: {
     unsharpen: 4,
-    verysmall: 8,
-    small: 12,
-    normal: 16,
-    large: 20,
-    verylarge: 28,
+    verysmall: 6,
+    small: 8,
+    normal: 10,
+    large: 12,
+    verylarge: 16,
     full: 9999,
   },
   /** Panel and widget sizing that several surfaces need to agree on. */

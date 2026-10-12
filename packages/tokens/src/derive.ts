@@ -1,12 +1,22 @@
-// The derived token layer: end4-pC's `Appearance.qml`.
+// The derived token layer.
 //
-// The generated scheme gives raw Material roles. Almost nothing in the UI binds
-// to those directly — it binds to *layers* (`layer0`..`layer4`, each with hover,
-// active, disabled and border variants) so a button looks right whether it sits
-// on the bar, in a popup or on a card. That derivation is what this file is.
+// The UI binds to *layers* (`layer0`..`layer4`, each with hover, active,
+// disabled and border variants) so a button looks right whether it sits on the
+// bar, in a popup or on a card. Those layers are macOS's: neutral greys for
+// the window, the controls on it and the fills inside them, label and
+// separator greys for text and lines, and one accent — Apple's blue, a colour
+// of the user's choosing, or the wallpaper's. The generated Material scheme
+// is still passed through under `m3`, and is where the wallpaper's accent
+// comes from.
 
 import type { GeneratedTheme } from "@bw/core";
-import { applyAlpha, mix, solveOverlayColor, transparentize } from "./color";
+import {
+  applyAlpha,
+  contrastRatio,
+  mix,
+  solveOverlayColor,
+  transparentize,
+} from "./color";
 
 /** State variants every layer carries. */
 export interface LayerColors {
@@ -46,7 +56,37 @@ export interface DeriveOptions {
   /** From the config's `appearance.transparency`. */
   transparencyEnabled?: boolean;
   extraTransparency?: number;
+  /** `appearance.palette.accentColor`: the accent itself. Unset is Apple's
+   *  blue; empty takes the wallpaper's, as the scheme's primary. */
+  accent?: string | null;
 }
+
+/** macOS's neutral greys and system colours, per appearance. */
+const APPLE = {
+  dark: {
+    // windowBackground, controlBackground, then the fills inside a control.
+    layers: ["#1e1e1e", "#282828", "#323232", "#3c3c3c", "#464646"],
+    label: "rgba(255, 255, 255, 0.85)",
+    secondaryLabel: "rgba(255, 255, 255, 0.55)",
+    separator: "rgba(255, 255, 255, 0.1)",
+    grid: "rgba(255, 255, 255, 0.24)",
+    blue: "#0a84ff",
+    red: "#ff453a",
+    green: "#30d158",
+    purple: "#bf5af2",
+  },
+  light: {
+    layers: ["#ececec", "#ffffff", "#f2f2f2", "#e6e6e6", "#dadada"],
+    label: "rgba(0, 0, 0, 0.85)",
+    secondaryLabel: "rgba(0, 0, 0, 0.5)",
+    separator: "rgba(0, 0, 0, 0.1)",
+    grid: "rgba(0, 0, 0, 0.22)",
+    blue: "#007aff",
+    red: "#ff3b30",
+    green: "#34c759",
+    purple: "#af52de",
+  },
+} as const;
 
 /**
  * Wallpaper vibrancy → background translucency.
@@ -80,15 +120,33 @@ function layerFrom(
   on: string,
   mode: "light" | "dark",
 ): LayerColors {
-  // Material state layers are the "on" colour at 8% / 12% opacity over the base.
-  // Compositing here rather than stacking a translucent element keeps the result
-  // correct when the layer underneath is itself translucent.
-  const hover = mix(base, on, mode === "dark" ? 0.08 : 0.06);
-  const active = mix(base, on, mode === "dark" ? 0.12 : 0.1);
+  // A grey gets one fill step lighter (dark) or darker (light) under the
+  // pointer, and another when pressed. Compositing here rather than stacking a
+  // translucent element keeps the result correct when the layer underneath is
+  // itself translucent.
+  const toward = mode === "dark" ? "#ffffff" : "#000000";
+  const hover = mix(base, toward, 0.06);
+  const active = mix(base, toward, 0.12);
   return {
     base,
     hover,
     active,
+    disabled: transparentize(base, 0.62),
+    border: applyAlpha(on, 0.12),
+    on,
+  };
+}
+
+/** A coloured control: as macOS does, it darkens under the pointer and
+ *  further when pressed, and its text is white unless that cannot be read.
+ *  Not whichever contrasts more: black edges out white on Apple's blue, and
+ *  a Mac still writes white on it. 3:1 is the large-text and UI floor. */
+function tint(base: string): LayerColors {
+  const on = contrastRatio(base, "#ffffff") >= 3 ? "#ffffff" : "#000000";
+  return {
+    base,
+    hover: mix(base, "#000000", 0.08),
+    active: mix(base, "#000000", 0.16),
     disabled: transparentize(base, 0.62),
     border: applyAlpha(on, 0.12),
     on,
@@ -105,12 +163,9 @@ export function deriveTokens(
   }
 
   const mode = theme.mode;
-  const onSurface = role(
-    m3,
-    "onSurface",
-    mode === "dark" ? "#e6e0e9" : "#1d1b20",
-  );
-  const onSurfaceVariant = role(m3, "onSurfaceVariant", onSurface);
+  const apple = APPLE[mode];
+  const onSurface = apple.label;
+  const onSurfaceVariant = apple.secondaryLabel;
 
   const transparencyEnabled = options.transparencyEnabled ?? true;
   const backgroundTransparency = transparencyEnabled
@@ -124,23 +179,23 @@ export function deriveTokens(
       )
     : 0;
 
-  // Layer 0 is the page itself and the one that shows the wallpaper through, so
-  // it is the only layer solved against a translucent paint.
-  const surface = role(m3, "surface", "#141218");
+  // Layer 0 is the window itself and the one that shows the wallpaper
+  // through, so it is the only layer solved against a translucent paint.
+  const [page, ...rest] = apple.layers;
   const layer0Base =
     backgroundTransparency > 0
-      ? solveOverlayColor(surface, surface, 1 - backgroundTransparency)
-      : surface;
+      ? solveOverlayColor(page, page, 1 - backgroundTransparency)
+      : page;
+  const layers = [layer0Base, ...rest];
 
-  const layers: [string, string, string, string, string] = [
-    layer0Base,
-    role(m3, "surfaceContainerLow", surface),
-    role(m3, "surfaceContainer", surface),
-    role(m3, "surfaceContainerHigh", surface),
-    role(m3, "surfaceContainerHighest", surface),
-  ];
-
-  const pair = (color: string, on: string) => layerFrom(color, on, mode);
+  // Apple's blue until another is chosen; empty is the wallpaper's, as the
+  // scheme's primary, which Material has already made legible in this
+  // appearance.
+  const chosen = options.accent?.trim();
+  const accent =
+    chosen === undefined
+      ? apple.blue
+      : chosen || role(m3, "primary", apple.blue);
 
   return {
     mode,
@@ -148,29 +203,19 @@ export function deriveTokens(
     layer: layers.map((base) =>
       layerFrom(base, onSurface, mode),
     ) as DerivedTokens["layer"],
-    primary: pair(
-      role(m3, "primary", "#d0bcff"),
-      role(m3, "onPrimary", "#381e72"),
-    ),
-    secondary: pair(
-      role(m3, "secondary", "#ccc2dc"),
-      role(m3, "onSecondary", "#332d41"),
-    ),
-    tertiary: pair(
-      role(m3, "tertiary", "#efb8c8"),
-      role(m3, "onTertiary", "#492532"),
-    ),
-    error: pair(role(m3, "error", "#f2b8b5"), role(m3, "onError", "#601410")),
-    success: pair(
-      role(m3, "success", "#7ad67a"),
-      role(m3, "onSuccess", "#00390a"),
-    ),
+    primary: tint(accent),
+    // A quieter accent: the accent washed into the control background, for
+    // the selected row or the icon's circle that should not shout.
+    secondary: layerFrom(mix(apple.layers[1], accent, 0.3), onSurface, mode),
+    tertiary: tint(apple.purple),
+    error: tint(apple.red),
+    success: tint(apple.green),
     onSurface,
     onSurfaceVariant,
-    outline: role(m3, "outline", onSurfaceVariant),
-    outlineVariant: role(m3, "outlineVariant", onSurfaceVariant),
-    scrim: applyAlpha(role(m3, "scrim", "#000000"), 0.55),
-    shadow: applyAlpha(role(m3, "shadow", "#000000"), 0.4),
+    outline: apple.grid,
+    outlineVariant: apple.separator,
+    scrim: applyAlpha("#000000", mode === "dark" ? 0.5 : 0.3),
+    shadow: applyAlpha("#000000", mode === "dark" ? 0.5 : 0.2),
     backgroundTransparency,
     terminal: Array.from(
       { length: 16 },

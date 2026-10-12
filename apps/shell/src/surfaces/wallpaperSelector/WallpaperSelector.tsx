@@ -535,8 +535,8 @@ export function WallpaperSelector() {
             gap: 8,
             padding: "10px 12px",
             borderRadius: 14,
-            background: "var(--m3-error-container)",
-            color: "var(--m3-on-error-container)",
+            background: "var(--error)",
+            color: "var(--error-on)",
             fontSize: "0.88em",
           }}
         >

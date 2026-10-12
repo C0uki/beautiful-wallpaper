@@ -338,7 +338,7 @@ function Control({
   if (override?.color) {
     return (
       <ColorPicker
-        value={typeof value === "string" ? value : ""}
+        value={typeof value === "string" ? value : (override.unset ?? "")}
         swatches={override.color}
         onChange={(next) => onSet(field.path, next)}
       />

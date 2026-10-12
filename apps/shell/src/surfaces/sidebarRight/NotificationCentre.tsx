@@ -89,7 +89,7 @@ export function NotificationCentre() {
                     rowColor="var(--layer2)"
                     textColor="var(--on-surface)"
                     drawerColor="var(--layer3)"
-                    actionColor="var(--m3-error-container)"
+                    actionColor="var(--error)"
                     onAction={() =>
                       void actions.dismissNotification(notification.id)
                     }
