@@ -90,7 +90,6 @@ fn main() {
             commands::set_state,
             commands::set_surface_revealed,
             commands::set_dock_shape,
-            commands::set_panel_shape,
             commands::click_tray_icon,
             commands::list_wallpapers,
             commands::apply_wallpaper,
@@ -627,34 +626,14 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             // program that kept it moves nothing, so there is no foreground
             // change to see. A click on the desktop counts too: the wallpaper
             // surface lives inside Explorer's window, so it is not the shell's.
-            //
-            // The search, the desktop menu and the session screen go the same
-            // way: cut to their panel for the blur (`set_panel_shape`), they
-            // no longer have a sheet around it to catch a click outside.
-            // The settings and the first-run screen stay, as a window would.
             let elsewhere = matches!(
                 change,
                 Change::Foreground | Change::Click { on_shell: false }
             );
             let open = state.states();
-            if elsewhere
-                && (open.sidebar_left_open
-                    || open.sidebar_right_open
-                    || open.overview_open
-                    || open.desktop_menu_open
-                    || open.session_open)
-            {
-                let mut last = None;
-                for flag in [
-                    "sidebarLeftOpen",
-                    "sidebarRightOpen",
-                    "overviewOpen",
-                    "desktopMenuOpen",
-                    "sessionOpen",
-                ] {
-                    last = state.set_state(flag, false).or(last);
-                }
-                if let Some(states) = last {
+            if elsewhere && (open.sidebar_left_open || open.sidebar_right_open) {
+                state.set_state("sidebarLeftOpen", false);
+                if let Some(states) = state.set_state("sidebarRightOpen", false) {
                     surfaces::apply_states(&handle, &states);
                     let _ = handle.emit(event::STATE_CHANGED, &states);
                 }

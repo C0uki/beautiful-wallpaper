@@ -21,7 +21,6 @@ import type { KeyStatus } from "@bw/core";
 import { Command } from "@bw/core";
 import { backend } from "../../shell/backend";
 import { actions, connect, useShell } from "../../shell/store";
-import { usePanelShape } from "../../shell/panelShape";
 import { describeError } from "../../shell/errors";
 import { Button, IconButton, Switch, Symbol } from "../../widgets";
 import { availableLocales, tr } from "../../i18n";
@@ -43,7 +42,6 @@ const STYLES = OVERRIDES["bar.style"]!.choices!;
 export function Wizard() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.wizardOpen);
-  const panel = usePanelShape<HTMLDivElement>(open);
   const config = useShell((state) => state.config);
 
   const [step, setStep] = useState(0);
@@ -153,7 +151,7 @@ export function Wizard() {
 
   return (
     <div className="bw-wizard" role="dialog" aria-label={tr("First run")}>
-      <div ref={panel} className="bw-wizard-panel">
+      <div className="bw-wizard-panel">
         <nav className="bw-wizard-rail" aria-label={tr("Steps")}>
           <h1>beautiful-wallpaper</h1>
           <ol>

@@ -531,10 +531,3 @@
     0 0 0 0.5px rgba(0, 0, 0, 0.12),
     0 1px 2px rgba(0, 0, 0, 0.25);
 }
-
-/* A panel Windows blurs the desktop behind (`usePanelShape`), thinned as the
-   sidebars are over theirs so the blur shows through. `:root` outranks the
-   panel's own one-class rule. */
-:root [data-blurred="true"] {
-  background: color-mix(in srgb, var(--layer0) 55%, transparent);
-}
