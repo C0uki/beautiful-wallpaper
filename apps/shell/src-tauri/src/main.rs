@@ -339,6 +339,17 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
     let each = handle.clone();
     later(&handle, move || services::deskmenu::apply(&each));
 
+    // So what the wallpaper surface draws can be pressed: Explorer's desktop
+    // takes every click over it.
+    #[cfg(windows)]
+    {
+        let each = handle.clone();
+        bw_shell::platform::deskclick::forward_pointer(move || {
+            let window = each.get_webview_window(&surfaces::background_label())?;
+            Some(window.hwnd().ok()?.0 as isize)
+        });
+    }
+
     // So a key pressed the instant the shell is up has something to open. And
     // before the first-run screen, which shows what Windows refused.
     let each = handle.clone();
