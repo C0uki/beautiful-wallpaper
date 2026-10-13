@@ -19,6 +19,11 @@
   overflow: hidden;
 }
 
+/* Over the desktop's blur, as the sidebars are. */
+.bw-shelf[data-backdrop="true"] {
+  background: color-mix(in srgb, var(--layer0) 55%, transparent);
+}
+
 /* Something is being dragged over. Said with an accent ring rather than a
    colour wash, so the names stay readable while it is being aimed at. */
 .bw-shelf.hovering {

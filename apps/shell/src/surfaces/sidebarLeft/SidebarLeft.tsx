@@ -26,6 +26,7 @@ export function SidebarLeft() {
   const config = useShell((state) => state.config.sidebar.left);
   const policies = useShell((state) => state.config.policies);
   const open = useShell((state) => state.states.sidebarLeftOpen);
+  const backdrop = useShell((state) => state.config.windows.backdrop);
   const ready = useShell((state) => state.ready);
   const [active, setActive] = useState<string | null>(null);
 
@@ -103,7 +104,12 @@ export function SidebarLeft() {
   const current = tabs.find((tab) => tab.id === active) ?? tabs[0];
 
   return (
-    <div className="bw-sidebar bw-sidebar-left" data-open={open}>
+    <div
+      className="bw-sidebar bw-sidebar-left"
+      data-open={open}
+      // Windows blurs the desktop behind this window (`surfaces.rs`).
+      data-backdrop={backdrop !== "none"}
+    >
       {tabs.length === 0 ? (
         <Placeholder icon="inbox" text={tr("Enjoy your empty sidebar…")} />
       ) : (
