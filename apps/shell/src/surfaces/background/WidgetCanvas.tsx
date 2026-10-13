@@ -20,7 +20,6 @@ import {
 } from "react";
 import type { WidgetPlacement } from "@bw/core";
 import { actions } from "../../shell/store";
-import { Symbol } from "../../widgets";
 import { busyness, calmestSpot, type Box } from "./calm";
 import "./desktopWidgets.css";
 
@@ -335,17 +334,9 @@ export function WidgetCanvas({
                     inset: -6,
                     borderRadius: 28,
                     border: "2px dashed var(--primary)",
-                    // Part of the handle: the grip at its corner is what
-                    // people reach for, and it sits outside the widget.
+                    pointerEvents: "none",
                   }}
-                >
-                  <Symbol
-                    name="drag_indicator"
-                    size={18}
-                    color="var(--primary)"
-                    style={{ position: "absolute", top: -10, left: -10 }}
-                  />
-                </div>
+                />
               ) : null}
               {item.node}
             </div>
