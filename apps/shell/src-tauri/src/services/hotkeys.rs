@@ -275,10 +275,6 @@ fn report(
     if refused.is_empty() {
         return;
     }
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-
     // Named by their chord rather than their config key: the user pressed a
     // combination, and that is what they will look for.
     let serialised = serde_json::to_value(keybinds).unwrap_or_default();
@@ -310,13 +306,10 @@ fn report(
         ));
     }
 
-    let notification = store.0.post(NewNotification::from_shell(
-        "Some keyboard shortcuts are unavailable",
-        body.join(" "),
-    ));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-    let _ = notification;
-    let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
+    NotificationStore::announce(
+        app,
+        NewNotification::from_shell("Some keyboard shortcuts are unavailable", body.join(" ")),
+    );
 }
 
 #[cfg(test)]

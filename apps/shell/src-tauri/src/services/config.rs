@@ -9,7 +9,7 @@ use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
@@ -91,13 +91,7 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
 }
 
 fn say(app: &AppHandle, text: &str) {
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-    store
-        .0
-        .post(bw_core::NewNotification::from_shell("Config", text));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    NotificationStore::announce(app, bw_core::NewNotification::from_shell("Config", text));
 }
 
 /// Takes a wholesale config change and re-does everything it invalidates.

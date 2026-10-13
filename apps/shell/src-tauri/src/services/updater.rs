@@ -11,10 +11,9 @@
 
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
-use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
 
 /// Checks a minute after starting, then every six hours, for as long as the
@@ -70,11 +69,5 @@ async fn update(app: &AppHandle) -> tauri_plugin_updater::Result<()> {
 }
 
 fn say(app: &AppHandle, text: &str) {
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-    store
-        .0
-        .post(bw_core::NewNotification::from_shell("Update", text));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    NotificationStore::announce(app, bw_core::NewNotification::from_shell("Update", text));
 }
