@@ -335,7 +335,8 @@ export function WidgetCanvas({
                     inset: -6,
                     borderRadius: 28,
                     border: "2px dashed var(--primary)",
-                    pointerEvents: "none",
+                    // Part of the handle: the grip at its corner is what
+                    // people reach for, and it sits outside the widget.
                   }}
                 >
                   <Symbol
