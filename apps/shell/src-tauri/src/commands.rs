@@ -366,15 +366,16 @@ pub fn post_notification(
     app_name: Option<String>,
     urgency: Option<String>,
 ) -> Notification {
-    let notification = store.0.post(NewNotification {
+    let notification = NewNotification {
         app_name: app_name.unwrap_or_else(|| "beautiful-wallpaper".to_owned()),
         summary,
         body: body.unwrap_or_default(),
         urgency: parse_urgency(urgency.as_deref()),
         ..NewNotification::default()
-    });
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-    notification
+    };
+    NotificationStore::announce(&app, notification.clone())
+        // Only without a store, which is managed before any command runs.
+        .unwrap_or_else(|| store.0.post(notification))
 }
 
 #[tauri::command]
@@ -1207,14 +1208,10 @@ fn save_capture(
     }
 
     let shown = path.to_string_lossy().into_owned();
-    if let Some(store) = app.try_state::<NotificationStore>() {
-        store.0.post(bw_core::NewNotification::from_shell(
-            "Screenshot saved",
-            shown.clone(),
-        ));
-        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-        let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
-    }
+    NotificationStore::announce(
+        app,
+        bw_core::NewNotification::from_shell("Screenshot saved", shown.clone()),
+    );
 
     bw_core::capture::CaptureOutcome {
         saved: Some(shown),

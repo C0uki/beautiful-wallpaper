@@ -219,6 +219,27 @@ mod tests {
 /// The notification history, managed so commands can reach it.
 pub struct NotificationStore(pub bw_core::notifications::Store);
 
+impl NotificationStore {
+    /// Records one of the shell's own notifications and shows it: into the
+    /// history, the surfaces told, and the toast surface brought up.
+    ///
+    /// Every such post goes through here. Before, each caller did the three
+    /// steps itself, and half of them left out the last: the updater's "moving
+    /// to version …", a config that would not load, autostart failing — all
+    /// went into the history without a toast, where nobody saw them.
+    pub fn announce(
+        app: &tauri::AppHandle,
+        notification: bw_core::NewNotification,
+    ) -> Option<bw_core::Notification> {
+        use tauri::{Emitter, Manager};
+        let store = app.try_state::<NotificationStore>()?;
+        let posted = store.0.post(notification);
+        let _ = app.emit(crate::commands::event::NOTIFICATIONS, store.0.list());
+        let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
+        Some(posted)
+    }
+}
+
 /// The sidebar's to-do list.
 pub struct TodoStore(pub bw_core::todo::Store);
 

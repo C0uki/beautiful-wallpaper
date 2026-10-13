@@ -91,13 +91,7 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
 }
 
 fn say(app: &AppHandle, text: &str) {
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-    store
-        .0
-        .post(bw_core::NewNotification::from_shell("Config", text));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    NotificationStore::announce(app, bw_core::NewNotification::from_shell("Config", text));
 }
 
 /// Takes a wholesale config change and re-does everything it invalidates.
