@@ -286,17 +286,10 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     // the one place its two windows can be kept honest.
     crate::services::overlay::apply(app);
 
-    // For the same reason: a click elsewhere puts a sidebar away — and the
-    // search, the desktop menu and the session screen, cut to their panels —
-    // and this is where one is known to be open.
+    // For the same reason: a click elsewhere puts a sidebar away, and this is
+    // where one is known to be open.
     if let Some(dock) = app.try_state::<crate::state::DockHandle>() {
-        dock.watch_clicks(
-            states.sidebar_left_open
-                || states.sidebar_right_open
-                || states.overview_open
-                || states.desktop_menu_open
-                || states.session_open,
-        );
+        dock.watch_clicks(states.sidebar_left_open || states.sidebar_right_open);
     }
 }
 

@@ -460,25 +460,6 @@ export const actions = {
   setDockShape(left: number, width: number) {
     return backend().invoke<void>(Command.SetDockShape, { left, width });
   },
-  /** Cuts this surface's window down to its panel, a rounded rectangle in
-   *  CSS pixels, and lets Windows blur the desktop behind it. A zero width
-   *  collapses the window while the panel is away; a negative one gives the
-   *  whole window back without a blur. */
-  setPanelShape(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number,
-  ) {
-    return backend().invoke<void>(Command.SetPanelShape, {
-      x,
-      y,
-      width,
-      height,
-      radius,
-    });
-  },
   /** Forwards a click to the application that owns a tray icon. */
   clickTrayIcon(icon: TrayIcon, secondary: boolean) {
     return backend().invoke<void>(Command.ClickTrayIcon, {
