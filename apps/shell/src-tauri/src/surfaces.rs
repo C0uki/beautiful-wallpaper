@@ -746,7 +746,7 @@ pub fn place_bars(app: &AppHandle) {
 /// Each one made after that is `background-1`, `background-2` and so on.
 static BACKGROUND_LABEL: Mutex<Option<String>> = Mutex::new(None);
 
-fn background_label() -> String {
+pub fn background_label() -> String {
     BACKGROUND_LABEL
         .lock()
         .clone()

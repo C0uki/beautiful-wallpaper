@@ -21,17 +21,29 @@
 //!
 //! The menu is reachable by its key, from the launcher and from the CLI
 //! whether or not this is switched on.
+//!
+//! The left button is another matter: [`forward_pointer`] hands it, and the
+//! pointer's moves, to the wallpaper surface without taking anything away from
+//! Explorer, so it needs neither the hook nor the user's consent.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, OnceLock};
 
+use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Graphics::Gdi::ScreenToClient;
 use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::Input::{
+    GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER,
+    RIDEV_INPUTSINK, RID_INPUT, RIM_TYPEMOUSE,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, DispatchMessageW, GetAncestor, GetClassNameW, GetMessageW, PostThreadMessageW,
-    SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx, WindowFromPoint, GA_ROOT, MSG,
-    MSLLHOOKSTRUCT, WH_MOUSE_LL, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    CallNextHookEx, CreateWindowExW, DispatchMessageW, FindWindowExW, GetAncestor, GetClassNameW,
+    GetCursorPos, GetMessageW, IsWindow, PostMessageW, PostThreadMessageW, SetWindowsHookExW,
+    TranslateMessage, UnhookWindowsHookEx, WindowFromPoint, GA_ROOT, HWND_MESSAGE, MSG,
+    MSLLHOOKSTRUCT, WH_MOUSE_LL, WINDOW_EX_STYLE, WINDOW_STYLE, WM_INPUT, WM_LBUTTONDOWN,
+    WM_LBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
 };
 
 /// Where the desktop was clicked, in physical screen pixels.
@@ -193,6 +205,143 @@ unsafe extern "system" fn on_mouse(code: i32, wparam: WPARAM, lparam: LPARAM) ->
         WM_RBUTTONUP if ATE_THE_PRESS.swap(false, Ordering::Relaxed) => LRESULT(1),
         _ => CallNextHookEx(None, code, wparam, lparam),
     }
+}
+
+/// Hands the pointer over the desktop to the wallpaper surface, found by
+/// `surface` (its window handle).
+///
+/// The surface sits under Explorer's icon view, and that view takes every
+/// click on the desktop — with the icons hidden, and even with the surface
+/// raised above it: real input there goes to Explorer whatever the window
+/// order says. So nothing the surface draws could be pressed: not the
+/// wallpaper buttons, not the widgets, not arranging them.
+///
+/// Raw input sees the mouse whatever is under it, without the hook's costs:
+/// nothing waits on it, so there is nothing for Windows to time out, and
+/// nothing is taken from Explorer — a click on the desktop still reaches the
+/// icons as well. Moves and the left button over the desktop are posted to the
+/// webview as the messages it would have had. A press that began there is
+/// followed until it is let go, wherever the pointer goes, so a widget can be
+/// dragged.
+pub fn forward_pointer(surface: impl Fn() -> Option<isize> + Send + 'static) {
+    std::thread::Builder::new()
+        .name("bw-desktop-pointer".to_owned())
+        .spawn(move || unsafe { forward(&surface) })
+        .ok();
+}
+
+unsafe fn forward(surface: &dyn Fn() -> Option<isize>) {
+    // From `RAWMOUSE.usButtonFlags` and the `MK_*` flags; neither has a home
+    // among the features this crate pulls in.
+    const LEFT_DOWN: u16 = 0x0001;
+    const LEFT_UP: u16 = 0x0002;
+    const MK_LBUTTON: usize = 0x0001;
+
+    // Raw input has to be delivered to a window. A message-only one of a
+    // system class: never shown, and nothing to register.
+    let Ok(sink) = CreateWindowExW(
+        WINDOW_EX_STYLE(0),
+        w!("STATIC"),
+        PCWSTR::null(),
+        WINDOW_STYLE(0),
+        0,
+        0,
+        0,
+        0,
+        HWND_MESSAGE,
+        None,
+        None,
+        None,
+    ) else {
+        tracing::warn!("could not make a window to watch the desktop's pointer from");
+        return;
+    };
+    let mouse = RAWINPUTDEVICE {
+        usUsagePage: 0x01,
+        usUsage: 0x02,
+        dwFlags: RIDEV_INPUTSINK,
+        hwndTarget: sink,
+    };
+    if let Err(error) = RegisterRawInputDevices(&[mouse], size_of::<RAWINPUTDEVICE>() as u32) {
+        tracing::warn!(%error, "could not watch the desktop's pointer");
+        return;
+    }
+
+    let mut webview = HWND::default();
+    let mut pressed = false;
+    let mut message = MSG::default();
+    while GetMessageW(&mut message, None, 0, 0).as_bool() {
+        if message.message != WM_INPUT {
+            DispatchMessageW(&message);
+            continue;
+        }
+        let mut input = RAWINPUT::default();
+        let mut size = size_of::<RAWINPUT>() as u32;
+        let read = GetRawInputData(
+            HRAWINPUT(message.lParam.0 as _),
+            RID_INPUT,
+            Some(std::ptr::addr_of_mut!(input).cast()),
+            &mut size,
+            size_of::<RAWINPUTHEADER>() as u32,
+        );
+        if read == u32::MAX || input.header.dwType != RIM_TYPEMOUSE.0 {
+            continue;
+        }
+        let buttons = input.data.mouse.Anonymous.Anonymous.usButtonFlags;
+        let mut point = POINT::default();
+        if GetCursorPos(&mut point).is_err() {
+            continue;
+        }
+
+        let over = is_desktop_at(point);
+        if !over && !pressed {
+            // Off the desktop: let the page drop its hover, once.
+            if !webview.is_invalid() {
+                let _ = PostMessageW(webview, WM_MOUSELEAVE, WPARAM(0), LPARAM(0));
+                webview = HWND::default();
+            }
+            continue;
+        }
+        if webview.is_invalid() || !IsWindow(webview).as_bool() {
+            webview = surface()
+                .and_then(|window| webview_in(HWND(window as _)))
+                .unwrap_or_default();
+            if webview.is_invalid() {
+                continue;
+            }
+        }
+
+        let mut local = point;
+        let _ = ScreenToClient(webview, &mut local);
+        let at = LPARAM((((local.y & 0xFFFF) << 16) | (local.x & 0xFFFF)) as isize);
+        let (kind, held) = if buttons & LEFT_DOWN != 0 && over {
+            pressed = true;
+            (WM_LBUTTONDOWN, MK_LBUTTON)
+        } else if buttons & LEFT_UP != 0 && pressed {
+            pressed = false;
+            (WM_LBUTTONUP, 0)
+        } else {
+            (WM_MOUSEMOVE, if pressed { MK_LBUTTON } else { 0 })
+        };
+        let _ = PostMessageW(webview, kind, WPARAM(held), at);
+    }
+}
+
+/// The window inside a surface that Chromium takes the mouse in.
+///
+/// ponytail: WebView2's own window classes, which it does not promise to keep;
+/// if a release renames them this finds nothing and the desktop goes back to
+/// being unpressable, nothing worse. Lively Wallpaper leans on the same names.
+unsafe fn webview_in(surface: HWND) -> Option<HWND> {
+    let mut window = surface;
+    for class in [
+        w!("WRY_WEBVIEW"),
+        w!("Chrome_WidgetWin_0"),
+        w!("Chrome_WidgetWin_1"),
+    ] {
+        window = FindWindowExW(window, HWND::default(), class, PCWSTR::null()).ok()?;
+    }
+    Some(window)
 }
 
 /// Whether the window under this point is the desktop.

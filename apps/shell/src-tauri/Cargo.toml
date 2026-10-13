@@ -106,6 +106,7 @@ windows = { version = "0.58", features = [
   "Win32_UI_Accessibility",
   "Win32_UI_ColorSystem",
   "Win32_UI_Controls",
+  "Win32_UI_Input",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",
