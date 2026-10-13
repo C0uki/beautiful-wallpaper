@@ -27,7 +27,13 @@
 /* Over the blur the modules are translucent too, as Control Center's are;
    opaque, they covered nearly all of it and the panel read as solid. */
 .bw-sidebar[data-backdrop="true"]
-  :is(.bw-card, .bw-banner, .bw-banner-plain, .bw-toggle-tile) {
+  :is(
+    .bw-card,
+    .bw-banner,
+    .bw-banner-plain,
+    .bw-toggle-tile,
+    .bw-sidebar-left-body
+  ) {
   background: color-mix(in srgb, var(--layer1) 50%, transparent);
 }
 

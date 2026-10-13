@@ -45,7 +45,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
-    WS_THICKFRAME,
+    WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -398,8 +398,8 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
         // hardware. The frame is given and then taken straight back — no
         // width, no sizing handles — by `backdrop_frame`.
         let _ = SetWindowSubclass(hwnd, Some(backdrop_frame), BACKDROP_FRAME, 0);
-        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_THICKFRAME.0 as isize);
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, backdrop_style(style) as isize);
         let _ = SetWindowPos(
             hwnd,
             HWND::default(),
@@ -435,8 +435,17 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
 
 const BACKDROP_FRAME: usize = 0x6277_6266; // "bwbf"
 
-/// Keeps the sizing frame a system backdrop needs (see [`set_backdrop`])
-/// without letting it show or work: no width, since the client area is the
+/// A blurred surface's window style: the sizing frame the backdrop needs, and
+/// no caption. Tao gives an undecorated window a caption and a system menu,
+/// and with the frame extended over the window Windows drew the caption's
+/// close button over the panel's top corner, a small red cross.
+fn backdrop_style(style: u32) -> u32 {
+    let caption = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    (style | WS_THICKFRAME.0) & !caption.0
+}
+
+/// Keeps the sizing frame a system backdrop needs (see [`set_backdrop`]),
+/// and the caption off, without letting the frame show or work: no width, since the client area is the
 /// whole window, and no sizing handles at its edges. Tao rewrites a window's
 /// styles whole on every show and hide, so the frame goes back into each
 /// write, as [`keep_tool_window`] does for its bit.
@@ -452,7 +461,7 @@ unsafe extern "system" fn backdrop_frame(
         WM_STYLECHANGING if wparam.0 as i32 == GWL_STYLE.0 => {
             let styles = lparam.0 as *mut STYLESTRUCT;
             if !styles.is_null() {
-                (*styles).styleNew |= WS_THICKFRAME.0;
+                (*styles).styleNew = backdrop_style((*styles).styleNew);
             }
         }
         // The whole window is client area: nothing is drawn as a frame.
@@ -1141,6 +1150,23 @@ pub fn network_counters() -> NetworkCounters {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_blurred_window_has_the_frame_and_no_caption() {
+        // What Tao gives an undecorated window: caption, system menu, both
+        // boxes, a sizing frame.
+        let tao = 0x14CF_0000;
+        let style = backdrop_style(tao);
+        assert_ne!(style & WS_THICKFRAME.0, 0);
+        assert_eq!(
+            style & (WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX).0,
+            0
+        );
+        // Visible and clipped siblings untouched.
+        assert_eq!(style & 0x1400_0000, 0x1400_0000);
+        // A bare popup gains the frame.
+        assert_ne!(backdrop_style(0x8000_0000) & WS_THICKFRAME.0, 0);
+    }
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DestroyWindow, WINDOW_STYLE, WS_POPUP,
     };
