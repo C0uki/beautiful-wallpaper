@@ -14,6 +14,10 @@ export type Osd = {
    * the bar occupies, so this is only about which end of the screen.
    */
   position: string;
+  /**
+   * While on, the shell takes the volume keys, so Windows' own volume
+   * flyout does not show as well.
+   */
   volume: boolean;
   /**
    * Brightness is unavailable on some displays; the readout is simply

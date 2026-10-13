@@ -563,6 +563,8 @@ config_struct! {
         /// `"top"` or `"bottom"`. The readout clears the bar on whichever edge
         /// the bar occupies, so this is only about which end of the screen.
         pub position: String = s("top"),
+        /// While on, the shell takes the volume keys, so Windows' own volume
+        /// flyout does not show as well.
         pub volume: bool = true,
         /// Brightness is unavailable on some displays; the readout is simply
         /// not shown when the platform cannot report a level.
