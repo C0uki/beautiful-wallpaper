@@ -24,6 +24,17 @@
   background: color-mix(in srgb, var(--layer0) 55%, transparent);
 }
 
+/* Over the blur the modules are translucent too, as Control Center's are;
+   opaque, they covered nearly all of it and the panel read as solid. */
+.bw-sidebar[data-backdrop="true"]
+  :is(.bw-card, .bw-banner, .bw-banner-plain, .bw-toggle-tile) {
+  background: color-mix(in srgb, var(--layer1) 50%, transparent);
+}
+
+.bw-sidebar[data-backdrop="true"] .bw-toggle-tile:hover {
+  background: color-mix(in srgb, var(--layer1-hover) 70%, transparent);
+}
+
 /* A module, as a Mac's Control Center draws one: a rounded block a step
    lighter than the panel, with a hairline edge rather than a shadow. */
 .bw-sidebar .bw-card {
