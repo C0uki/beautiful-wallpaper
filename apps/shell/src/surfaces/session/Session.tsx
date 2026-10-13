@@ -17,6 +17,7 @@ import { Symbol } from "../../widgets";
 import HoldButton from "../../widgets/reactbits/HoldButton";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { usePanelShape } from "../../shell/panelShape";
 import { describeError } from "../../shell/errors";
 import "./session.css";
 
@@ -74,6 +75,7 @@ function focusOnOpen(element: HTMLDivElement | null) {
 export function Session() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.sessionOpen);
+  const panel = usePanelShape<HTMLDivElement>(open);
   const enabled = useShell((state) => state.config.session.enable);
 
   const [available, setAvailable] = useState<SessionAction[]>([]);
@@ -169,7 +171,7 @@ export function Session() {
         if (event.target === event.currentTarget) void close();
       }}
     >
-      <div className="bw-session-panel">
+      <div ref={panel} className="bw-session-panel">
         {problem ? <p className="bw-session-problem">{problem}</p> : null}
 
         {available.length ? (
