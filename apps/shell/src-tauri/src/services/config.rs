@@ -9,7 +9,7 @@ use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
