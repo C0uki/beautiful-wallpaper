@@ -34,6 +34,7 @@ use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::Graphics::Gdi::ScreenToClient;
 use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows::Win32::UI::Input::{
     GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER,
     RIDEV_INPUTSINK, RID_INPUT, RIM_TYPEMOUSE,
@@ -43,7 +44,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetCursorPos, GetMessageW, IsWindow, PostMessageW, PostThreadMessageW, SetWindowsHookExW,
     TranslateMessage, UnhookWindowsHookEx, WindowFromPoint, GA_ROOT, HWND_MESSAGE, MSG,
     MSLLHOOKSTRUCT, WH_MOUSE_LL, WINDOW_EX_STYLE, WINDOW_STYLE, WM_INPUT, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_LBUTTONUP, WM_MOUSEMOVE, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
 };
 
 /// Where the desktop was clicked, in physical screen pixels.
