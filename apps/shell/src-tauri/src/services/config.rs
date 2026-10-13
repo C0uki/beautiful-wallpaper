@@ -119,7 +119,11 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         .unwrap_or_else(|| state.config());
 
     let appearance_changed = config.appearance != previous.appearance;
-    let keybinds_changed = config.keybinds != previous.keybinds;
+    // The volume keys are held while the shell draws its own volume readout
+    // (`hotkeys::apply`), so turning that readout off has to give them back.
+    let keybinds_changed = config.keybinds != previous.keybinds
+        || config.osd.enable != previous.osd.enable
+        || config.osd.volume != previous.osd.volume;
     let menu_changed = config.hacks.desktop_menu != previous.hacks.desktop_menu
         || config.desktop_menu.enable != previous.desktop_menu.enable;
     let overlay_changed = config.overlay != previous.overlay;

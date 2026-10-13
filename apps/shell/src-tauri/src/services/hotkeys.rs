@@ -85,6 +85,36 @@ pub fn apply(app: &AppHandle) {
         }
     }
 
+    // The volume keys, while the shell draws its own volume readout. Windows'
+    // own flyout cannot be hidden — it is drawn inside Explorer, not in a
+    // window of its own — so the only way not to show two is for the keys
+    // never to reach Windows. Brightness cannot go the same way: a laptop's
+    // brightness keys go to the firmware, never past a hotkey.
+    // ponytail: registered without key repeat, as every hotkey here is, so a
+    // held key moves one step; a keyboard hook would give the repeat back.
+    if config.osd.enable && config.osd.volume {
+        for (key, step) in [
+            ("AudioVolumeUp", Some(true)),
+            ("AudioVolumeDown", Some(false)),
+            ("AudioVolumeMute", None),
+        ] {
+            let Ok(shortcut) = Shortcut::from_str(key) else {
+                continue;
+            };
+            let handle = app.clone();
+            let registered = shortcuts.on_shortcut(shortcut, move |_app, _shortcut, pressed| {
+                if pressed.state == ShortcutState::Pressed {
+                    volume_key(&handle, step);
+                }
+            });
+            if let Err(error) = registered {
+                // Windows keeps the key, and its own flyout with it; the
+                // volume still works, so this is not worth a toast.
+                tracing::info!(%error, key, "the volume key stays with Windows");
+            }
+        }
+    }
+
     // Kept, not just announced. A notification is gone the moment it is
     // dismissed, and the first-run screen — and the settings screen after
     // it — need to know which keys are missing for as long as they are.
@@ -205,6 +235,24 @@ fn run(app: &AppHandle, bound: Bound) {
                 tracing::warn!(%error, "could not open the desktop menu");
             }
         }
+    }
+}
+
+/// What a volume key does once the shell holds it: a step up or down, as the
+/// sidebar's buttons do, or mute flipped when `up` is `None`.
+fn volume_key(app: &AppHandle, up: Option<bool>) {
+    let (Some(state), Some(volume)) = (
+        app.try_state::<AppState>(),
+        app.try_state::<crate::state::VolumeHandle>(),
+    ) else {
+        return;
+    };
+    let result = match up {
+        Some(up) => crate::commands::step_volume(state, volume, up),
+        None => volume.set_muted(!volume.read().muted),
+    };
+    if let Err(error) = result {
+        tracing::warn!(%error, "could not change the volume");
     }
 }
 

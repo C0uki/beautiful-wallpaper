@@ -439,6 +439,7 @@ The readout that appears on a volume or brightness key.
 
 - **`osd.timeout`** — Milliseconds the readout stays up after the last change.
 - **`osd.position`** — `"top"` or `"bottom"`. The readout clears the bar on whichever edge the bar occupies, so this is only about which end of the screen.
+- **`osd.volume`** — While on, the shell takes the volume keys, so Windows' own volume flyout does not show as well.
 - **`osd.brightness`** — Brightness is unavailable on some displays; the readout is simply not shown when the platform cannot report a level.
 
 ## `overlay`
