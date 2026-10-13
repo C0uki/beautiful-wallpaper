@@ -16,6 +16,7 @@ import type { LauncherResult } from "@bw/core";
 import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { usePanelShape } from "../../shell/panelShape";
 import { ACTIONS } from "./actions";
 import { describeError } from "../../shell/errors";
 import { backend } from "../../shell/backend";
@@ -42,6 +43,7 @@ function describe(row: LauncherResult): string {
 export function Overview() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.overviewOpen);
+  const panel = usePanelShape<HTMLDivElement>(open);
   const enabled = useShell((state) => state.config.overview.enable);
   const scanned = useShell((state) => state.appsScanned);
 
@@ -163,7 +165,7 @@ export function Overview() {
         if (event.target === event.currentTarget) void close();
       }}
     >
-      <div className="bw-overview-panel">
+      <div ref={panel} className="bw-overview-panel">
         <label className="bw-overview-field">
           <Symbol name="search" size={22} />
           <input

@@ -286,10 +286,17 @@ pub fn apply_states(app: &AppHandle, states: &crate::state::GlobalStates) {
     // the one place its two windows can be kept honest.
     crate::services::overlay::apply(app);
 
-    // For the same reason: a click elsewhere puts a sidebar away, and this is
-    // where one is known to be open.
+    // For the same reason: a click elsewhere puts a sidebar away — and the
+    // search, the desktop menu and the session screen, cut to their panels —
+    // and this is where one is known to be open.
     if let Some(dock) = app.try_state::<crate::state::DockHandle>() {
-        dock.watch_clicks(states.sidebar_left_open || states.sidebar_right_open);
+        dock.watch_clicks(
+            states.sidebar_left_open
+                || states.sidebar_right_open
+                || states.overview_open
+                || states.desktop_menu_open
+                || states.session_open,
+        );
     }
 }
 
@@ -1249,14 +1256,18 @@ fn apply_layer(
         win::set_hot_corners(hwnd);
     }
 
-    // The desktop blurred behind the panel, as a Mac's Control Center is.
-    // Only the right sidebar for now: it is the one surface whose window is
-    // exactly its panel, so the blur cannot show in empty space around it.
-    // `auto` is Acrylic, the blur of what is behind; Mica only tints by the
-    // wallpaper.
-    // ponytail: one surface, to see on real hardware how the blur behaves
-    // while the panel is inactive and at its corners before the others get it.
-    if window.label() == SIDEBAR_RIGHT.label && config.windows.backdrop != "none" {
+    // The desktop blurred behind the panel, as a Mac's are. Two limits pick
+    // the surfaces. Windows blurs the whole window, so the window has to be
+    // exactly the panel, or the blur shows in the empty space around it. And
+    // it draws the blur only while the window is active, falling back to a
+    // flat colour otherwise, so a surface that never takes focus — the bar,
+    // the dock, the readout, the toasts — would only ever show the flat
+    // colour. That leaves the sidebars and the shelf. `auto` is Acrylic, the
+    // blur of what is behind; Mica only tints by the wallpaper.
+    // ponytail: the full-screen surfaces that do take focus (search, menus,
+    // settings) need their window cut to the panel's shape first.
+    let fits = [SIDEBAR_RIGHT.label, SIDEBAR_LEFT.label, SHELF.label].contains(&window.label());
+    if fits && config.windows.backdrop != "none" {
         let backdrop = if config.windows.backdrop == "mica" {
             win::Backdrop::Mica
         } else {

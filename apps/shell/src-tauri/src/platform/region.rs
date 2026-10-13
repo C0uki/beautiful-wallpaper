@@ -18,8 +18,35 @@
 use bw_core::capture::Rect;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
-    CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, HRGN, RGN_OR,
+    CombineRgn, CreateRectRgn, CreateRoundRectRgn, DeleteObject, SetWindowRgn, HRGN, RGN_OR,
 };
+
+/// Restricts a window to one rounded rectangle, in client coordinates: a
+/// panel's own outline, so what Windows draws behind it stops at its corners.
+pub fn set_window_round_region(hwnd: HWND, rect: Rect, radius: i32) -> Result<(), String> {
+    unsafe {
+        // Right and bottom are exclusive; the corner's size is the ellipse's,
+        // twice the radius.
+        let region = CreateRoundRectRgn(
+            rect.x,
+            rect.y,
+            rect.x + rect.width + 1,
+            rect.y + rect.height + 1,
+            radius * 2,
+            radius * 2,
+        );
+        if region.is_invalid() {
+            return Err("Windows would not make the panel's outline".to_owned());
+        }
+        if SetWindowRgn(hwnd, region, true) == 0 {
+            // Still ours, because the call did not take it.
+            let _ = DeleteObject(region);
+            return Err("Windows would not shape the window".to_owned());
+        }
+        // The system owns it now; see the module's note.
+        Ok(())
+    }
+}
 
 /// Restricts a window to these rectangles, in client coordinates.
 ///

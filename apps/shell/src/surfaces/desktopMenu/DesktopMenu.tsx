@@ -21,6 +21,7 @@ import type { MenuItem } from "@bw/core";
 import { Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { usePanelShape } from "../../shell/panelShape";
 import { describeError } from "../../shell/errors";
 import "./desktopMenu.css";
 
@@ -83,6 +84,7 @@ export function DesktopMenu() {
   const [focused, setFocused] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const shape = usePanelShape<HTMLDivElement>(open && at);
 
   useEffect(() => {
     void connect();
@@ -193,7 +195,10 @@ export function DesktopMenu() {
       }}
     >
       <div
-        ref={panel}
+        ref={(node) => {
+          panel.current = node;
+          shape(node);
+        }}
         className="bw-desktop-menu-panel"
         style={
           at

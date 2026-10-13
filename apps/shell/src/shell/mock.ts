@@ -953,6 +953,7 @@ export function mockBackend(): Backend {
         // would take down every surface on the harness page with it.
         case Command.SetSurfaceRevealed:
         case Command.SetDockShape:
+        case Command.SetPanelShape:
         case Command.ClickTrayIcon:
           return undefined as T;
 

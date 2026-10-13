@@ -17,6 +17,7 @@ import { configSchema } from "@bw/core";
 import { IconButton, SearchField, Slider, Switch, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
+import { usePanelShape } from "../../shell/panelShape";
 import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
 import { PAGES, orderOn, pageFor } from "./pages";
@@ -65,6 +66,7 @@ function matches(field: Field, term: string): boolean {
 export function Settings() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.settingsOpen);
+  const panel = usePanelShape<HTMLDivElement>(open);
   const config = useShell((state) => state.config);
 
   const [page, setPage] = useState(PAGES[0]!.id);
@@ -139,7 +141,7 @@ export function Settings() {
         if (event.target === event.currentTarget) close();
       }}
     >
-      <div className="bw-settings-panel">
+      <div ref={panel} className="bw-settings-panel">
         <nav className="bw-settings-pages" aria-label={tr("Settings pages")}>
           <div className="bw-settings-search">
             <SearchField
