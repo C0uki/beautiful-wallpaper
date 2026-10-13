@@ -43,6 +43,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_SIZE, WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
+    WS_THICKFRAME,
+};
 
 /// Where a surface sits relative to the desktop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -388,9 +392,27 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
     );
 
     if backdrop != Backdrop::None {
-        // A system backdrop is drawn in the window frame, and a frameless
-        // window has none to draw it in until the frame is extended over
-        // the whole client area.
+        // A system backdrop is only drawn for a window with a sizing frame:
+        // on a bare popup Windows paints its flat fallback grey instead,
+        // whatever the settings say. Found by trying window styles on real
+        // hardware. The frame is given and then taken straight back — no
+        // width, no sizing handles — by `backdrop_frame`.
+        let _ = SetWindowSubclass(hwnd, Some(backdrop_frame), BACKDROP_FRAME, 0);
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_THICKFRAME.0 as isize);
+        let _ = SetWindowPos(
+            hwnd,
+            HWND::default(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+
+        // The backdrop is drawn in the window frame, and a frameless window
+        // has none to draw it in until the frame is extended over the whole
+        // client area.
         let margins = MARGINS {
             cxLeftWidth: -1,
             cxRightWidth: -1,
@@ -409,6 +431,47 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
             std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
         );
     }
+}
+
+const BACKDROP_FRAME: usize = 0x6277_6266; // "bwbf"
+
+/// Keeps the sizing frame a system backdrop needs (see [`set_backdrop`])
+/// without letting it show or work: no width, since the client area is the
+/// whole window, and no sizing handles at its edges. Tao rewrites a window's
+/// styles whole on every show and hide, so the frame goes back into each
+/// write, as [`keep_tool_window`] does for its bit.
+unsafe extern "system" fn backdrop_frame(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> LRESULT {
+    match msg {
+        WM_STYLECHANGING if wparam.0 as i32 == GWL_STYLE.0 => {
+            let styles = lparam.0 as *mut STYLESTRUCT;
+            if !styles.is_null() {
+                (*styles).styleNew |= WS_THICKFRAME.0;
+            }
+        }
+        // The whole window is client area: nothing is drawn as a frame.
+        WM_NCCALCSIZE if wparam.0 != 0 => return LRESULT(0),
+        WM_NCHITTEST => {
+            let hit = DefSubclassProc(hwnd, msg, wparam, lparam);
+            let sizing = (HTLEFT as isize)..=(HTBOTTOMRIGHT as isize);
+            return if sizing.contains(&hit.0) {
+                LRESULT(HTCLIENT as isize)
+            } else {
+                hit
+            };
+        }
+        WM_NCDESTROY => {
+            let _ = RemoveWindowSubclass(hwnd, Some(backdrop_frame), BACKDROP_FRAME);
+        }
+        _ => {}
+    }
+    DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
 /// WM_APP plus an offset of our choosing, for the shell's app bar callbacks.
