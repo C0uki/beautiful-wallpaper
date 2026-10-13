@@ -127,7 +127,11 @@ function Stat({ label, percent, icon, detail, accent }: StatProps) {
             {Math.round(percent)}%
           </div>
           <div
-            style={{ color: "var(--on-surface-variant)", fontSize: "0.82em" }}
+            style={{
+              color: "var(--on-surface-variant)",
+              fontSize: "0.82em",
+              whiteSpace: "nowrap",
+            }}
           >
             {label}
           </div>
