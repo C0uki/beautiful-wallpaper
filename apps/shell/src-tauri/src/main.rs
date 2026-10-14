@@ -301,7 +301,6 @@ fn main() {
 /// Holds the config watcher so it is not dropped at the end of `setup`.
 struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 
-/// Starts the timers that push system readings to the surfaces.
 /// Queues `work` for a later turn of the event loop.
 ///
 /// Creating a webview takes long enough that nineteen of them back to back
@@ -311,10 +310,33 @@ struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 /// not layered, which is exactly the pair that swallows every click on the
 /// desktop rather than passing it through. Spread over the loop, the thread is
 /// never silent long enough to be asked.
+///
+/// Handed over from a thread of its own. Called on the main thread, as all of
+/// the startup is, `run_on_main_thread` does not queue the work but runs it
+/// there and then: the nineteen surfaces were made inside `setup`, one call
+/// thirty seconds long on a slow machine, and nothing sent to a surface in
+/// that time — the bar's readings, the weather — reached one until it ended.
+/// From another thread it goes to the back of the loop's queue; one thread, so
+/// the work keeps the order it was queued in.
 fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
-    if let Err(error) = handle.run_on_main_thread(work) {
-        tracing::error!(%error, "could not queue a step of the startup");
-    }
+    type Work = Box<dyn FnOnce() + Send>;
+    static QUEUE: std::sync::OnceLock<std::sync::mpsc::Sender<Work>> = std::sync::OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (sender, receiver) = std::sync::mpsc::channel::<Work>();
+        let handle = handle.clone();
+        std::thread::Builder::new()
+            .name("bw-later".to_owned())
+            .spawn(move || {
+                for work in receiver {
+                    if let Err(error) = handle.run_on_main_thread(work) {
+                        tracing::error!(%error, "could not queue a step of the startup");
+                    }
+                }
+            })
+            .expect("could not start the thread that queues the startup");
+        sender
+    });
+    let _ = queue.send(Box::new(work));
 }
 
 /// Runs `steps` one to a turn, each queued only once the one before has run.
