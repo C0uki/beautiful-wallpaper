@@ -235,6 +235,11 @@ fn main() {
             app.manage(ChatStore::default());
             app.manage(ChatBusy::default());
             app.manage(start_app_scan(&handle));
+            // Now rather than behind the surfaces: it reaches for none of them,
+            // only sends, and they take long enough to make that the first
+            // report — the kept one included — came twenty seconds after the
+            // bar on a slow start.
+            services::weather::start(&handle);
             app.manage(CaptureHandle::default());
             app.manage(DesktopMenuHandle::default());
             app.manage(ShelfStore::default());
@@ -368,7 +373,6 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
         }
 
         services::updater::start(&handle);
-        services::weather::start(&handle);
         spawn_providers(handle, state);
     });
 }
