@@ -113,7 +113,9 @@ pub fn start(app: &AppHandle) {
             if let (true, Some(report)) = (weather.enable, &report) {
                 let _ = app.emit(event::WEATHER, report);
             }
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            // Two seconds, as while fetching: at ten, a bar that had just
+            // loaded sat without the weather for most of them.
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
 }
