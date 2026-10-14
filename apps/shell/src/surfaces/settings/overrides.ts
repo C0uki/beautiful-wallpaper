@@ -401,6 +401,10 @@ const HINTS: Record<string, string> = {
   "sidebar.nightLight.to": "24-hour time, such as 07:00.",
   "osd.enable": "Show the level when a volume or brightness key is pressed.",
   "osd.timeout": "Milliseconds it stays after the last press.",
+  "osd.volume":
+    "While on, the shell takes the volume keys, so Windows' own volume display does not show as well.",
+  "osd.brightness":
+    "Windows shows its own brightness display too, and it cannot be hidden. Turn this off to see only Windows' one.",
   "audio.step": "How much one press of a volume key changes it, in percent.",
   "audio.protection.enable":
     "Stop the volume being turned up past the limit below.",
