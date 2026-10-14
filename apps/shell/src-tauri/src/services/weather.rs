@@ -76,7 +76,23 @@ pub fn start(app: &AppHandle) {
                     }
                 }
                 tried = asking.clone();
-                match fetch(&client, &weather.city, weather.use_usc_units, &lang).await {
+                // What is known goes on being sent while wttr.in is asked. A
+                // fetch can take its whole timeout, and at startup the
+                // surfaces are still loading when the kept report is first
+                // sent: they heard nothing until the fetch was done.
+                let fetching = fetch(&client, &weather.city, weather.use_usc_units, &lang);
+                tokio::pin!(fetching);
+                let fetched = loop {
+                    tokio::select! {
+                        fetched = &mut fetching => break fetched,
+                        () = tokio::time::sleep(Duration::from_secs(2)) => {
+                            if let Some(report) = &report {
+                                let _ = app.emit(event::WEATHER, report);
+                            }
+                        }
+                    }
+                };
+                match fetched {
                     Ok((fetched, body)) => {
                         report = Some(fetched);
                         failures = 0;
