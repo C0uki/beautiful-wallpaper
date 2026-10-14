@@ -621,6 +621,8 @@
   "24-hour time, such as 07:00.": "24 時間制の時刻（07:00 など）。",
   "Show the level when a volume or brightness key is pressed.": "音量や明るさのキーを押したときに、その値を表示します。",
   "Milliseconds it stays after the last press.": "最後に押してから表示しておく時間（ミリ秒）。",
+  "While on, the shell takes the volume keys, so Windows' own volume display does not show as well.": "オンのあいだは音量キーをシェルが受け持つので、Windows の音量の表示は出ません。",
+  "Windows shows its own brightness display too, and it cannot be hidden. Turn this off to see only Windows' one.": "明るさは Windows の表示も出ます。Windows の表示は隠せないので、二重に出るのが気になるときはオフにしてください。Windows の表示だけになります。",
   "How much one press of a volume key changes it, in percent.": "音量キーを 1 回押したときに変わる量（%）。",
   "Stop the volume being turned up past the limit below.": "音量が下の上限を超えないようにします。",
   "Percent.": "%。",
