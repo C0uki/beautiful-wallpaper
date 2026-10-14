@@ -248,22 +248,28 @@ fn main() {
             services::integration::apply(&handle);
             services::listener::apply(&handle);
 
+            spawn_readings(&handle, &state);
+
             // One surface to a turn of the event loop, rather than nineteen
             // back to back. See the note on `later`.
-            for surface in surfaces::ALL {
-                let each = handle.clone();
-                later(&handle, move || {
-                    if let Err(error) = surfaces::ensure(&each, surface) {
-                        tracing::error!(%error, surface = surface.label, "could not create a surface");
-                    }
-                });
-            }
+            let mut steps: Vec<Box<dyn FnOnce() + Send>> = surfaces::ALL
+                .iter()
+                .map(|surface| {
+                    let each = handle.clone();
+                    Box::new(move || {
+                        if let Err(error) = surfaces::ensure(&each, surface) {
+                            tracing::error!(%error, surface = surface.label, "could not create a surface");
+                        }
+                    }) as Box<dyn FnOnce() + Send>
+                })
+                .collect();
 
-            // Behind every one of them in the queue, because each step of it
-            // needs a surface to have a window before it can touch it.
+            // Behind every one of them, because each step of it needs a
+            // surface to have a window before it can touch it.
             let rest = handle.clone();
             let state = state.clone();
-            later(&handle, move || finish_starting(rest, state));
+            steps.push(Box::new(move || finish_starting(rest, state)));
+            in_turn(handle.clone(), steps.into());
 
             Ok(())
         })
@@ -295,7 +301,6 @@ fn main() {
 /// Holds the config watcher so it is not dropped at the end of `setup`.
 struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 
-/// Starts the timers that push system readings to the surfaces.
 /// Queues `work` for a later turn of the event loop.
 ///
 /// Creating a webview takes long enough that nineteen of them back to back
@@ -305,10 +310,54 @@ struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 /// not layered, which is exactly the pair that swallows every click on the
 /// desktop rather than passing it through. Spread over the loop, the thread is
 /// never silent long enough to be asked.
+///
+/// Handed over from a thread of its own. Called on the main thread, as all of
+/// the startup is, `run_on_main_thread` does not queue the work but runs it
+/// there and then: the nineteen surfaces were made inside `setup`, one call
+/// thirty seconds long on a slow machine, and nothing sent to a surface in
+/// that time — the bar's readings, the weather — reached one until it ended.
+/// From another thread it goes to the back of the loop's queue; one thread, so
+/// the work keeps the order it was queued in.
 fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
-    if let Err(error) = handle.run_on_main_thread(work) {
-        tracing::error!(%error, "could not queue a step of the startup");
-    }
+    type Work = Box<dyn FnOnce() + Send>;
+    static QUEUE: std::sync::OnceLock<std::sync::mpsc::Sender<Work>> = std::sync::OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (sender, receiver) = std::sync::mpsc::channel::<Work>();
+        let handle = handle.clone();
+        std::thread::Builder::new()
+            .name("bw-later".to_owned())
+            .spawn(move || {
+                for work in receiver {
+                    if let Err(error) = handle.run_on_main_thread(work) {
+                        tracing::error!(%error, "could not queue a step of the startup");
+                    }
+                }
+            })
+            .expect("could not start the thread that queues the startup");
+        sender
+    });
+    let _ = queue.send(Box::new(work));
+}
+
+/// Runs `steps` one to a turn, each queued only once the one before has run.
+///
+/// Queued all at once, they stood ahead of everything sent to the surfaces in
+/// the meantime: an event reaches a page by a turn of this same loop, so every
+/// reading, the weather and the active window's title waited behind all
+/// nineteen surfaces — the bar sat half empty for thirty seconds on a slow
+/// start, though each of them was ready within one.
+fn in_turn(
+    handle: tauri::AppHandle,
+    mut steps: std::collections::VecDeque<Box<dyn FnOnce() + Send>>,
+) {
+    let Some(step) = steps.pop_front() else {
+        return;
+    };
+    let next = handle.clone();
+    later(&handle, move || {
+        step();
+        in_turn(next, steps);
+    });
 }
 
 /// The rest of the startup, once every surface has a window.
@@ -368,30 +417,39 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
         }
 
         services::updater::start(&handle);
-        services::weather::start(&handle);
         spawn_providers(handle, state);
     });
 }
 
-fn spawn_providers(app: tauri::AppHandle, state: AppState) {
+/// Starts the readings that only ever send: the bar's resources, network and
+/// battery, and the weather.
+///
+/// Ahead of the surfaces rather than behind them, as everything in
+/// [`spawn_providers`] is: none of these reaches for a surface, and behind
+/// nineteen of them on a slow start the bar went thirty seconds with nothing
+/// to show. A surface still loading misses a sample, and has the next.
+fn spawn_readings(app: &tauri::AppHandle, state: &AppState) {
+    services::weather::start(app);
+
     let resource_interval = Duration::from_millis(state.config().resources.poll_interval.into());
+    // Sampled on a plain thread: `sysinfo` blocks, and does not belong on the
+    // UI thread.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut resources = Resources::new();
+        let mut network = Network::new();
+        loop {
+            let _ = app.emit(event::RESOURCES, resources.sample());
+            let _ = app.emit(event::NETWORK, network.sample());
+            let _ = app.emit(event::BATTERY, bw_shell::providers::battery());
+            std::thread::sleep(resource_interval);
+        }
+    });
+}
 
-    // Resources and media are sampled on a plain thread: `sysinfo` and the SMTC
-    // calls both block, and neither belongs on the UI thread.
-    {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            let mut resources = Resources::new();
-            let mut network = Network::new();
-            loop {
-                let _ = app.emit(event::RESOURCES, resources.sample());
-                let _ = app.emit(event::NETWORK, network.sample());
-                let _ = app.emit(event::BATTERY, bw_shell::providers::battery());
-                std::thread::sleep(resource_interval);
-            }
-        });
-    }
-
+fn spawn_providers(app: tauri::AppHandle, state: AppState) {
+    // Media is sampled on a plain thread: the SMTC calls block, and do not
+    // belong on the UI thread.
     {
         let app = app.clone();
         std::thread::spawn(move || loop {
