@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configSchema } from "@bw/core";
 import { availableLocales, resolveLocale, setLocale, tr } from ".";
+import en_US from "./locales/en_US.json";
 import ja_JP from "./locales/ja_JP.json";
 
 /** Stands in for the browser's list, which is read-only in a real navigator. */
@@ -84,6 +85,14 @@ describe("the settings screen", () => {
     );
     words.delete("");
     const missing = [...words].filter((word) => !(word in ja_JP));
+    expect(missing).toEqual([]);
+  });
+
+  it("names every section in English", () => {
+    // Groups and labels are made readable from the key; a section is not,
+    // and its key is what headed its card: `osd`, `workSafety`.
+    const sections = new Set(configSchema.map((field) => field.section));
+    const missing = [...sections].filter((section) => !(section in en_US));
     expect(missing).toEqual([]);
   });
 });
