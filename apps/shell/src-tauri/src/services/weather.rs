@@ -67,8 +67,13 @@ pub fn start(app: &AppHandle) {
 
             if weather.enable && (Instant::now() >= next || asking != tried) {
                 if asking != tried {
-                    // Something to show while the first fetch is under way.
+                    // Something to show while the first fetch is under way —
+                    // sent now, not after it: wttr.in can take its full
+                    // timeout to answer, and the bar stayed empty that long.
                     report = cached(&asking, weather.use_usc_units, &lang);
+                    if let Some(report) = &report {
+                        let _ = app.emit(event::WEATHER, report);
+                    }
                 }
                 tried = asking.clone();
                 match fetch(&client, &weather.city, weather.use_usc_units, &lang).await {
