@@ -49,7 +49,10 @@ use windows::Win32::UI::WindowsAndMessaging::DEVICE_NOTIFY_CALLBACK;
 type OnChange = Arc<dyn Fn(u8) + Send + Sync + 'static>;
 
 /// Milliseconds WMI is allowed to spend applying a level before giving up.
-const WMI_TIMEOUT_MS: u32 = 0;
+///
+/// An `i32` though the method's parameter is a uint32: WMI takes a uint32 as
+/// VT_I4, and a `u32` becomes VT_UI4, which it can refuse as the wrong type.
+const WMI_TIMEOUT_MS: i32 = 0;
 
 /// The cached level when nothing can report one.
 const UNKNOWN: i32 = -1;
@@ -484,9 +487,13 @@ impl Wmi {
                     &VARIANT::from(WMI_TIMEOUT_MS),
                     0,
                 )
+                .map_err(
+                    |error| tracing::warn!(%error, "WMI would not take the brightness timeout"),
+                )
                 .ok()?;
             arguments
                 .Put(&HSTRING::from("Brightness"), 0, &VARIANT::from(percent), 0)
+                .map_err(|error| tracing::warn!(%error, "WMI would not take the brightness level"))
                 .ok()?;
 
             // WMI addresses an instance by a quoted key; a name containing a
@@ -505,6 +512,7 @@ impl Wmi {
                     None,
                     None,
                 )
+                .map_err(|error| tracing::warn!(%error, "WMI would not set the brightness"))
                 .ok()?;
             Some(())
         }

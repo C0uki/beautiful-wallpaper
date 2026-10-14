@@ -191,10 +191,16 @@ impl VolumeWatcher {
         unsafe { read_endpoint(&endpoint.volume) }.into()
     }
 
-    /// Sets the level, clamped to `ceiling` percent.
+    /// Sets the level, clamped to `ceiling` percent, and unmutes for any level
+    /// above zero.
     ///
     /// The ceiling is the hearing-protection setting: the shell's own controls
     /// will not put the volume somewhere painful, even if asked to.
+    ///
+    /// Moving the level is asking to hear it, as Windows' own slider and keys
+    /// take it. Left muted, the endpoint kept the new level out of earshot, and
+    /// the slider, which draws a muted endpoint at zero, sprang back there as
+    /// soon as it was let go.
     pub fn set_percent(&self, percent: f32, ceiling: f32) -> Result<()> {
         let guard = self.endpoint.0.lock();
         let Some(endpoint) = guard.as_ref() else {
@@ -204,8 +210,12 @@ impl VolumeWatcher {
         unsafe {
             endpoint
                 .volume
-                .SetMasterVolumeLevelScalar(target, std::ptr::null())
+                .SetMasterVolumeLevelScalar(target, std::ptr::null())?;
+            if target > 0.0 {
+                endpoint.volume.SetMute(false, std::ptr::null())?;
+            }
         }
+        Ok(())
     }
 
     pub fn set_muted(&self, muted: bool) -> Result<()> {
