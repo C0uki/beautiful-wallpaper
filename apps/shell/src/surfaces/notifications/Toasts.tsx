@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Symbol } from "../../widgets";
 import SwipeToast from "../../widgets/reactbits/SwipeToast";
 import { formatAge } from "../../lib/format";
-import { tr } from "../../i18n";
+import { tr, trNotice } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import type { Notification } from "@bw/core";
 import "./toasts.css";
@@ -105,7 +105,7 @@ function Toast({
           />
         </span>
       }
-      title={notification.summary}
+      title={trNotice(notification.appName, notification.summary)}
       description={
         <span className="bw-toast-text">
           <span className="bw-toast-heading">
@@ -115,7 +115,9 @@ function Toast({
             </span>
           </span>
           {notification.body ? (
-            <span className="bw-toast-body">{notification.body}</span>
+            <span className="bw-toast-body">
+              {trNotice(notification.appName, notification.body)}
+            </span>
           ) : null}
           {extra > 0 ? (
             <span className="bw-toast-more">
