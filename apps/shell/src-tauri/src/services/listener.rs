@@ -187,9 +187,11 @@ fn say(app: &AppHandle, problem: String) {
     let Some(store) = app.try_state::<NotificationStore>() else {
         return;
     };
-    store.0.post(bw_core::NewNotification::from_shell(
-        "Other applications' notifications",
-        problem,
-    ));
+    let notice = bw_core::NewNotification::from_shell("Other applications' notifications", problem);
+    // Found again at every start; once is enough while it is still there.
+    if store.0.holds(&notice) {
+        return;
+    }
+    store.0.post(notice);
     let _ = app.emit(event::NOTIFICATIONS, store.0.list());
 }
