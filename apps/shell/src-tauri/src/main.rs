@@ -269,7 +269,11 @@ fn main() {
             let rest = handle.clone();
             let state = state.clone();
             steps.push(Box::new(move || finish_starting(rest, state)));
-            in_turn(handle.clone(), steps.into());
+            let first = handle.clone();
+            std::thread::spawn(move || {
+                wait_for_profile(&first);
+                in_turn(first, steps.into());
+            });
 
             Ok(())
         })
@@ -337,6 +341,54 @@ fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
         sender
     });
     let _ = queue.send(Box::new(work));
+}
+
+/// Waits, for up to three minutes, until no WebView2 from an earlier run still has
+/// the shell's profile open.
+///
+/// WebView2 hands a new webview to whatever browser process already has its
+/// profile folder open, and a quit — an update's restart above all — leaves
+/// that process shutting down for half a minute after the shell itself has
+/// gone. Handed to it, the first surface was never finished, and the shell
+/// sat running with no bar, no dock and nothing else. The browser keeps the
+/// profile's `lockfile` open unshared until it exits, so being able to open it
+/// that way means there is nothing left to join.
+///
+/// Three minutes because a whole one was measured going by, after the shell
+/// was killed, with the old browser still holding on.
+fn wait_for_profile(handle: &tauri::AppHandle) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        const SHARING_VIOLATION: i32 = 32;
+        let Ok(folder) = handle.path().app_local_data_dir() else {
+            return;
+        };
+        let lock = folder.join("EBWebView").join("lockfile");
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(180) {
+            match std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&lock)
+            {
+                Err(error) if error.raw_os_error() == Some(SHARING_VIOLATION) => {
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+                // Opened, or not there at all: nobody holds it.
+                _ => break,
+            }
+        }
+        if started.elapsed() >= Duration::from_millis(250) {
+            tracing::info!(
+                waited_ms = started.elapsed().as_millis() as u64,
+                "waited for the last run's WebView2 to exit"
+            );
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = handle;
 }
 
 /// Runs `steps` one to a turn, each queued only once the one before has run.
