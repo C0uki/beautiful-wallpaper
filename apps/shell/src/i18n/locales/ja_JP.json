@@ -738,5 +738,12 @@
   "could not open the Run key: error %1": "起動時に動かすアプリの登録先（Run キー）を開けませんでした（エラー %1）",
   "could not register the shell to start with Windows: error %1": "Windows と一緒に起動するように登録できませんでした（エラー %1）",
   "could not stop the shell starting with Windows: error %1": "Windows と一緒に起動しないようにできませんでした（エラー %1）",
+  "could not prepare the package registration: %1": "パッケージを登録する準備ができませんでした：%1",
+  "%1 is not a usable location: %2": "%1 は、パッケージの置き場所として使えません：%2",
+  "could not point the package at the install folder: %1": "パッケージに、インストール先のフォルダを指定できませんでした：%1",
+  "could not reach the package manager: %1": "Windows のパッケージの管理機能につながりませんでした：%1",
+  "%1 is not a usable path: %2": "%1 は、パッケージのパスとして使えません：%2",
+  "could not register the package: %1": "パッケージを登録できませんでした：%1",
+  "registering the package did not finish: %1": "パッケージの登録が終わりませんでした：%1",
   "Version %1": "バージョン %1"
 }

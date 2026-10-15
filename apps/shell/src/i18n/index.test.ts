@@ -115,6 +115,16 @@ describe("trNotice", () => {
     );
   });
 
+  it("fills both values of a notice that carries two", () => {
+    setLocale("ja_JP");
+    expect(
+      trNotice(
+        "beautiful-wallpaper",
+        "D:/x is not a usable path: Access is denied.",
+      ),
+    ).toBe("D:/x は、パッケージのパスとして使えません：Access is denied.");
+  });
+
   it("leaves other applications' notifications alone", () => {
     setLocale("ja_JP");
     expect(trNotice("Sync client", "Update")).toBe("Update");

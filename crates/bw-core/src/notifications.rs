@@ -173,6 +173,14 @@ impl Store {
         notification
     }
 
+    /// Whether the history still holds a notification from the same sender
+    /// in the same words.
+    pub fn holds(&self, new: &NewNotification) -> bool {
+        self.lock().notifications.iter().any(|kept| {
+            kept.app_name == new.app_name && kept.summary == new.summary && kept.body == new.body
+        })
+    }
+
     /// Removes one notification. Returns whether it was there.
     pub fn dismiss(&self, id: u32) -> bool {
         let mut inner = self.lock();
@@ -248,6 +256,24 @@ mod tests {
         let list = store.list();
         assert_eq!(list[0].summary, "Second");
         assert_eq!(list[1].summary, "First");
+    }
+
+    #[test]
+    fn holds_the_same_words_until_dismissed() {
+        let store = store_in(&temp_dir("holds"));
+        let notice = || NewNotification::from_shell("Update", "Updating to 1.0.");
+        assert!(!store.holds(&notice()));
+
+        let posted = store.post(notice());
+        assert!(store.holds(&notice()));
+        assert!(!store.holds(&NewNotification::from_shell("Update", "Updating to 1.1.")));
+        assert!(!store.holds(&NewNotification {
+            app_name: "Another app".to_owned(),
+            ..notice()
+        }));
+
+        store.dismiss(posted.id);
+        assert!(!store.holds(&notice()));
     }
 
     #[test]

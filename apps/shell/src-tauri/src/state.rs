@@ -233,6 +233,12 @@ impl NotificationStore {
     ) -> Option<bw_core::Notification> {
         use tauri::{Emitter, Manager};
         let store = app.try_state::<NotificationStore>()?;
+        // What a start finds wrong — a key Windows keeps, a package that is not
+        // installed — it finds again at the next one. Said once while that is
+        // still in the history to read; dismissed, it is said again.
+        if store.0.holds(&notification) {
+            return None;
+        }
         let posted = store.0.post(notification);
         let _ = app.emit(crate::commands::event::NOTIFICATIONS, store.0.list());
         let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
