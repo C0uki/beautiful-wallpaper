@@ -302,6 +302,9 @@ const LABELS: Record<string, string> = {
   "appearance.fonts.pixelSize": "Text size",
   "hacks.desktopMenu": "Take over the desktop's right-click menu",
   "sidebar.cornerOpen.enable": "Open things from the screen corners",
+  // Only the temperature changes; "USC units" named a system nobody calls it.
+  "weather.useUscUnits": "Show temperatures in Fahrenheit",
+  "time.weekStartsOnMonday": "Week starts on Monday",
 };
 
 /** The sentence under a label, for every setting whose name alone does not
