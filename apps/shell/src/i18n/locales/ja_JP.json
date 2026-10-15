@@ -744,5 +744,6 @@
   "could not reach the package manager: %1": "Windows のパッケージの管理機能につながりませんでした：%1",
   "%1 is not a usable path: %2": "%1 は、パッケージのパスとして使えません：%2",
   "could not register the package: %1": "パッケージを登録できませんでした：%1",
-  "registering the package did not finish: %1": "パッケージの登録が終わりませんでした：%1"
+  "registering the package did not finish: %1": "パッケージの登録が終わりませんでした：%1",
+  "Version %1": "バージョン %1"
 }
