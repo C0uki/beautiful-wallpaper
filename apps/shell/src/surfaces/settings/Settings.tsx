@@ -12,6 +12,7 @@
 // per page, and rows gathered into cards.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import type { Field } from "@bw/core";
 import { configSchema } from "@bw/core";
 import { IconButton, SearchField, Slider, Switch, Symbol } from "../../widgets";
@@ -110,6 +111,12 @@ export function Settings() {
     return fields.filter((field) => matches(field, term));
   }, [byPage, page, searching, term]);
 
+  // At the foot of the page list, where a Mac's settings keep it too.
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion, () => setVersion(""));
+  }, []);
+
   const set = useCallback(async (path: string, value: unknown) => {
     try {
       await actions.setConfigValue(path, value);
@@ -171,6 +178,9 @@ export function Settings() {
               <span>{entry.title()}</span>
             </button>
           ))}
+          {version ? (
+            <p className="bw-settings-version">{tr("Version %1", version)}</p>
+          ) : null}
         </nav>
 
         <div className="bw-settings-body">

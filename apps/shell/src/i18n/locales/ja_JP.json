@@ -737,5 +737,6 @@
   "could not find this executable: %1": "シェルの実行ファイルが見つかりませんでした：%1",
   "could not open the Run key: error %1": "起動時に動かすアプリの登録先（Run キー）を開けませんでした（エラー %1）",
   "could not register the shell to start with Windows: error %1": "Windows と一緒に起動するように登録できませんでした（エラー %1）",
-  "could not stop the shell starting with Windows: error %1": "Windows と一緒に起動しないようにできませんでした（エラー %1）"
+  "could not stop the shell starting with Windows: error %1": "Windows と一緒に起動しないようにできませんでした（エラー %1）",
+  "Version %1": "バージョン %1"
 }
