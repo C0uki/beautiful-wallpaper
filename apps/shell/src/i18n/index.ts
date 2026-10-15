@@ -63,3 +63,50 @@ export function tr(source: string, ...args: Array<string | number>): string {
     cleaned,
   );
 }
+
+/**
+ * The shell's own notices, as the Rust side words them, `%n` standing for
+ * what it fills in. It composes them in English with the values already in
+ * place, so a translation is found by matching a notice against these rather
+ * than by looking it up.
+ */
+const NOTICES = [
+  "Updating to %1. The shell restarts when it is done.",
+  "Not a setting: %1",
+  "Windows keeps these for itself, or another program already has them: %1. Settings offers a free combination for each.",
+  "These are not key combinations the shell can read: %1. Check how they are written in Settings.",
+  "%1 is not there. The sparse package is built and signed separately — see docs/msix.md — because signing needs a certificate this build cannot make for you.",
+  "Windows refused the package (%1). This usually means its certificate is not installed as a trusted root on this machine. %2",
+  "could not find this executable: %1",
+  "could not open the Run key: error %1",
+  "could not register the shell to start with Windows: error %1",
+  "could not stop the shell starting with Windows: error %1",
+].map((notice) => ({
+  notice,
+  pattern: new RegExp(
+    `^${notice
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/%\d/g, "(.+)")}$`,
+    "s",
+  ),
+}));
+
+/**
+ * A notification's summary or body in the active language, when the shell
+ * itself wrote it. Other applications' notifications arrive in their own
+ * words and are left as they are. One line at a time: a notice can carry more
+ * than one message, a line each.
+ */
+export function trNotice(appName: string, text: string): string {
+  if (appName !== "beautiful-wallpaper") return text;
+  return text
+    .split("\n")
+    .map((line) => {
+      for (const { notice, pattern } of NOTICES) {
+        const found = pattern.exec(line);
+        if (found) return tr(notice, ...found.slice(1));
+      }
+      return tr(line);
+    })
+    .join("\n");
+}

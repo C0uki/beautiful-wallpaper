@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configSchema } from "@bw/core";
-import { availableLocales, resolveLocale, setLocale, tr } from ".";
+import { availableLocales, resolveLocale, setLocale, tr, trNotice } from ".";
 import en_US from "./locales/en_US.json";
 import ja_JP from "./locales/ja_JP.json";
 
@@ -94,5 +94,29 @@ describe("the settings screen", () => {
     const sections = new Set(configSchema.map((field) => field.section));
     const missing = [...sections].filter((section) => !(section in en_US));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("trNotice", () => {
+  it("translates the shell's notices with their values in place", () => {
+    setLocale("ja_JP");
+    const shell = (text: string) => trNotice("beautiful-wallpaper", text);
+    expect(shell("Update")).toBe("アップデート");
+    expect(
+      shell("Updating to 0.4.8. The shell restarts when it is done."),
+    ).toBe("0.4.8 に更新しています。終わるとシェルが再起動します。");
+    // Two messages, a line each, as the hotkeys post them.
+    expect(
+      shell(
+        "Windows keeps these for itself, or another program already has them: Super+Shift+F (shelf). Settings offers a free combination for each.\nThese are not key combinations the shell can read: Ctrl+Nope (session). Check how they are written in Settings.",
+      ),
+    ).toBe(
+      "Windows が使っているか、ほかのアプリが先に使っています：Super+Shift+F (shelf)。設定の画面で、空いている組み合わせを選べます。\nシェルが読み取れないキーの組み合わせです：Ctrl+Nope (session)。設定の画面で、書き方を確かめてください。",
+    );
+  });
+
+  it("leaves other applications' notifications alone", () => {
+    setLocale("ja_JP");
+    expect(trNotice("Sync client", "Update")).toBe("Update");
   });
 });

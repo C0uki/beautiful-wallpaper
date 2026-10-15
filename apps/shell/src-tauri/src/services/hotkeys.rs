@@ -306,9 +306,10 @@ fn report(
         ));
     }
 
+    // A line each, so the surfaces can translate the two messages apart.
     NotificationStore::announce(
         app,
-        NewNotification::from_shell("Some keyboard shortcuts are unavailable", body.join(" ")),
+        NewNotification::from_shell("Some keyboard shortcuts are unavailable", body.join("\n")),
     );
 }
 
