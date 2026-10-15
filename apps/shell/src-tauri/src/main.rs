@@ -343,7 +343,7 @@ fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
     let _ = queue.send(Box::new(work));
 }
 
-/// Waits, for up to a minute, until no WebView2 from an earlier run still has
+/// Waits, for up to three minutes, until no WebView2 from an earlier run still has
 /// the shell's profile open.
 ///
 /// WebView2 hands a new webview to whatever browser process already has its
@@ -353,6 +353,9 @@ fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
 /// sat running with no bar, no dock and nothing else. The browser keeps the
 /// profile's `lockfile` open unshared until it exits, so being able to open it
 /// that way means there is nothing left to join.
+///
+/// Three minutes because a whole one was measured going by, after the shell
+/// was killed, with the old browser still holding on.
 fn wait_for_profile(handle: &tauri::AppHandle) {
     #[cfg(windows)]
     {
@@ -364,7 +367,7 @@ fn wait_for_profile(handle: &tauri::AppHandle) {
         };
         let lock = folder.join("EBWebView").join("lockfile");
         let started = std::time::Instant::now();
-        while started.elapsed() < Duration::from_secs(60) {
+        while started.elapsed() < Duration::from_secs(180) {
             match std::fs::OpenOptions::new()
                 .read(true)
                 .share_mode(0)
