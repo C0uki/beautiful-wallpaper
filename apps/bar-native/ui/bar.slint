@@ -48,7 +48,7 @@ component Item inherits Rectangle {
     in property <image> icon;
     in property <string> text;
     in property <length> icon-size: 16px;
-    in property <color> color: Palette.foreground;
+    in property <color> tint: Palette.foreground;
     in property <length> max-text: 400px;
     callback clicked;
 
@@ -62,14 +62,14 @@ component Item inherits Rectangle {
         spacing: 4px;
         if root.icon.width > 0: Image {
             source: root.icon;
-            colorize: root.color;
+            colorize: root.tint;
             width: root.icon-size;
             height: root.icon-size;
             y: (parent.height - self.height) / 2;
         }
         if root.text != "": Text {
             text: root.text;
-            color: root.color;
+            color: root.tint;
             vertical-alignment: center;
             overflow: elide;
             max-width: root.max-text;
@@ -175,7 +175,7 @@ export component Bar inherits Window {
         Item {
             icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
             text: root.active-title != "" ? root.active-title : "デスクトップ";
-            color: root.active-title != "" ? Palette.foreground : Palette.quiet;
+            tint: root.active-title != "" ? Palette.foreground : Palette.quiet;
         }
     }
 
