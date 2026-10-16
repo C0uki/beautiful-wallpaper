@@ -1,17 +1,8 @@
 // The bar, drawn natively: the same strip the webview bar draws, in the order
 // the default config puts it in.
 
-global Palette {
-    // The webview bar's `hug` style in the dark appearance, which is Apple's
-    // fixed greys rather than anything taken from the wallpaper.
-    out property <color> background: #282828;
-    out property <color> foreground: #e0e0e0;
-    out property <color> quiet: #e0e0e0a0;
-    out property <color> hover: #ffffff1a;
-    out property <color> accent: #0a84ff;
-    out property <color> filled: #ffffff26;
-    out property <color> outline: #ffffff33;
-}
+import { Palette } from "palette.slint";
+
 
 // Set from Rust, out of the same icon set the webview surfaces draw.
 export global Icons {

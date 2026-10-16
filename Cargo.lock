@@ -612,8 +612,8 @@ name = "beautiful-wallpaper"
 version = "0.4.10"
 dependencies = [
  "base64 0.22.1",
- "bw-bar",
  "bw-core",
+ "bw-native",
  "chrono",
  "dirs",
  "futures-util",
@@ -844,20 +844,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
-name = "bw-bar"
-version = "0.4.10"
-dependencies = [
- "chrono",
- "raw-window-handle",
- "serde",
- "serde_json",
- "slint",
- "slint-build",
- "tracing",
- "windows 0.58.0",
-]
-
-[[package]]
 name = "bw-core"
 version = "0.4.10"
 dependencies = [
@@ -869,6 +855,20 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
  "ts-rs",
+]
+
+[[package]]
+name = "bw-native"
+version = "0.4.10"
+dependencies = [
+ "chrono",
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "tracing",
+ "windows 0.58.0",
 ]
 
 [[package]]
@@ -6702,6 +6702,7 @@ dependencies = [
  "const-field-offset",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
+ "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",

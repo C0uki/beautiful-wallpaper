@@ -43,7 +43,7 @@ pub fn emit_reading<T: serde::Serialize>(app: &AppHandle, event: &'static str, p
         }
         latest.insert(event, value.clone());
     }
-    bw_bar::update(event, &value);
+    bw_native::update(event, &value);
     let _ = app.emit(event, value);
 }
 

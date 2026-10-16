@@ -24,9 +24,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TR
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GetSystemMetrics, LoadCursorW, RegisterClassW,
     SetLayeredWindowAttributes, ShowWindow, IDC_ARROW, LWA_ALPHA, MA_NOACTIVATE, SM_CXSCREEN,
-    SM_CYSCREEN, SW_HIDE, SW_SHOWNOACTIVATE, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_MOUSELEAVE,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    SM_CYSCREEN, SW_HIDE, SW_SHOWNOACTIVATE, WM_LBUTTONDOWN, WM_MOUSEACTIVATE, WM_MOUSEMOVE,
+    WM_MOUSEWHEEL, WM_PAINT, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_POPUP,
 };
 
 use crate::state::AppState;
@@ -43,6 +43,8 @@ const VISIBLE: u8 = 153;
 const INVISIBLE: u8 = 1;
 /// ponytail: the default accent, until the native surfaces follow the theme.
 const ACCENT: COLORREF = COLORREF(0x00ff_840a);
+/// Defined with the common controls, which the shell does not otherwise need.
+const WM_MOUSELEAVE: u32 = 0x02A3;
 
 /// The window, made the first time it is asked for. Main thread only.
 fn window(app: &AppHandle) -> Option<HWND> {

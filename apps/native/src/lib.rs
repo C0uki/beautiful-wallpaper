@@ -1,14 +1,15 @@
-//! The bar, drawn natively with Slint instead of in a webview.
+//! The always-on surfaces, drawn natively with Slint instead of in webviews:
+//! the bar and the volume readout so far.
 //!
 //! Without Chromium behind it the bar is on screen in about a second and costs
 //! about 10 MB, where the webview bar needs WebView2's browser and GPU
 //! processes — some 300 MB on their own — before it can draw at all.
 //!
-//! It runs on a thread of its own with its own event loop, beside Tauri's: on
-//! Windows Slint's winit backend allows that, and its windows never touch the
-//! shell's. It reads nothing itself but the clock. The shell hands it the
-//! readings it sends the webview surfaces, through [`update`], and hears what
-//! was pressed through the callback given to [`spawn`].
+//! They run on a thread of their own with its own event loop, beside Tauri's:
+//! on Windows Slint's winit backend allows that, and its windows never touch the
+//! shell's. They read nothing themselves but the clock. The shell hands them
+//! the readings it sends the webview surfaces, through [`update`], asks for the
+//! readout through [`osd`], and hears what was pressed through [`BarHooks`].
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -26,7 +27,8 @@ include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 /// The webview bar's height at 100%.
 const HEIGHT: f32 = 30.0;
 
-/// Whether the bar was started, so [`update`] costs nothing when it was not.
+/// Whether the thread was started, so [`update`] and [`osd`] cost nothing when
+/// it was not.
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
 thread_local! {
@@ -34,6 +36,9 @@ thread_local! {
     static BAR: RefCell<Option<slint::Weak<Bar>>> = const { RefCell::new(None) };
     /// The tray icons as the shell sent them, which a click hands back.
     static TRAY: RefCell<Vec<Value>> = const { RefCell::new(Vec::new()) };
+    /// The readout, made the first time it is shown, and what hides it.
+    static OSD: RefCell<Option<Osd>> = const { RefCell::new(None) };
+    static OSD_TIMER: slint::Timer = slint::Timer::default();
 }
 
 /// Something pressed on the bar, for the shell to act on.
@@ -48,33 +53,39 @@ pub enum Action {
     Tray(Value, bool),
 }
 
-/// Starts the bar on a thread of its own.
-///
-/// `place` is called on that thread once the window exists, with its handle and
-/// the height it wants in physical pixels; it reserves the edge and answers the
-/// rectangle the bar is to occupy. `latest` is called once the bar can take
-/// readings, for the last of each the shell has sent: anything sent before then
-/// is not seen. `act` is called with what was pressed.
-pub fn spawn(
-    place: impl FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + Send + 'static,
-    latest: impl FnOnce() -> Vec<(String, Value)> + Send + 'static,
-    act: impl Fn(Action) + Send + 'static,
-) {
+/// The bar's place on the screen.
+pub type Place = Box<dyn FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + Send>;
+
+/// What the bar needs from the shell.
+pub struct BarHooks {
+    /// Called once the window exists, with its handle and the height it wants
+    /// in physical pixels; reserves the edge and answers the rectangle the bar
+    /// is to occupy.
+    pub place: Place,
+    /// The last of each reading the shell has sent, once the bar can take
+    /// them: anything sent before then is not seen.
+    pub latest: Box<dyn FnOnce() -> Vec<(String, Value)> + Send>,
+    /// What was pressed.
+    pub act: Box<dyn Fn(Action) + Send>,
+}
+
+/// Starts the native surfaces' thread, with the bar when there is one.
+pub fn spawn(bar: Option<BarHooks>) {
     RUNNING.store(true, Ordering::Relaxed);
     let started = std::thread::Builder::new()
-        .name("bw-bar".to_owned())
+        .name("bw-native".to_owned())
         .spawn(move || {
-            if let Err(error) = run(place, latest, act) {
-                tracing::error!(%error, "the native bar stopped");
+            if let Err(error) = run(bar) {
+                tracing::error!(%error, "the native surfaces stopped");
             }
         });
     if let Err(error) = started {
-        tracing::error!(%error, "could not start the native bar");
+        tracing::error!(%error, "could not start the native surfaces");
     }
 }
 
 /// Hands the bar a reading — the same event name and payload the webview
-/// surfaces are sent. Any thread; a no-op when the bar is not running.
+/// surfaces are sent. Any thread; a no-op when nothing native is running.
 pub fn update(event: &str, value: &Value) {
     if !RUNNING.load(Ordering::Relaxed) {
         return;
@@ -90,18 +101,47 @@ pub fn update(event: &str, value: &Value) {
     });
 }
 
-fn run(
-    place: impl FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + 'static,
-    latest: impl FnOnce() -> Vec<(String, Value)>,
-    act: impl Fn(Action) + 'static,
-) -> Result<(), slint::PlatformError> {
-    let started = Instant::now();
+/// Shows the volume or brightness readout for `timeout`, or for longer if
+/// another change comes first. `kind` is `volume` or `brightness`; `value` is
+/// a percentage. Any thread.
+pub fn osd(kind: &str, value: f32, muted: bool, timeout: Duration, bottom: bool) {
+    if !RUNNING.load(Ordering::Relaxed) {
+        return;
+    }
+    let volume = kind == "volume";
+    let _ = slint::invoke_from_event_loop(move || {
+        if let Err(error) = show_osd(volume, value, muted, timeout, bottom) {
+            tracing::warn!(%error, "could not show the readout");
+        }
+    });
+}
+
+fn run(hooks: Option<BarHooks>) -> Result<(), slint::PlatformError> {
     // Drawn on the CPU: OpenGL took five seconds to come up on a slow machine,
-    // and a strip this size is cheap to draw either way.
-    slint::BackendSelector::new()
+    // and surfaces this size are cheap to draw either way. Never activated and
+    // never on the taskbar, from birth.
+    let selector = slint::BackendSelector::new()
         .backend_name("winit".into())
-        .renderer_name("software".into())
-        .select()?;
+        .renderer_name("software".into());
+    #[cfg(windows)]
+    let selector = selector.with_winit_window_attributes_hook(|attributes| {
+        use slint::winit_030::winit::platform::windows::WindowAttributesExtWindows;
+        attributes.with_active(false).with_skip_taskbar(true)
+    });
+    selector.select()?;
+
+    // Kept alive for as long as the loop runs.
+    let _bar = match hooks {
+        Some(hooks) => Some(start_bar(hooks)?),
+        None => None,
+    };
+    // Hiding the readout must not end the loop, as the last window closing
+    // would.
+    slint::run_event_loop_until_quit()
+}
+
+fn start_bar(hooks: BarHooks) -> Result<(Bar, slint::Timer), slint::PlatformError> {
+    let started = Instant::now();
     let bar = Bar::new()?;
     set_icons(&bar);
 
@@ -111,7 +151,7 @@ fn run(
     bar.window()
         .set_size(slint::PhysicalSize::new(width, height as u32));
 
-    let act = Rc::new(act);
+    let act: Rc<dyn Fn(Action)> = Rc::from(hooks.act);
     let acting = act.clone();
     bar.on_clicked(move |what| {
         let what = what.to_string();
@@ -128,20 +168,20 @@ fn run(
     });
 
     BAR.with(|slot| *slot.borrow_mut() = Some(bar.as_weak()));
-    for (event, value) in latest() {
+    for (event, value) in (hooks.latest)() {
         apply(&bar, &event, &value);
     }
 
     let tick = slint::Timer::default();
     let weak = bar.as_weak();
-    let mut place = Some(place);
+    let mut place = Some(hooks.place);
     tick.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(250),
         move || {
             let Some(bar) = weak.upgrade() else { return };
             // The window exists only once the event loop runs.
-            if let Some(hwnd) = place.as_ref().and_then(|_| window_of(&bar)) {
+            if let Some(hwnd) = place.as_ref().and_then(|_| window_of(bar.window())) {
                 let place = place.take().expect("checked above");
                 settle(hwnd, place(hwnd, height));
                 tracing::info!(
@@ -155,7 +195,75 @@ fn run(
     show_clock(&bar);
 
     bar.show()?;
-    slint::run_event_loop()
+    Ok((bar, tick))
+}
+
+fn show_osd(
+    volume: bool,
+    value: f32,
+    muted: bool,
+    timeout: Duration,
+    bottom: bool,
+) -> Result<(), slint::PlatformError> {
+    let first = OSD.with(|slot| slot.borrow().is_none());
+    if first {
+        let made = Osd::new()?;
+        OSD.with(|slot| *slot.borrow_mut() = Some(made));
+    }
+    OSD.with(|slot| -> Result<(), slint::PlatformError> {
+        let slot = slot.borrow();
+        let Some(osd) = slot.as_ref() else {
+            return Ok(());
+        };
+        let percent = value.clamp(0.0, 100.0);
+        let name = match (volume, muted || percent <= 0.0, percent) {
+            (true, true, _) => "volume_off",
+            (true, false, p) if p < 50.0 => "volume_down",
+            (true, false, _) => "volume_up",
+            (false, _, p) if p < 40.0 => "brightness_low",
+            (false, _, _) => "brightness_high",
+        };
+        osd.set_icon(icon(name, 20.0, false));
+        osd.set_level(percent / 100.0);
+        osd.set_value(format!("{}", percent.round()).into());
+        osd.set_muted(volume && muted);
+
+        // Centred, under the bar, or above the bottom edge.
+        let scale = osd.window().scale_factor();
+        let (screen_width, screen_height) = screen_size();
+        let (width, height) = ((320.0 * scale) as i32, (46.0 * scale) as i32);
+        let margin = (8.0 * scale) as i32;
+        let y = if bottom {
+            screen_height - height - margin
+        } else {
+            (HEIGHT * scale) as i32 + margin
+        };
+        osd.window()
+            .set_position(slint::PhysicalPosition::new((screen_width - width) / 2, y));
+        osd.show()?;
+        if first {
+            // Once the window exists, which is after the loop has had a turn.
+            let weak = osd.as_weak();
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(hwnd) = weak.upgrade().and_then(|osd| window_of(osd.window())) {
+                    settle(hwnd, None);
+                    round_corners(hwnd);
+                }
+            });
+        }
+        Ok(())
+    })?;
+
+    OSD_TIMER.with(|timer| {
+        timer.start(slint::TimerMode::SingleShot, timeout, || {
+            OSD.with(|slot| {
+                if let Some(osd) = slot.borrow().as_ref() {
+                    let _ = osd.hide();
+                }
+            });
+        });
+    });
+    Ok(())
 }
 
 /// An icon from the shared set, drawn as the webview's `Symbol` draws it: a
@@ -353,6 +461,39 @@ fn rate(bytes: f64) -> String {
     }
 }
 
+/// The primary screen, in physical pixels.
+fn screen_size() -> (i32, i32) {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+        (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
+    }
+    #[cfg(not(windows))]
+    (1920, 1080)
+}
+
+/// Has Windows round a window's corners and give it its shadow, as it does a
+/// menu's: the readout is a block, and drawing either with a transparent
+/// window would need a renderer that can.
+fn round_corners(hwnd: isize) {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Graphics::Dwm::{
+            DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+        };
+        let preference = DWMWCP_ROUND;
+        let _ = DwmSetWindowAttribute(
+            HWND(hwnd as _),
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::addr_of!(preference).cast(),
+            std::mem::size_of_val(&preference) as u32,
+        );
+    }
+    #[cfg(not(windows))]
+    let _ = hwnd;
+}
+
 /// The top strip of the primary screen, in physical pixels.
 fn screen_strip() -> (u32, i32) {
     #[cfg(windows)]
@@ -369,9 +510,9 @@ fn screen_strip() -> (u32, i32) {
     (1920, HEIGHT as i32)
 }
 
-fn window_of(bar: &Bar) -> Option<isize> {
+fn window_of(window: &slint::Window) -> Option<isize> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    match bar.window().window_handle().window_handle().ok()?.as_raw() {
+    match window.window_handle().window_handle().ok()?.as_raw() {
         RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
         _ => None,
     }
