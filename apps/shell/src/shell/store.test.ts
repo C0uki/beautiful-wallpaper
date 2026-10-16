@@ -43,3 +43,15 @@ it("keeps a change that overtook the first snapshot", async () => {
   expect(useShell.getState().ready).toBe(true);
   expect(useShell.getState().states.shelfOpen).toBe(true);
 });
+
+it("fills the state from the readings a page asks for when it loads", async () => {
+  const { latestReadings } = await import("./store");
+  expect(
+    latestReadings({
+      [Event.Weather]: { city: "Komaki" },
+      [Event.Tray]: [],
+      "bw://unknown": 1,
+    }),
+  ).toEqual({ weather: { city: "Komaki" }, tray: [] });
+  expect(latestReadings(null)).toEqual({});
+});

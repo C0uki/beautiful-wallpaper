@@ -128,6 +128,7 @@ export const Command = {
   SetTaskbarVisible: "set_taskbar_visible",
   SetApiKey: "set_api_key",
   GetNotifications: "get_notifications",
+  LatestReadings: "latest_readings",
   PostNotification: "post_notification",
   DismissNotification: "dismiss_notification",
   ClearNotifications: "clear_notifications",
