@@ -25,6 +25,8 @@ beautiful-wallpaper — a macOS-style desktop shell for Windows
   bw shelf toggle|open|close             the drop shelf
   bw overlay toggle|open|close           the floating overlay
   bw settings toggle|open|close          the settings screen
+  bw sidebarLeft toggle|open|close       the left sidebar
+  bw sidebarRight toggle|open|close      the right sidebar
   bw wizard toggle|open|close            the first-run screen, again
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
@@ -156,6 +158,8 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
         ("shelf", action) => toggle_surface(app, "shelfOpen", action),
         ("overlay", action) => toggle_surface(app, "overlayOpen", action),
         ("settings", action) => toggle_surface(app, "settingsOpen", action),
+        ("sidebarLeft", action) => toggle_surface(app, "sidebarLeftOpen", action),
+        ("sidebarRight", action) => toggle_surface(app, "sidebarRightOpen", action),
         ("wizard", action) => toggle_surface(app, "wizardOpen", action),
         // Not `toggle_surface`: the menu opens where the pointer is, so the
         // anchor has to be taken before the surface is shown.

@@ -21,6 +21,8 @@ pub mod deskclick;
 #[cfg(windows)]
 pub mod dragout;
 #[cfg(windows)]
+pub mod hotcorners;
+#[cfg(windows)]
 pub mod identity;
 #[cfg(windows)]
 pub mod launch;
