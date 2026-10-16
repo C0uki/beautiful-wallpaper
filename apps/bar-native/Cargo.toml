@@ -1,0 +1,25 @@
+[package]
+name = "bw-bar"
+description = "A prototype of the bar drawn natively with Slint, to measure it against the webview bar."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+# Both renderers, to compare them without rebuilding: SLINT_BACKEND=winit-software.
+slint = { version = "1", features = ["renderer-software"] }
+sysinfo = "0.38.4"
+chrono = "0.4.45"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Shell",
+  "Win32_UI_HiDpi",
+  "Win32_System_Power",
+] }
+
+[build-dependencies]
+slint-build = "1"

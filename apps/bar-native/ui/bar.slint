@@ -1,0 +1,149 @@
+// The bar, drawn natively: the same strip the webview bar draws, to see what it
+// costs without Chromium behind it. A prototype — what is not here yet: the
+// weather, the tray, the media and the workspaces.
+
+global Palette {
+    // Read off the webview bar on screen; the theme comes later.
+    out property <color> background: #282828;
+    out property <color> foreground: #e0e0e0;
+    out property <color> hover: #ffffff1a;
+}
+
+component Item inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <length> icon-size: 16px;
+    callback clicked;
+
+    height: 24px;
+    border-radius: 6px;
+    background: area.has-hover ? Palette.hover : transparent;
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
+        if root.icon.width > 0: Image {
+            source: root.icon;
+            colorize: Palette.foreground;
+            width: root.icon-size;
+            height: root.icon-size;
+            y: (parent.height - self.height) / 2;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: Palette.foreground;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Bar inherits Window {
+    in property <string> active-title;
+    in property <string> cpu;
+    in property <string> memory;
+    in property <string> disk;
+    in property <string> down;
+    in property <string> up;
+    in property <string> battery;
+    in property <bool> charging;
+    in property <string> date;
+    in property <string> time;
+    callback clicked(string);
+
+    title: "bw-bar-native";
+    no-frame: true;
+    always-on-top: true;
+    background: Palette.background;
+    default-font-family: "Segoe UI Variable Text";
+    default-font-size: 13px;
+
+    HorizontalLayout {
+        x: 6px;
+        width: self.preferred-width;
+        spacing: 2px;
+        Item {
+            icon: @image-url("icons/left_panel_open.svg");
+            clicked => {
+                root.clicked("sidebarLeft");
+            }
+        }
+    }
+
+    // Centred on the screen, not on what the two sides leave over, so the
+    // clock does not drift as the title grows.
+    HorizontalLayout {
+        width: min(self.preferred-width, root.width * 60%);
+        x: (root.width - self.width) / 2;
+        Item {
+            icon: @image-url("icons/desktop_windows.svg");
+            text: root.active-title;
+        }
+    }
+
+    HorizontalLayout {
+        width: self.preferred-width;
+        x: root.width - self.width - 6px;
+        spacing: 2px;
+        Item {
+            icon: @image-url("icons/speed.svg");
+            text: root.cpu;
+        }
+        Item {
+            icon: @image-url("icons/memory.svg");
+            text: root.memory;
+        }
+        Item {
+            icon: @image-url("icons/storage.svg");
+            text: root.disk;
+        }
+        Item {
+            icon: @image-url("icons/arrow_downward.svg");
+            icon-size: 14px;
+            text: root.down;
+        }
+        Item {
+            icon: @image-url("icons/arrow_upward.svg");
+            icon-size: 14px;
+            text: root.up;
+        }
+        Item {
+            icon: root.charging ? @image-url("icons/battery_charging_full.svg") : @image-url("icons/battery_full.svg");
+            text: root.battery;
+        }
+        Item {
+            icon: @image-url("icons/photo_library.svg");
+            clicked => {
+                root.clicked("wallpaperSelector");
+            }
+        }
+        Item {
+            icon: @image-url("icons/shuffle.svg");
+            clicked => {
+                root.clicked("randomWallpaper");
+            }
+        }
+        Item {
+            icon: @image-url("icons/settings.svg");
+            clicked => {
+                root.clicked("settings");
+            }
+        }
+        Item {
+            icon: @image-url("icons/right_panel_open.svg");
+            clicked => {
+                root.clicked("sidebarRight");
+            }
+        }
+        Item {
+            text: root.date + "  " + root.time;
+        }
+    }
+}
