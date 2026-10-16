@@ -214,18 +214,11 @@ fn main() {
             // Generate the first palette before anything paints, so no surface
             // renders against fallback colours. Ahead of the surfaces now, so
             // the first one to exist already has one to read.
-            // Off the main thread: decoding the wallpaper takes seconds on a
-            // slow machine, and no surface has a page to colour until well
-            // after it is done.
-            {
-                let handle = handle.clone();
-                let state = state.clone();
-                std::thread::spawn(move || match services::theme::regenerate(&state) {
-                    Ok(theme) => {
-                        let _ = handle.emit(event::THEME_CHANGED, &theme);
-                    }
-                    Err(error) => tracing::error!(%error, "could not generate the initial theme"),
-                });
+            match services::theme::regenerate(&state) {
+                Ok(theme) => {
+                    let _ = handle.emit(event::THEME_CHANGED, &theme);
+                }
+                Err(error) => tracing::error!(%error, "could not generate the initial theme"),
             }
 
             // Kept alive for the life of the app; dropping it stops the watch.
