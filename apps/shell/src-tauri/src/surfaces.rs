@@ -473,14 +473,15 @@ struct Screen {
     size: (f64, f64),
 }
 
-/// Whether the bar is drawn natively rather than in a webview.
+/// Whether the always-on surfaces are native rather than webviews: the bar and
+/// the hot corners so far.
 ///
-/// ponytail: an environment variable while the native bar is tried out —
-/// `BW_NATIVE_BAR=1` — and only the top bar on the primary screen; a setting,
-/// and the other edges and screens, once it replaces the webview bar.
-pub fn native_bar() -> bool {
+/// ponytail: an environment variable while they are tried out — `BW_NATIVE=1`
+/// — and only the top bar on the primary screen; a setting, and the other
+/// edges and screens, once they replace the webviews.
+pub fn native() -> bool {
     static NATIVE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *NATIVE.get_or_init(|| std::env::var_os("BW_NATIVE_BAR").is_some_and(|value| value == "1"))
+    *NATIVE.get_or_init(|| std::env::var_os("BW_NATIVE").is_some_and(|value| value == "1"))
 }
 
 /// Reserves the top edge of the primary screen for the native bar's window,
@@ -524,7 +525,7 @@ pub fn reserve_native_bar(
 ///
 /// One window, except for a bar asked to appear on every monitor.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
-    if surface.label == BAR.label && native_bar() {
+    if [BAR.label, HOT_CORNERS.label].contains(&surface.label) && native() {
         return Ok(());
     }
     let config = app.state::<AppState>().config();

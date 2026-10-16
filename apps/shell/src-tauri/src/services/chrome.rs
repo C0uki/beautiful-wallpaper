@@ -32,10 +32,33 @@ pub fn apply(app: &AppHandle) {
     // and a full-screen window that is not click-through would swallow every
     // click on the desktop.
     if !wanted {
+        #[cfg(windows)]
+        if crate::surfaces::native() {
+            crate::platform::hotcorners::show(app, false);
+            return;
+        }
         if let Err(error) =
             crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, false)
         {
             tracing::warn!(%error, "could not hide the hot corners");
+        }
+        return;
+    }
+
+    // The same steps, on a plain window with nothing in it.
+    #[cfg(windows)]
+    if crate::surfaces::native() {
+        let visualize = config.sidebar.corner_open.visualize;
+        match crate::platform::hotcorners::shape(app, corners, visualize) {
+            Ok(hwnd) => {
+                crate::platform::hotcorners::show(app, true);
+                unsafe {
+                    crate::platform::win::set_hot_corners(hwnd);
+                    let _ =
+                        crate::platform::win::set_layer(hwnd, crate::platform::win::Layer::Overlay);
+                }
+            }
+            Err(error) => tracing::warn!(%error, "could not shape the hot corners"),
         }
         return;
     }

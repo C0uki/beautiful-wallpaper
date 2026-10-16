@@ -254,7 +254,7 @@ fn main() {
 
             // Up in a second, beside everything else rather than behind it:
             // it needs no webview.
-            if surfaces::native_bar() && state.config().bar.enable {
+            if surfaces::native() && state.config().bar.enable {
                 let reserving = handle.clone();
                 let clicking = handle.clone();
                 bw_bar::spawn(
