@@ -63,10 +63,11 @@ fn show(app: &AppHandle, label: &str, visible: bool, focus: bool) {
         return;
     };
     if !visible {
-        let _ = window.hide();
+        let _ = crate::surfaces::hide(&window);
         return;
     }
     if focus {
+        crate::surfaces::set_webview_visible(&window, true);
         let _ = window.show();
         let _ = window.set_focus();
     } else {
@@ -122,7 +123,7 @@ fn apply_region(app: &AppHandle, layout: &bw_core::overlay::OverlayLayout) {
                 tracing::warn!(%error, "could not shape the overlay to its pinned widgets");
                 // Better no pinned widgets than a full-screen window that is
                 // neither hidden nor masked.
-                let _ = window.hide();
+                let _ = crate::surfaces::hide(&window);
             }
         }
     }
