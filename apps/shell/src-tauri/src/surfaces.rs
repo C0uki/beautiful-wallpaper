@@ -473,10 +473,60 @@ struct Screen {
     size: (f64, f64),
 }
 
+/// Whether the bar is drawn natively rather than in a webview.
+///
+/// ponytail: an environment variable while the native bar is tried out —
+/// `BW_NATIVE_BAR=1` — and only the top bar on the primary screen; a setting,
+/// and the other edges and screens, once it replaces the webview bar.
+pub fn native_bar() -> bool {
+    static NATIVE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *NATIVE.get_or_init(|| std::env::var_os("BW_NATIVE_BAR").is_some_and(|value| value == "1"))
+}
+
+/// Reserves the top edge of the primary screen for the native bar's window,
+/// and answers the rectangle Windows granted, in physical pixels.
+#[cfg(windows)]
+pub fn reserve_native_bar(
+    app: &AppHandle,
+    hwnd: isize,
+    height: i32,
+) -> Option<(i32, i32, i32, i32)> {
+    use crate::platform::win::{self, Edge};
+    use windows::Win32::Foundation::HWND;
+
+    let monitors = win::monitors();
+    let monitor = monitors
+        .iter()
+        .find(|monitor| monitor.primary)
+        .or_else(|| monitors.first())?;
+    let bar = unsafe { win::AppBar::register(HWND(hwnd as _), Edge::Top, height, monitor) }?;
+    let granted = bar.granted;
+    // Held where the webview bar's is, so the exit gives it back the same way.
+    app.state::<Reservations>().bars.lock().push(bar);
+    Some((
+        granted.left,
+        granted.top,
+        granted.right - granted.left,
+        granted.bottom - granted.top,
+    ))
+}
+
+#[cfg(not(windows))]
+pub fn reserve_native_bar(
+    _app: &AppHandle,
+    _hwnd: isize,
+    _height: i32,
+) -> Option<(i32, i32, i32, i32)> {
+    None
+}
+
 /// Creates a surface's windows if they do not exist yet, and layers them.
 ///
 /// One window, except for a bar asked to appear on every monitor.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
+    if surface.label == BAR.label && native_bar() {
+        return Ok(());
+    }
     let config = app.state::<AppState>().config();
 
     for screen in screens_for(app, surface, &config) {

@@ -1,11 +1,13 @@
 //! The bar, drawn natively with Slint instead of in a webview.
 //!
-//! A prototype, to measure what the bar costs without Chromium behind it — its
-//! memory, how soon it is on screen, and whether it can look the same. It runs
-//! on its own, beside or instead of the shell, and reads what it shows itself.
-//! `taskkill /im bw-bar.exe` closes it and gives its edge back.
-
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+//! Without Chromium behind it the bar is on screen in about a second and costs
+//! about 10 MB, where the webview bar needs WebView2's browser and GPU
+//! processes — some 300 MB on their own — before it can draw at all.
+//!
+//! It runs on a thread of its own with its own event loop, beside Tauri's: on
+//! Windows Slint's winit backend allows that, and its windows never touch the
+//! shell's. The shell is reached only through the two callbacks given to
+//! [`spawn`].
 
 use std::time::{Duration, Instant};
 
@@ -17,68 +19,82 @@ slint::include_modules!();
 /// The webview bar's height at 100%.
 const HEIGHT: f32 = 30.0;
 
-fn main() -> Result<(), slint::PlatformError> {
+/// Starts the bar on a thread of its own.
+///
+/// `place` is called on that thread once the window exists, with its handle and
+/// the height it wants in physical pixels; it reserves the edge and answers the
+/// rectangle the bar is to occupy. `clicked` is called with what was pressed:
+/// `sidebarLeft`, `sidebarRight`, `wallpaperSelector`, `randomWallpaper` or
+/// `settings`.
+pub fn spawn(
+    place: impl FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + Send + 'static,
+    clicked: impl Fn(&str) + Send + 'static,
+) {
+    let started = std::thread::Builder::new()
+        .name("bw-bar".to_owned())
+        .spawn(move || {
+            if let Err(error) = run(place, clicked) {
+                tracing::error!(%error, "the native bar stopped");
+            }
+        });
+    if let Err(error) = started {
+        tracing::error!(%error, "could not start the native bar");
+    }
+}
+
+fn run(
+    place: impl FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + 'static,
+    clicked: impl Fn(&str) + 'static,
+) -> Result<(), slint::PlatformError> {
     let started = Instant::now();
+    // Drawn on the CPU: OpenGL took five seconds to come up on a slow machine,
+    // and a strip this size is cheap to draw either way.
+    slint::BackendSelector::new()
+        .backend_name("winit".into())
+        .renderer_name("software".into())
+        .select()?;
     let bar = Bar::new()?;
 
     let (width, height) = screen_strip();
     bar.window()
         .set_position(slint::PhysicalPosition::new(0, 0));
     bar.window()
-        .set_size(slint::PhysicalSize::new(width, height));
-
-    bar.on_clicked(|what| {
-        let args: &[&str] = match what.as_str() {
-            "settings" => &["settings", "open"],
-            "wallpaperSelector" => &["wallpaperSelector", "toggle"],
-            "randomWallpaper" => &["wallpapers", "random"],
-            // ponytail: the sidebars have no command line way in yet.
-            _ => return,
-        };
-        if let Some(bw) = std::env::var_os("LOCALAPPDATA").map(|dir| {
-            std::path::Path::new(&dir)
-                .join("beautiful-wallpaper")
-                .join("bw.exe")
-        }) {
-            let _ = std::process::Command::new(bw).args(args).spawn();
-        }
-    });
+        .set_size(slint::PhysicalSize::new(width, height as u32));
+    bar.on_clicked(move |what| clicked(&what));
 
     let mut readings = Readings::new();
     readings.apply(&bar);
 
-    // ponytail: sampled on the UI thread, a few milliseconds a second; a
-    // thread of its own once there is more to read.
+    // ponytail: sampled on the bar's thread, a few milliseconds a second; the
+    // shell's own readings once the rest of the widgets come over.
     let tick = slint::Timer::default();
     let weak = bar.as_weak();
-    let mut placed = false;
+    let mut place = Some(place);
     tick.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(100),
         move || {
             let Some(bar) = weak.upgrade() else { return };
-            if !placed {
-                // The window exists only once the event loop runs.
-                placed = reserve_edge(width, height);
-                if placed {
-                    eprintln!(
-                        "bw-bar: on screen {} ms after start",
-                        started.elapsed().as_millis()
-                    );
-                }
+            // The window exists only once the event loop runs.
+            if let Some(hwnd) = place.as_ref().and_then(|_| window_of(&bar)) {
+                let place = place.take().expect("checked above");
+                settle(hwnd, place(hwnd, height));
+                readings.own = hwnd;
+                tracing::info!(
+                    ms = started.elapsed().as_millis() as u64,
+                    "the native bar is on screen"
+                );
             }
             readings.tick(&bar);
         },
     );
 
     bar.show()?;
-    slint::run_event_loop()?;
-    release_edge();
-    Ok(())
+    slint::run_event_loop()
 }
 
 /// The top strip of the primary screen, in physical pixels.
-fn screen_strip() -> (u32, u32) {
+fn screen_strip() -> (u32, i32) {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::UI::HiDpi::GetDpiForSystem;
@@ -86,89 +102,56 @@ fn screen_strip() -> (u32, u32) {
         let scale = GetDpiForSystem() as f32 / 96.0;
         (
             GetSystemMetrics(SM_CXSCREEN) as u32,
-            (HEIGHT * scale).round() as u32,
+            (HEIGHT * scale).round() as i32,
         )
     }
     #[cfg(not(windows))]
-    (1920, HEIGHT as u32)
+    (1920, HEIGHT as i32)
 }
 
-#[cfg(windows)]
-fn our_window() -> Option<windows::Win32::Foundation::HWND> {
-    use windows::core::w;
-    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
-    unsafe { FindWindowW(None, w!("bw-bar-native")).ok() }
+fn window_of(bar: &Bar) -> Option<isize> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    match bar.window().window_handle().window_handle().ok()?.as_raw() {
+        RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+        _ => None,
+    }
 }
 
-/// Keeps the bar off the taskbar and out of the foreground, and has Windows
-/// keep maximised windows clear of it. False until the window exists.
-fn reserve_edge(width: u32, height: u32) -> bool {
+/// Keeps the bar off the taskbar and out of the foreground, and moves it to
+/// the rectangle it was granted.
+fn settle(hwnd: isize, granted: Option<(i32, i32, i32, i32)>) {
     #[cfg(windows)]
     unsafe {
-        use windows::Win32::Foundation::RECT;
-        use windows::Win32::UI::Shell::{
-            SHAppBarMessage, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA,
-        };
+        use windows::Win32::Foundation::HWND;
         use windows::Win32::UI::WindowsAndMessaging::{
             GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST,
-            SWP_NOACTIVATE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
         };
 
-        let Some(hwnd) = our_window() else {
-            return false;
-        };
+        let hwnd = HWND(hwnd as _);
         let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(
             hwnd,
             GWL_EXSTYLE,
             style | (WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0) as isize,
         );
-
-        let mut data = APPBARDATA {
-            cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-            hWnd: hwnd,
-            uEdge: ABE_TOP,
-            rc: RECT {
-                left: 0,
-                top: 0,
-                right: width as i32,
-                bottom: height as i32,
-            },
-            ..Default::default()
+        let _ = match granted {
+            Some((x, y, width, height)) => {
+                SetWindowPos(hwnd, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE)
+            }
+            None => SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+            ),
         };
-        SHAppBarMessage(ABM_NEW, &mut data);
-        SHAppBarMessage(ABM_QUERYPOS, &mut data);
-        data.rc.bottom = data.rc.top + height as i32;
-        SHAppBarMessage(ABM_SETPOS, &mut data);
-        let rc = data.rc;
-        let _ = SetWindowPos(
-            hwnd,
-            HWND_TOPMOST,
-            rc.left,
-            rc.top,
-            rc.right - rc.left,
-            rc.bottom - rc.top,
-            SWP_NOACTIVATE,
-        );
     }
     #[cfg(not(windows))]
-    let _ = (width, height);
-    true
-}
-
-fn release_edge() {
-    #[cfg(windows)]
-    unsafe {
-        use windows::Win32::UI::Shell::{SHAppBarMessage, ABM_REMOVE, APPBARDATA};
-        if let Some(hwnd) = our_window() {
-            let mut data = APPBARDATA {
-                cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-                hWnd: hwnd,
-                ..Default::default()
-            };
-            SHAppBarMessage(ABM_REMOVE, &mut data);
-        }
-    }
+    let _ = (hwnd, granted);
 }
 
 /// What the bar shows, read from the system.
@@ -178,6 +161,8 @@ struct Readings {
     disks: Disks,
     last_sample: Instant,
     last_title: String,
+    /// The bar's own window, which is not the one the user is working in.
+    own: isize,
 }
 
 impl Readings {
@@ -191,6 +176,7 @@ impl Readings {
             disks: Disks::new_with_refreshed_list(),
             last_sample: Instant::now(),
             last_title: String::new(),
+            own: 0,
         }
     }
 
@@ -208,7 +194,7 @@ impl Readings {
             bar.set_date(format!("{}月{}日({day})", now.month(), now.day()).into());
         }
 
-        let title = active_title();
+        let title = active_title(self.own);
         if title != self.last_title {
             bar.set_active_title(title.as_str().into());
             self.last_title = title;
@@ -270,16 +256,25 @@ fn rate(bytes: f64) -> String {
     }
 }
 
-fn active_title() -> String {
+/// The title of the window the user is working in. Empty while that is the
+/// bar itself, which only happens before it is told not to take the foreground.
+fn active_title(own: isize) -> String {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
+        let foreground = GetForegroundWindow();
+        if foreground.0 as isize == own {
+            return String::new();
+        }
         let mut buffer = [0u16; 256];
-        let length = GetWindowTextW(GetForegroundWindow(), &mut buffer);
+        let length = GetWindowTextW(foreground, &mut buffer);
         String::from_utf16_lossy(&buffer[..length.max(0) as usize])
     }
     #[cfg(not(windows))]
-    String::new()
+    {
+        let _ = own;
+        String::new()
+    }
 }
 
 /// The charge, when there is a battery, and whether it is on the charger.

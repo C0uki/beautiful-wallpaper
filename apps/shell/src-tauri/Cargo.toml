@@ -47,6 +47,7 @@ image = { version = "0.25.10", default-features = false, features = ["png", "jpe
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "handshake"] }
 keyring = "4.1.6"
 bw-core = { version = "0.4.10", path = "../../../crates/bw-core" }
+bw-bar = { path = "../../bar-native" }
 
 [target.'cfg(windows)'.dependencies]
 windows-core = "0.58"

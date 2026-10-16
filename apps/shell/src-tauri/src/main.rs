@@ -252,6 +252,31 @@ fn main() {
 
             spawn_readings(&handle, &state);
 
+            // Up in a second, beside everything else rather than behind it:
+            // it needs no webview.
+            if surfaces::native_bar() && state.config().bar.enable {
+                let reserving = handle.clone();
+                let clicking = handle.clone();
+                bw_bar::spawn(
+                    move |hwnd, height| surfaces::reserve_native_bar(&reserving, hwnd, height),
+                    move |what| {
+                        let arguments: &[&str] = match what {
+                            "randomWallpaper" => &["wallpapers", "random"],
+                            other => &[other, "toggle"],
+                        };
+                        let arguments: Vec<String> =
+                            arguments.iter().map(|&argument| argument.to_owned()).collect();
+                        // On the main thread, as a request from a second launch is.
+                        let app = clicking.clone();
+                        let _ = clicking.run_on_main_thread(move || {
+                            if let Err(error) = cli::dispatch(&app, &arguments) {
+                                tracing::warn!(%error, "the native bar's button did nothing");
+                            }
+                        });
+                    },
+                );
+            }
+
             // One surface to a turn of the event loop, rather than all of them
             // back to back. See the note on `later`.
             let make = |surface: &'static surfaces::Surface| {
