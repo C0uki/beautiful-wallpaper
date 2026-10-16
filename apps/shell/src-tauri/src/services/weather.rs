@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 
 use bw_core::weather::WeatherState;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::commands::event;
 use crate::state::AppState;
