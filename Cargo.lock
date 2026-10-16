@@ -849,9 +849,10 @@ version = "0.4.10"
 dependencies = [
  "chrono",
  "raw-window-handle",
+ "serde",
+ "serde_json",
  "slint",
  "slint-build",
- "sysinfo",
  "tracing",
  "windows 0.58.0",
 ]

@@ -1,18 +1,55 @@
-// The bar, drawn natively: the same strip the webview bar draws, to see what it
-// costs without Chromium behind it. A prototype — what is not here yet: the
-// weather, the tray, the media and the workspaces.
+// The bar, drawn natively: the same strip the webview bar draws, in the order
+// the default config puts it in.
 
 global Palette {
-    // Read off the webview bar on screen; the theme comes later.
+    // The webview bar's `hug` style in the dark appearance, which is Apple's
+    // fixed greys rather than anything taken from the wallpaper.
     out property <color> background: #282828;
     out property <color> foreground: #e0e0e0;
+    out property <color> quiet: #e0e0e0a0;
     out property <color> hover: #ffffff1a;
+    out property <color> accent: #0a84ff;
+    out property <color> filled: #ffffff26;
+    out property <color> outline: #ffffff33;
+}
+
+// Set from Rust, out of the same icon set the webview surfaces draw.
+export global Icons {
+    in property <image> left-panel;
+    in property <image> right-panel;
+    in property <image> desktop;
+    in property <image> wallpaper;
+    in property <image> speed;
+    in property <image> memory;
+    in property <image> storage;
+    in property <image> down;
+    in property <image> up;
+    in property <image> battery;
+    in property <image> battery-charging;
+    in property <image> photos;
+    in property <image> shuffle;
+    in property <image> settings;
+    in property <image> play;
+    in property <image> pause;
+    in property <image> next;
+}
+
+export struct TrayItem {
+    icon: image,
+}
+
+export struct WorkspaceItem {
+    name: string,
+    focused: bool,
+    populated: bool,
 }
 
 component Item inherits Rectangle {
     in property <image> icon;
     in property <string> text;
     in property <length> icon-size: 16px;
+    in property <color> color: Palette.foreground;
+    in property <length> max-text: 400px;
     callback clicked;
 
     height: 24px;
@@ -25,16 +62,17 @@ component Item inherits Rectangle {
         spacing: 4px;
         if root.icon.width > 0: Image {
             source: root.icon;
-            colorize: Palette.foreground;
+            colorize: root.color;
             width: root.icon-size;
             height: root.icon-size;
             y: (parent.height - self.height) / 2;
         }
         if root.text != "": Text {
             text: root.text;
-            color: Palette.foreground;
+            color: root.color;
             vertical-alignment: center;
             overflow: elide;
+            max-width: root.max-text;
         }
     }
 
@@ -56,7 +94,14 @@ export component Bar inherits Window {
     in property <bool> charging;
     in property <string> date;
     in property <string> time;
+    in property <image> weather-icon;
+    in property <string> weather;
+    in property <string> media-title;
+    in property <bool> media-playing;
+    in property <[TrayItem]> tray;
+    in property <[WorkspaceItem]> workspaces;
     callback clicked(string);
+    callback tray-clicked(int, bool);
 
     title: "bw-bar-native";
     no-frame: true;
@@ -70,10 +115,33 @@ export component Bar inherits Window {
         width: self.preferred-width;
         spacing: 2px;
         Item {
-            icon: @image-url("icons/left_panel_open.svg");
+            icon: Icons.left-panel;
             clicked => {
                 root.clicked("sidebarLeft");
             }
+        }
+        if root.media-title != "": HorizontalLayout {
+            Item {
+                icon: root.media-playing ? Icons.pause : Icons.play;
+                clicked => {
+                    root.clicked("playPause");
+                }
+            }
+            Item {
+                text: root.media-title;
+                max-text: 220px;
+            }
+            Item {
+                icon: Icons.next;
+                clicked => {
+                    root.clicked("next");
+                }
+            }
+        }
+        if root.weather != "": Item {
+            icon: root.weather-icon;
+            icon-size: 17px;
+            text: root.weather;
         }
     }
 
@@ -82,9 +150,32 @@ export component Bar inherits Window {
     HorizontalLayout {
         width: min(self.preferred-width, root.width * 60%);
         x: (root.width - self.width) / 2;
+        spacing: 4px;
+        for workspace in root.workspaces: Rectangle {
+            y: (parent.height - self.height) / 2;
+            height: 22px;
+            min-width: workspace.focused ? 30px : 22px;
+            border-radius: 11px;
+            background: workspace.focused ? Palette.accent : workspace.populated ? Palette.filled : transparent;
+            border-width: workspace.focused || workspace.populated ? 0px : 1px;
+            border-color: Palette.outline;
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-right: 6px;
+                Text {
+                    text: workspace.name;
+                    color: workspace.focused ? white : Palette.quiet;
+                    font-size: 11px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
         Item {
-            icon: @image-url("icons/desktop_windows.svg");
-            text: root.active-title;
+            icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
+            text: root.active-title != "" ? root.active-title : "デスクトップ";
+            color: root.active-title != "" ? Palette.foreground : Palette.quiet;
         }
     }
 
@@ -92,52 +183,84 @@ export component Bar inherits Window {
         width: self.preferred-width;
         x: root.width - self.width - 6px;
         spacing: 2px;
+        for icon[index] in root.tray: Rectangle {
+            width: 26px;
+            height: 24px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 6px;
+            background: tray-area.has-hover ? Palette.hover : transparent;
+            if icon.icon.width > 0: Image {
+                source: icon.icon;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 16px;
+                height: 16px;
+            }
+            if icon.icon.width == 0: Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: Palette.quiet;
+            }
+            tray-area := TouchArea {
+                clicked => {
+                    root.tray-clicked(index, false);
+                }
+                pointer-event(event) => {
+                    if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
+                        root.tray-clicked(index, true);
+                    }
+                }
+            }
+        }
         Item {
-            icon: @image-url("icons/speed.svg");
+            icon: Icons.speed;
             text: root.cpu;
         }
         Item {
-            icon: @image-url("icons/memory.svg");
+            icon: Icons.memory;
             text: root.memory;
         }
         Item {
-            icon: @image-url("icons/storage.svg");
+            icon: Icons.storage;
             text: root.disk;
         }
         Item {
-            icon: @image-url("icons/arrow_downward.svg");
+            icon: Icons.down;
             icon-size: 14px;
             text: root.down;
         }
         Item {
-            icon: @image-url("icons/arrow_upward.svg");
+            icon: Icons.up;
             icon-size: 14px;
             text: root.up;
         }
-        Item {
-            icon: root.charging ? @image-url("icons/battery_charging_full.svg") : @image-url("icons/battery_full.svg");
+        if root.battery != "": Item {
+            icon: root.charging ? Icons.battery-charging : Icons.battery;
             text: root.battery;
         }
         Item {
-            icon: @image-url("icons/photo_library.svg");
+            icon: Icons.photos;
             clicked => {
                 root.clicked("wallpaperSelector");
             }
         }
         Item {
-            icon: @image-url("icons/shuffle.svg");
+            icon: Icons.shuffle;
             clicked => {
                 root.clicked("randomWallpaper");
             }
         }
         Item {
-            icon: @image-url("icons/settings.svg");
+            icon: Icons.settings;
             clicked => {
                 root.clicked("settings");
             }
         }
         Item {
-            icon: @image-url("icons/right_panel_open.svg");
+            icon: Icons.right-panel;
             clicked => {
                 root.clicked("sidebarRight");
             }

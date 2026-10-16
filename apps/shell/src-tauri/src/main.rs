@@ -259,21 +259,13 @@ fn main() {
                 let clicking = handle.clone();
                 bw_bar::spawn(
                     move |hwnd, height| surfaces::reserve_native_bar(&reserving, hwnd, height),
-                    move |what| {
-                        let arguments: &[&str] = match what {
-                            "randomWallpaper" => &["wallpapers", "random"],
-                            other => &[other, "toggle"],
-                        };
-                        let arguments: Vec<String> =
-                            arguments.iter().map(|&argument| argument.to_owned()).collect();
-                        // On the main thread, as a request from a second launch is.
-                        let app = clicking.clone();
-                        let _ = clicking.run_on_main_thread(move || {
-                            if let Err(error) = cli::dispatch(&app, &arguments) {
-                                tracing::warn!(%error, "the native bar's button did nothing");
-                            }
-                        });
+                    || {
+                        commands::latest_readings()
+                            .into_iter()
+                            .map(|(event, value)| (event.to_owned(), value))
+                            .collect()
                     },
+                    move |action| native_bar_pressed(&clicking, action),
                 );
             }
 
@@ -568,6 +560,39 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
                 tokio::time::sleep(Duration::from_secs(if away { 30 } else { 2 })).await;
             }
         });
+    }
+}
+
+/// Does what was pressed on the native bar, as the webview bar's buttons do.
+fn native_bar_pressed(app: &AppHandle, action: bw_bar::Action) {
+    match action {
+        bw_bar::Action::Open(what) => {
+            let arguments: Vec<String> = match what.as_str() {
+                "randomWallpaper" => vec!["wallpapers".into(), "random".into()],
+                _ => vec![what, "toggle".into()],
+            };
+            // On the main thread, as a request from a second launch is.
+            let each = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Err(error) = cli::dispatch(&each, &arguments) {
+                    tracing::warn!(%error, "the native bar's button did nothing");
+                }
+            });
+        }
+        // The media calls block, and the bar's thread draws it.
+        bw_bar::Action::Media(what) => {
+            std::thread::spawn(move || {
+                if let Err(error) = commands::media_command(what) {
+                    tracing::warn!(%error, "the native bar could not control the media");
+                }
+            });
+        }
+        bw_bar::Action::Tray(icon, secondary) => commands::click_tray_icon(
+            icon["window"].as_str().unwrap_or_default().to_owned(),
+            icon["id"].as_u64().unwrap_or_default() as u32,
+            icon["callbackMessage"].as_u64().unwrap_or_default() as u32,
+            secondary,
+        ),
     }
 }
 
