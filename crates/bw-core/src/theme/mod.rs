@@ -16,7 +16,7 @@ use material_colors::{
     blend::harmonize,
     color::Argb,
     dynamic_color::Variant,
-    image::{FilterType, ImageReader},
+    image::{FilterType, Image, ImageReader},
     scheme::Scheme,
     theme::ThemeBuilder,
 };
@@ -77,17 +77,25 @@ pub fn from_wallpaper(
     mode: Mode,
     requested_variant: &str,
 ) -> Result<GeneratedTheme, ThemeError> {
-    let mut image = ImageReader::open(path).map_err(|error| ThemeError::Image {
-        path: path.display().to_string(),
-        detail: error.to_string(),
-    })?;
-    // Quantising a full-resolution wallpaper is needlessly slow and no more
-    // accurate; the reference implementation samples at this size too.
+    // Decoded once, and brought down to a few hundred pixels before anything
+    // else: a wallpaper is often 4K or more, and decoding it twice and
+    // filtering it at full size took seconds on a slow machine, in front of
+    // every surface at startup. `thumbnail_exact` is a fast box filter, which
+    // is all a palette and a colourfulness measure need.
+    let small = image::open(path)
+        .map_err(|error| ThemeError::Image {
+            path: path.display().to_string(),
+            detail: error.to_string(),
+        })?
+        .thumbnail_exact(256, 256);
+
+    // The reference implementation quantises at this size too.
+    let mut image = Image::new(small.to_rgba8());
     image.resize(128, 128, FilterType::Lanczos3);
 
     let source = ImageReader::extract_color(&image);
     let variant = if requested_variant.eq_ignore_ascii_case("auto") {
-        pick_variant(&heuristic::decode(path)?)
+        pick_variant(&heuristic::colorfulness(small.to_rgb8().as_raw()))
     } else {
         parse_variant(requested_variant)?
     };
