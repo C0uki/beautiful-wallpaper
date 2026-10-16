@@ -1032,6 +1032,10 @@ export function mockBackend(): Backend {
         case Command.GetNotifications:
           return notifications as T;
 
+        // The mock pushes its readings as events from the start.
+        case Command.LatestReadings:
+          return {} as T;
+
         case Command.GetVolume:
           return volume as T;
 

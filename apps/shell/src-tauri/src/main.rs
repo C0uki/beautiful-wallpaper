@@ -103,6 +103,7 @@ fn main() {
             commands::get_monitors,
             commands::set_taskbar_visible,
             commands::get_notifications,
+            commands::latest_readings,
             commands::post_notification,
             commands::dismiss_notification,
             commands::clear_notifications,
@@ -456,9 +457,9 @@ fn spawn_readings(app: &tauri::AppHandle, state: &AppState) {
         let mut resources = Resources::new();
         let mut network = Network::new();
         loop {
-            let _ = app.emit(event::RESOURCES, resources.sample());
-            let _ = app.emit(event::NETWORK, network.sample());
-            let _ = app.emit(event::BATTERY, bw_shell::providers::battery());
+            commands::emit_reading(&app, event::RESOURCES, resources.sample());
+            commands::emit_reading(&app, event::NETWORK, network.sample());
+            commands::emit_reading(&app, event::BATTERY, bw_shell::providers::battery());
             std::thread::sleep(resource_interval);
         }
     });
@@ -474,12 +475,12 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             media.source = bw_shell::providers::app_name(&media.source, || {
                 app.state::<CatalogueHandle>().items()
             });
-            let _ = app.emit(event::MEDIA, media);
+            commands::emit_reading(&app, event::MEDIA, media);
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
             let active = bw_shell::providers::active_window();
             let fullscreen = active.fullscreen;
-            let _ = app.emit(event::ACTIVE_WINDOW, active);
+            commands::emit_reading(&app, event::ACTIVE_WINDOW, active);
 
             // Whether anything is full-screen comes free with the foreground
             // window, and only matters when it changes: the decorations would
@@ -510,20 +511,19 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
     }
 
     // The notification area is hosted by the shell, which hears of every
-    // change as it happens. Sent again every few seconds as well: a surface
-    // that has just loaded has to be told what is already there, and an
+    // change as it happens. Looked at again every few seconds as well, so an
     // application that exited without taking its icon away is noticed then.
     {
         #[cfg(windows)]
         {
             let app = app.clone();
             bw_shell::platform::tray::host(move || {
-                let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+                commands::emit_reading(&app, event::TRAY, bw_shell::providers::tray_icons());
             });
         }
         let app = app.clone();
         std::thread::spawn(move || loop {
-            let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+            commands::emit_reading(&app, event::TRAY, bw_shell::providers::tray_icons());
             std::thread::sleep(Duration::from_secs(5));
         });
     }
@@ -535,8 +535,12 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
         tauri::async_runtime::spawn(async move {
             loop {
                 let state = bw_shell::providers::workspaces(port).await;
-                let _ = app.emit(event::WORKSPACES, &state);
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                // Most machines have no GlazeWM at all, and asked every two
+                // seconds anyway, each time with a new connection. Nobody
+                // there, it is asked again in half a minute.
+                let away = state.source.is_none();
+                commands::emit_reading(&app, event::WORKSPACES, &state);
+                tokio::time::sleep(Duration::from_secs(if away { 30 } else { 2 })).await;
             }
         });
     }
@@ -690,6 +694,32 @@ fn start_brightness_watch(app: &AppHandle) -> BrightnessHandle {
 fn start_dock_watch(app: &AppHandle) -> DockHandle {
     #[cfg(windows)]
     {
+        // A title changes many times a second in a browser or a player, and
+        // every change rebuilt the whole list — each window's process opened,
+        // its icon looked up — and sent it out. Changes now only ask for a
+        // rebuild; this thread does one for each burst, a fifth of a second
+        // after it starts, and the list goes out only when it differs.
+        let (rebuild, asked) = std::sync::mpsc::channel::<()>();
+        {
+            let handle = app.clone();
+            std::thread::Builder::new()
+                .name("bw-dock".to_owned())
+                .spawn(move || {
+                    while asked.recv().is_ok() {
+                        std::thread::sleep(Duration::from_millis(200));
+                        while asked.try_recv().is_ok() {}
+                        let (Some(dock), Some(state)) = (
+                            handle.try_state::<DockHandle>(),
+                            handle.try_state::<AppState>(),
+                        ) else {
+                            continue;
+                        };
+                        commands::emit_reading(&handle, event::DOCK, dock.items(&state.config()));
+                    }
+                })
+                .expect("could not start the thread that rebuilds the dock");
+        }
+
         let handle = app.clone();
         let watcher = bw_shell::platform::windows::WindowWatcher::new(move |change| {
             use bw_shell::platform::windows::Change;
@@ -697,7 +727,7 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             // `try_state`, not `state`: the first event can arrive between the
             // watcher being built and the handle being managed, and `state`
             // panics on a type nobody has registered yet.
-            let (Some(dock), Some(state)) = (
+            let (Some(_), Some(state)) = (
                 handle.try_state::<DockHandle>(),
                 handle.try_state::<AppState>(),
             ) else {
@@ -728,7 +758,7 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             if matches!(change, Change::Click { .. }) {
                 return;
             }
-            let _ = handle.emit(event::DOCK, dock.items(&state.config()));
+            let _ = rebuild.send(());
         });
 
         DockHandle::new(Some(watcher))

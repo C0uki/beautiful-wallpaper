@@ -188,6 +188,29 @@ export const useShell = create<ShellState>(() => initial);
 
 const set = useShell.setState;
 
+/** Which part of the state each reading's event fills. */
+const READINGS = {
+  [Event.Resources]: "resources",
+  [Event.Media]: "media",
+  [Event.Battery]: "battery",
+  [Event.Weather]: "weather",
+  [Event.Workspaces]: "workspaces",
+  [Event.ActiveWindow]: "activeWindow",
+  [Event.Network]: "network",
+  [Event.Tray]: "tray",
+} as const satisfies Record<string, keyof ShellState>;
+
+/** The readings `latest_readings` returned, as the state they fill. */
+export function latestReadings(
+  readings: Record<string, unknown> | null | undefined,
+): Partial<ShellState> {
+  const found: Record<string, unknown> = {};
+  for (const [event, key] of Object.entries(READINGS)) {
+    if (readings && event in readings) found[key] = readings[event];
+  }
+  return found as Partial<ShellState>;
+}
+
 let connected: Promise<void> | undefined;
 
 /** Subscribes to the backend. Safe to call from several components. */
@@ -219,19 +242,25 @@ export function connect(): Promise<void> {
         arrived("states", states),
       ),
       api.listen<ResourceReading>(Event.Resources, (resources) =>
-        set({ resources }),
+        arrived("resources", resources),
       ),
-      api.listen<MediaState>(Event.Media, (media) => set({ media })),
-      api.listen<BatteryState>(Event.Battery, (battery) => set({ battery })),
-      api.listen<WeatherState>(Event.Weather, (weather) => set({ weather })),
+      api.listen<MediaState>(Event.Media, (media) => arrived("media", media)),
+      api.listen<BatteryState>(Event.Battery, (battery) =>
+        arrived("battery", battery),
+      ),
+      api.listen<WeatherState>(Event.Weather, (weather) =>
+        arrived("weather", weather),
+      ),
       api.listen<WorkspaceState>(Event.Workspaces, (workspaces) =>
-        set({ workspaces }),
+        arrived("workspaces", workspaces),
       ),
       api.listen<ActiveWindow>(Event.ActiveWindow, (activeWindow) =>
-        set({ activeWindow }),
+        arrived("activeWindow", activeWindow),
       ),
-      api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
-      api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
+      api.listen<NetworkReading>(Event.Network, (network) =>
+        arrived("network", network),
+      ),
+      api.listen<TrayIcon[]>(Event.Tray, (tray) => arrived("tray", tray)),
       api.listen<Notification[]>(Event.Notifications, (notifications) =>
         arrived("notifications", notifications),
       ),
@@ -276,14 +305,19 @@ export function connect(): Promise<void> {
     // shell posts its own notifications long before the last surface has
     // finished loading, so a page that only listens starts out believing there
     // have never been any.
-    const [config, theme, states, notifications] = await Promise.all([
+    //
+    // The readings are only sent when they change, so a page that loads after
+    // one was sent asks for the last of each rather than waiting for the next.
+    const [config, theme, states, notifications, readings] = await Promise.all([
       api.invoke<Config>(Command.GetConfig),
       api.invoke<GeneratedTheme>(Command.GetTheme),
       api.invoke<GlobalStates>(Command.GetStates),
       api.invoke<Notification[]>(Command.GetNotifications),
+      api.invoke<Record<string, unknown>>(Command.LatestReadings),
     ]);
 
     const snapshot: Partial<ShellState> = {
+      ...latestReadings(readings),
       config,
       theme,
       states,
