@@ -524,6 +524,18 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
                 .focused(false)
                 .focusable(false);
 
+        // Whether it is on screen from birth. Decided here rather than asked
+        // of the window once built: Tauri can still report a window it is
+        // about to show as hidden, and a page told it was hidden then stayed
+        // blank until something showed it again.
+        let born_visible = match surface.layer {
+            Layer::Chrome if surface.label == HOT_CORNERS.label => false,
+            Layer::Bar => config.bar.enable,
+            Layer::Overlay if surface.label == DOCK.label => config.dock.enable,
+            Layer::Overlay => false,
+            Layer::Background | Layer::Chrome => true,
+        };
+
         builder = match surface.layer {
             Layer::Background => builder.always_on_bottom(true),
             // The hot corners are the one surface that is neither
@@ -534,25 +546,25 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             // without applying anything and nothing tries again. Born hidden,
             // there is no such moment: `apply` shows them once they are masked.
             Layer::Chrome if surface.label == HOT_CORNERS.label => {
-                builder.always_on_top(true).visible(false)
+                builder.always_on_top(true).visible(born_visible)
             }
             // On screen from the start, and never taking the focus off whatever
             // the user is actually working in — unless it is switched off.
             // `bar.enable` was only ever read by the surfaces that keep clear of
             // the bar, so turning it off moved them and left the bar itself up.
             // A change while running goes through `place_bars`.
-            Layer::Bar => builder.always_on_top(true).visible(config.bar.enable),
+            Layer::Bar => builder.always_on_top(true).visible(born_visible),
             Layer::Chrome => builder.always_on_top(true),
             // The dock is layered like an overlay but nobody opens it, so there
             // is no flag to show it and `surface_for_flag` has no entry to give.
             // It is on screen whenever it is enabled, like the bar. A change
             // while running goes through `place_overlays`.
             Layer::Overlay if surface.label == DOCK.label => {
-                builder.always_on_top(true).visible(config.dock.enable)
+                builder.always_on_top(true).visible(born_visible)
             }
             // Every other overlay starts hidden and is shown by its
             // `GlobalStates` flag.
-            Layer::Overlay => builder.always_on_top(true).visible(false),
+            Layer::Overlay => builder.always_on_top(true).visible(born_visible),
         };
 
         // Tauri takes every drag over its windows to report dropped files,
@@ -565,7 +577,7 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         let window = builder.build()?;
         apply_layer(app, &window, surface.layer, &config, &screen.device);
         // Born hidden, it is told so: the webview itself starts out visible.
-        if !window.is_visible().unwrap_or(true) {
+        if !born_visible {
             set_webview_visible(&window, false);
         }
         #[cfg(windows)]
