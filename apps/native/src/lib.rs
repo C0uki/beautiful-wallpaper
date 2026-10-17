@@ -151,7 +151,7 @@ fn start_bar(hooks: BarHooks) -> Result<(Bar, slint::Timer), slint::PlatformErro
     bar.window()
         .set_size(slint::PhysicalSize::new(width, height as u32));
 
-    let act: Rc<dyn Fn(Action)> = Rc::from(hooks.act);
+    let act: Rc<dyn Fn(Action) + Send> = Rc::from(hooks.act);
     let acting = act.clone();
     bar.on_clicked(move |what| {
         let what = what.to_string();
