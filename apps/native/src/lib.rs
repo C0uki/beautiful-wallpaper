@@ -223,7 +223,7 @@ fn show_osd(
             (false, _, p) if p < 40.0 => "brightness_low",
             (false, _, _) => "brightness_high",
         };
-        osd.set_icon(icon(name, 20.0, false));
+        osd.set_glyph(icon(name, 20.0, false));
         osd.set_level(percent / 100.0);
         osd.set_value(format!("{}", percent.round()).into());
         osd.set_muted(volume && muted);
