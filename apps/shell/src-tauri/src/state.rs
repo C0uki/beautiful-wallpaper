@@ -231,7 +231,7 @@ impl NotificationStore {
         app: &tauri::AppHandle,
         notification: bw_core::NewNotification,
     ) -> Option<bw_core::Notification> {
-        use tauri::{Emitter, Manager};
+        use tauri::Manager;
         let store = app.try_state::<NotificationStore>()?;
         // What a start finds wrong — a key Windows keeps, a package that is not
         // installed — it finds again at the next one. Said once while that is
@@ -240,7 +240,7 @@ impl NotificationStore {
             return None;
         }
         let posted = store.0.post(notification);
-        let _ = app.emit(crate::commands::event::NOTIFICATIONS, store.0.list());
+        crate::commands::emit_notifications(app);
         let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
         Some(posted)
     }

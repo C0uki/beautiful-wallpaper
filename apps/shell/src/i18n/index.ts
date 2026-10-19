@@ -7,6 +7,8 @@
 
 import en_US from "./locales/en_US.json";
 import ja_JP from "./locales/ja_JP.json";
+// Read by the native toasts too, which match the same notices.
+import NOTICE_PATTERNS from "./notices.json";
 
 type Dictionary = Record<string, string>;
 
@@ -70,25 +72,7 @@ export function tr(source: string, ...args: Array<string | number>): string {
  * place, so a translation is found by matching a notice against these rather
  * than by looking it up.
  */
-const NOTICES = [
-  "Updating to %1. The shell restarts when it is done.",
-  "Not a setting: %1",
-  "Windows keeps these for itself, or another program already has them: %1. Settings offers a free combination for each.",
-  "These are not key combinations the shell can read: %1. Check how they are written in Settings.",
-  "%1 is not there. The sparse package is built and signed separately — see docs/msix.md — because signing needs a certificate this build cannot make for you.",
-  "Windows refused the package (%1). This usually means its certificate is not installed as a trusted root on this machine. %2",
-  "could not find this executable: %1",
-  "could not prepare the package registration: %1",
-  "%1 is not a usable location: %2",
-  "could not point the package at the install folder: %1",
-  "could not reach the package manager: %1",
-  "%1 is not a usable path: %2",
-  "could not register the package: %1",
-  "registering the package did not finish: %1",
-  "could not open the Run key: error %1",
-  "could not register the shell to start with Windows: error %1",
-  "could not stop the shell starting with Windows: error %1",
-].map((notice) => ({
+const NOTICES = NOTICE_PATTERNS.map((notice) => ({
   notice,
   pattern: new RegExp(
     `^${notice

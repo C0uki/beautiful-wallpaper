@@ -416,14 +416,51 @@ pub fn post_notification(
 #[tauri::command]
 pub fn dismiss_notification(app: AppHandle, store: State<'_, NotificationStore>, id: u32) {
     if store.0.dismiss(id) {
-        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+        emit_notifications(&app);
     }
 }
 
 #[tauri::command]
 pub fn clear_notifications(app: AppHandle, store: State<'_, NotificationStore>) {
     store.0.clear();
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    emit_notifications(&app);
+}
+
+/// Sends every surface the notifications as they are now, and the native
+/// banners too when they are the ones drawing them.
+pub fn emit_notifications(app: &AppHandle) {
+    let Some(store) = app.try_state::<NotificationStore>() else {
+        return;
+    };
+    let list = store.0.list();
+    if crate::surfaces::native() {
+        if let (Ok(value), Some(state)) = (serde_json::to_value(&list), app.try_state::<AppState>())
+        {
+            bw_native::toasts(value, toast_settings(&state.config()));
+        }
+    }
+    let _ = app.emit(event::NOTIFICATIONS, list);
+}
+
+/// What the native banners need from the config.
+fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
+    let language = match config.language.ui.as_str() {
+        "auto" => services::weather::system_language(),
+        chosen => chosen.to_owned(),
+    };
+    bw_native::ToastSettings {
+        timeout: config.notifications.timeout,
+        position: config.notifications.position.clone(),
+        max_visible: config.notifications.max_visible,
+        do_not_disturb: config.notifications.do_not_disturb || !config.notifications.enable,
+        bar_height: if config.bar.enable {
+            config.bar.height as f32
+        } else {
+            0.0
+        },
+        bar_bottom: config.bar.bottom,
+        japanese: language.starts_with("ja"),
+    }
 }
 
 fn parse_urgency(name: Option<&str>) -> Urgency {

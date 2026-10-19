@@ -263,9 +263,11 @@ fn main() {
                             .map(|(event, value)| (event.to_owned(), value))
                             .collect()
                     }),
-                    act: Box::new(move |action| native_bar_pressed(&clicking, action)),
                 });
-                bw_native::spawn(bar);
+                bw_native::spawn(
+                    bar,
+                    Box::new(move |action| native_pressed(&clicking, action)),
+                );
             }
 
             // One surface to a turn of the event loop, rather than all of them
@@ -547,8 +549,8 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
     }
 }
 
-/// Does what was pressed on the native bar, as the webview bar's buttons do.
-fn native_bar_pressed(app: &AppHandle, action: bw_native::Action) {
+/// Does what was pressed on a native surface, as the webview's buttons do.
+fn native_pressed(app: &AppHandle, action: bw_native::Action) {
     match action {
         bw_native::Action::Open(what) => {
             let arguments: Vec<String> = match what.as_str() {
@@ -577,6 +579,11 @@ fn native_bar_pressed(app: &AppHandle, action: bw_native::Action) {
             icon["callbackMessage"].as_u64().unwrap_or_default() as u32,
             secondary,
         ),
+        bw_native::Action::Dismiss(id) => {
+            if app.state::<NotificationStore>().0.dismiss(id) {
+                commands::emit_notifications(app);
+            }
+        }
     }
 }
 
