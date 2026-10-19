@@ -315,7 +315,7 @@ pub fn markdown() -> String {
     out
 }
 
-/// The path with its last segment removed — `bar.left` → `bar`.
+/// The path with its last segment removed — `bar.autoHide` → `bar`.
 fn parent_of(path: &str) -> &str {
     path.rsplit_once('.').map(|(head, _)| head).unwrap_or(path)
 }
@@ -458,7 +458,7 @@ mod tests {
         let out = markdown();
 
         assert!(out.contains("| `bar.reserveSpace` | true / false | `true` |"));
-        assert!(out.contains("| `bar.height` | whole number | `30` |"));
+        assert!(out.contains("| `bar.frameThickness` | whole number | `4` |"));
         assert!(out.contains("| `appearance.roundingScale` | number | `1.0` |"));
     }
 
