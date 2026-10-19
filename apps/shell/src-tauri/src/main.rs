@@ -269,6 +269,9 @@ fn main() {
                     Box::new(move |action| native_pressed(&clicking, action)),
                 );
                 commands::emit_dock_settings(&handle);
+                // The window watcher only sends the icons when a window
+                // changes; the webview dock asked for them as it loaded.
+                commands::rebuild_dock(&handle);
             }
 
             // One surface to a turn of the event loop, rather than all of them
