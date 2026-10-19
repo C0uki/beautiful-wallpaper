@@ -17,6 +17,7 @@ use bw_shell::state::{
     DesktopMenuHandle, DockHandle, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
+use bw_shell::surfaces::later;
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -250,25 +251,34 @@ fn main() {
 
             spawn_readings(&handle, &state);
 
-            // One surface to a turn of the event loop, rather than nineteen
+            // One surface to a turn of the event loop, rather than all of them
             // back to back. See the note on `later`.
-            let mut steps: Vec<Box<dyn FnOnce() + Send>> = surfaces::ALL
-                .iter()
-                .map(|surface| {
-                    let each = handle.clone();
-                    Box::new(move || {
-                        if let Err(error) = surfaces::ensure(&each, surface) {
-                            tracing::error!(%error, surface = surface.label, "could not create a surface");
-                        }
-                    }) as Box<dyn FnOnce() + Send>
-                })
-                .collect();
+            let make = |surface: &'static surfaces::Surface| {
+                let each = handle.clone();
+                Box::new(move || {
+                    if let Err(error) = surfaces::ensure(&each, surface) {
+                        tracing::error!(%error, surface = surface.label, "could not create a surface");
+                    }
+                }) as Box<dyn FnOnce() + Send>
+            };
 
-            // Behind every one of them, because each step of it needs a
-            // surface to have a window before it can touch it.
+            // What is on screen first, then the rest of the startup, which
+            // reaches for those; the surfaces only ever opened come after, so
+            // a slow machine shows a desktop in seconds rather than once all
+            // of them exist.
+            let mut steps: Vec<Box<dyn FnOnce() + Send>> =
+                surfaces::FIRST.iter().map(make).collect();
             let rest = handle.clone();
             let state = state.clone();
             steps.push(Box::new(move || finish_starting(rest, state)));
+            steps.extend(surfaces::AFTER.iter().map(make));
+            // The passive half is masked by transparency rather than by a
+            // region, and its window has to exist before that can be set.
+            let overlays = handle.clone();
+            steps.push(Box::new(move || {
+                services::overlay::make_passive_clickthrough(&overlays);
+                services::overlay::apply(&overlays);
+            }));
             let first = handle.clone();
             std::thread::spawn(move || {
                 wait_for_profile(&first);
@@ -304,44 +314,6 @@ fn main() {
 
 /// Holds the config watcher so it is not dropped at the end of `setup`.
 struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
-
-/// Queues `work` for a later turn of the event loop.
-///
-/// Creating a webview takes long enough that nineteen of them back to back
-/// leave the main thread without a message pump for well past the five seconds
-/// Windows waits before it decides a window is hung. What it puts up then is a
-/// full-screen "not responding" ghost over `screenChrome` — transparent but
-/// not layered, which is exactly the pair that swallows every click on the
-/// desktop rather than passing it through. Spread over the loop, the thread is
-/// never silent long enough to be asked.
-///
-/// Handed over from a thread of its own. Called on the main thread, as all of
-/// the startup is, `run_on_main_thread` does not queue the work but runs it
-/// there and then: the nineteen surfaces were made inside `setup`, one call
-/// thirty seconds long on a slow machine, and nothing sent to a surface in
-/// that time — the bar's readings, the weather — reached one until it ended.
-/// From another thread it goes to the back of the loop's queue; one thread, so
-/// the work keeps the order it was queued in.
-fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
-    type Work = Box<dyn FnOnce() + Send>;
-    static QUEUE: std::sync::OnceLock<std::sync::mpsc::Sender<Work>> = std::sync::OnceLock::new();
-    let queue = QUEUE.get_or_init(|| {
-        let (sender, receiver) = std::sync::mpsc::channel::<Work>();
-        let handle = handle.clone();
-        std::thread::Builder::new()
-            .name("bw-later".to_owned())
-            .spawn(move || {
-                for work in receiver {
-                    if let Err(error) = handle.run_on_main_thread(work) {
-                        tracing::error!(%error, "could not queue a step of the startup");
-                    }
-                }
-            })
-            .expect("could not start the thread that queues the startup");
-        sender
-    });
-    let _ = queue.send(Box::new(work));
-}
 
 /// Waits, for up to three minutes, until no WebView2 from an earlier run still has
 /// the shell's profile open.
@@ -428,14 +400,6 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
     let each = handle.clone();
     later(&handle, move || services::chrome::apply(&each));
 
-    // The passive half is masked by transparency rather than by a region, and
-    // its window has to exist before that can be set.
-    let each = handle.clone();
-    later(&handle, move || {
-        services::overlay::make_passive_clickthrough(&each);
-        services::overlay::apply(&each);
-    });
-
     // So the first click has somewhere to go.
     let each = handle.clone();
     later(&handle, move || services::deskmenu::apply(&each));
@@ -470,6 +434,7 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
 
         services::updater::start(&handle);
         spawn_providers(handle, state);
+        tracing::info!("the shell is up");
     });
 }
 

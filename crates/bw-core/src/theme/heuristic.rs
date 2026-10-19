@@ -6,10 +6,7 @@
 //! metric is simple enough that `image` alone covers it, so the OpenCV and Python
 //! dependencies go away.
 
-use super::ThemeError;
-use image::imageops::FilterType;
 use material_colors::dynamic_color::Variant;
-use std::path::Path;
 
 /// The Hasler–Süsstrunk decision threshold used by the original script.
 const COLORFUL_THRESHOLD: f64 = 40.0;
@@ -22,17 +19,6 @@ impl Colorfulness {
     pub fn is_colorful(self) -> bool {
         self.0 >= COLORFUL_THRESHOLD
     }
-}
-
-/// Loads an image and measures it. Downsamples first: the metric is a summary
-/// statistic, so full resolution buys nothing but time.
-pub(super) fn decode(path: &Path) -> Result<Colorfulness, ThemeError> {
-    let image = image::open(path).map_err(|error| ThemeError::Image {
-        path: path.display().to_string(),
-        detail: error.to_string(),
-    })?;
-    let small = image.resize_exact(256, 256, FilterType::Triangle).to_rgb8();
-    Ok(colorfulness(small.as_raw()))
 }
 
 /// Hasler–Süsstrunk colourfulness over packed RGB bytes.

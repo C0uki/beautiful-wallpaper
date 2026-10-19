@@ -230,6 +230,80 @@ pub const ALL: &[Surface] = &[
     WIZARD,
 ];
 
+/// What the startup makes first: everything on screen from the start. A start
+/// is over, to whoever is watching it, once these are up.
+pub const FIRST: &[Surface] = &[
+    BACKGROUND,
+    BAR,
+    DOCK,
+    SCREEN_CHROME,
+    HOT_CORNERS,
+    NOTIFICATIONS,
+    OSD,
+];
+
+/// Made once the rest of the startup has run, so opening one is as quick as it
+/// always was.
+pub const AFTER: &[Surface] = &[
+    SIDEBAR_RIGHT,
+    SIDEBAR_LEFT,
+    OVERVIEW,
+    REGION_SELECT,
+    DESKTOP_MENU,
+    OVERLAY,
+    OVERLAY_PINNED,
+];
+
+/// Made when opened and put away for good when closed.
+///
+/// Each surface is a webview of its own, tens of megabytes and seconds to make
+/// on a slow machine, and these are opened rarely enough that keeping them
+/// around cost more than the wait does: the settings, the first-run screen, the
+/// way out of the session, the wallpaper picker and the shelf.
+const ON_DEMAND: &[Surface] = &[SETTINGS, WIZARD, SESSION, WALLPAPER_SELECTOR, SHELF];
+
+fn on_demand(label: &str) -> Option<&'static Surface> {
+    ON_DEMAND.iter().find(|surface| surface.label == label)
+}
+
+/// Queues `work` for a later turn of the event loop.
+///
+/// Creating a webview takes long enough that nineteen of them back to back
+/// leave the main thread without a message pump for well past the five seconds
+/// Windows waits before it decides a window is hung. What it puts up then is a
+/// full-screen "not responding" ghost over `screenChrome` — transparent but
+/// not layered, which is exactly the pair that swallows every click on the
+/// desktop rather than passing it through. Spread over the loop, the thread is
+/// never silent long enough to be asked.
+///
+/// Handed over from a thread of its own. Called on the main thread, as all of
+/// the startup is, `run_on_main_thread` does not queue the work but runs it
+/// there and then: the nineteen surfaces were made inside `setup`, one call
+/// thirty seconds long on a slow machine, and nothing sent to a surface in
+/// that time — the bar's readings, the weather — reached one until it ended.
+/// From another thread it goes to the back of the loop's queue; one thread, so
+/// the work keeps the order it was queued in.
+pub fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
+    type Work = Box<dyn FnOnce() + Send>;
+    static QUEUE: std::sync::OnceLock<std::sync::mpsc::Sender<Work>> = std::sync::OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (sender, receiver) = std::sync::mpsc::channel::<Work>();
+        let handle = handle.clone();
+        std::thread::Builder::new()
+            .name("bw-later".to_owned())
+            .spawn(move || {
+                for work in receiver {
+                    if let Err(error) = handle.run_on_main_thread(work) {
+                        tracing::error!(%error, "could not queue a step of the startup");
+                    }
+                }
+            })
+            .expect("could not start the thread that queues the startup");
+        sender
+    });
+    let _ = queue.send(Box::new(work));
+}
+
 /// Which surface a `GlobalStates` flag governs.
 ///
 /// Without this the flags were only ever a message to the frontend, and the
@@ -450,6 +524,18 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
                 .focused(false)
                 .focusable(false);
 
+        // Whether it is on screen from birth. Decided here rather than asked
+        // of the window once built: Tauri can still report a window it is
+        // about to show as hidden, and a page told it was hidden then stayed
+        // blank until something showed it again.
+        let born_visible = match surface.layer {
+            Layer::Chrome if surface.label == HOT_CORNERS.label => false,
+            Layer::Bar => config.bar.enable,
+            Layer::Overlay if surface.label == DOCK.label => config.dock.enable,
+            Layer::Overlay => false,
+            Layer::Background | Layer::Chrome => true,
+        };
+
         builder = match surface.layer {
             Layer::Background => builder.always_on_bottom(true),
             // The hot corners are the one surface that is neither
@@ -460,25 +546,25 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
             // without applying anything and nothing tries again. Born hidden,
             // there is no such moment: `apply` shows them once they are masked.
             Layer::Chrome if surface.label == HOT_CORNERS.label => {
-                builder.always_on_top(true).visible(false)
+                builder.always_on_top(true).visible(born_visible)
             }
             // On screen from the start, and never taking the focus off whatever
             // the user is actually working in — unless it is switched off.
             // `bar.enable` was only ever read by the surfaces that keep clear of
             // the bar, so turning it off moved them and left the bar itself up.
             // A change while running goes through `place_bars`.
-            Layer::Bar => builder.always_on_top(true).visible(config.bar.enable),
+            Layer::Bar => builder.always_on_top(true).visible(born_visible),
             Layer::Chrome => builder.always_on_top(true),
             // The dock is layered like an overlay but nobody opens it, so there
             // is no flag to show it and `surface_for_flag` has no entry to give.
             // It is on screen whenever it is enabled, like the bar. A change
             // while running goes through `place_overlays`.
             Layer::Overlay if surface.label == DOCK.label => {
-                builder.always_on_top(true).visible(config.dock.enable)
+                builder.always_on_top(true).visible(born_visible)
             }
             // Every other overlay starts hidden and is shown by its
             // `GlobalStates` flag.
-            Layer::Overlay => builder.always_on_top(true).visible(false),
+            Layer::Overlay => builder.always_on_top(true).visible(born_visible),
         };
 
         // Tauri takes every drag over its windows to report dropped files,
@@ -490,6 +576,10 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
         let window = builder.build()?;
         apply_layer(app, &window, surface.layer, &config, &screen.device);
+        // Born hidden, it is told so: the webview itself starts out visible.
+        if !born_visible {
+            set_webview_visible(&window, false);
+        }
         #[cfg(windows)]
         if surface.label == SHELF.label {
             let app = app.clone();
@@ -730,7 +820,7 @@ pub fn place_bars(app: &AppHandle) {
         let _ = if config.bar.enable {
             show_without_taking_the_foreground(&window)
         } else {
-            window.hide()
+            hide(&window)
         };
     }
 
@@ -885,7 +975,7 @@ pub fn place_overlays(app: &AppHandle) {
         let _ = if config.dock.enable {
             show_without_taking_the_foreground(&dock)
         } else {
-            dock.hide()
+            hide(&dock)
         };
     }
 }
@@ -1409,6 +1499,20 @@ fn reserve(
 /// Shows or hides a surface, following a `GlobalStates` flag.
 pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window(label) else {
+        if let (true, Some(surface)) = (visible, on_demand(label)) {
+            // On the main thread, and not inside whatever asked: that is often
+            // a command from another page, and on Windows building a window
+            // from inside one deadlocks. `ensure` shows it once it exists, if
+            // it is still wanted then.
+            let app = app.clone();
+            later(&app.clone(), move || {
+                if flagged_open(&app.state::<AppState>().states(), surface.label) {
+                    if let Err(error) = ensure(&app, surface) {
+                        tracing::error!(%error, surface = surface.label, "could not create a surface");
+                    }
+                }
+            });
+        }
         return Ok(());
     };
     if visible {
@@ -1420,16 +1524,75 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
             // unactivatable, a click on it left the keyboard where it was, and
             // Escape — the only way out of a sidebar — never reached it.
             window.set_focusable(true)?;
+            set_webview_visible(&window, true);
             window.show()?;
             window.set_focus()?;
         } else {
             show_without_taking_the_foreground(&window)?;
         }
+    } else if on_demand(label).is_some() {
+        // Later, for the same reason it is made later — the request to close
+        // it usually comes from its own page — and only if it was not opened
+        // again in the meantime.
+        let app = app.clone();
+        let label = label.to_owned();
+        later(&app.clone(), move || {
+            if !flagged_open(&app.state::<AppState>().states(), &label) {
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.destroy();
+                }
+            }
+        });
     } else {
-        window.hide()?;
+        hide(&window)?;
         window.set_focusable(false)?;
     }
     Ok(())
+}
+
+/// Hides a surface, and tells its page so.
+pub fn hide(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    set_webview_visible(window, false);
+    window.hide()
+}
+
+/// Tells WebView2 whether the page can be seen, and how much memory it may
+/// keep.
+///
+/// Hiding the window does not: WebView2 only knows what its host tells it, and
+/// a hidden surface went on as if on screen — its clock ticking every second,
+/// its animations drawing, its memory held — for as long as the shell ran.
+/// Told it is not visible, it throttles the page's timers, stops drawing it,
+/// and at the low memory target gives back what it can.
+pub fn set_webview_visible(window: &tauri::WebviewWindow, visible: bool) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use webview2_windows_core::Interface;
+
+        let _ = window.with_webview(move |webview| unsafe {
+            let controller = webview.controller();
+            if let Err(error) = controller.SetIsVisible(visible) {
+                tracing::debug!(%error, "could not tell a webview whether it is visible");
+            }
+            let level = if visible {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+            } else {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+            };
+            if let Ok(core) = controller
+                .CoreWebView2()
+                .and_then(|core| core.cast::<ICoreWebView2_19>())
+            {
+                let _ = core.SetMemoryUsageTargetLevel(level);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = (window, visible);
 }
 
 /// Shows a window and leaves the foreground where it was.
@@ -1448,6 +1611,7 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
 /// to take the foreground back. It reads as the whole desktop
 /// refusing the mouse rather than as anything to do with a notification.
 pub fn show_without_taking_the_foreground(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    set_webview_visible(window, true);
     window.show()
 }
 
@@ -1486,6 +1650,21 @@ fn takes_focus(label: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// Every surface is made at startup or on demand, and only once.
+    #[test]
+    fn every_surface_has_one_time_to_be_made() {
+        let mut made: Vec<&str> = super::FIRST
+            .iter()
+            .chain(super::AFTER)
+            .chain(super::ON_DEMAND)
+            .map(|surface| surface.label)
+            .collect();
+        let mut all: Vec<&str> = super::ALL.iter().map(|surface| surface.label).collect();
+        made.sort_unstable();
+        all.sort_unstable();
+        assert_eq!(made, all);
+    }
+
     use super::*;
     use bw_core::Config;
 
