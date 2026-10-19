@@ -43,6 +43,10 @@ static RUNNING: AtomicBool = AtomicBool::new(false);
 /// starting, before there is a loop to send them to.
 static PENDING_TOASTS: std::sync::Mutex<Option<(Value, ToastSettings)>> =
     std::sync::Mutex::new(None);
+/// Whether the bar is wanted on screen: `bar.enable`. Kept rather than sent,
+/// so the bar made after it was said knows.
+static BAR_SHOWN: AtomicBool = AtomicBool::new(true);
+
 /// The dock's settings, kept the same way.
 static PENDING_DOCK: std::sync::Mutex<Option<DockSettings>> = std::sync::Mutex::new(None);
 
@@ -124,6 +128,20 @@ pub fn update(event: &str, value: &Value) {
         });
         dock::apply(&event, &value);
     });
+}
+
+/// Shows or hides the bar. Any thread.
+pub fn bar_shown(shown: bool) {
+    BAR_SHOWN.store(shown, Ordering::Relaxed);
+    if RUNNING.load(Ordering::Relaxed) {
+        let _ = slint::invoke_from_event_loop(move || {
+            BAR.with(|bar| {
+                if let Some(bar) = bar.borrow().as_ref().and_then(|bar| bar.upgrade()) {
+                    let _ = if shown { bar.show() } else { bar.hide() };
+                }
+            });
+        });
+    }
 }
 
 /// The dock's settings, as they are now: made, changed, or put away. Any
@@ -279,7 +297,9 @@ fn start_bar(
     );
     show_clock(&bar);
 
-    bar.show()?;
+    if BAR_SHOWN.load(Ordering::Relaxed) {
+        bar.show()?;
+    }
     Ok((bar, tick))
 }
 

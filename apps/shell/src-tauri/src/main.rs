@@ -89,8 +89,6 @@ fn main() {
             commands::get_states,
             commands::toggle_state,
             commands::set_state,
-            commands::set_surface_revealed,
-            commands::set_dock_shape,
             commands::click_tray_icon,
             commands::list_wallpapers,
             commands::apply_wallpaper,
@@ -146,7 +144,6 @@ fn main() {
             commands::reorder_todo,
             commands::get_persistent,
             commands::set_persistent_value,
-            commands::get_dock_items,
             commands::activate_window,
             commands::launch_app,
             commands::get_lyrics,
@@ -248,18 +245,18 @@ fn main() {
 
             spawn_readings(&handle, &state);
 
-            // Up in a second, beside everything else rather than behind it:
-            // they need no webview.
-            if surfaces::native() {
+            // The bar, the dock, the readout and the banners, drawn natively:
+            // up in a second, beside everything else rather than behind it.
+            {
                 let reserving = handle.clone();
                 let clicking = handle.clone();
-                let bar = state.config().bar.enable.then(|| bw_native::BarHooks {
-                    place: Box::new(move |hwnd, height| {
-                        surfaces::reserve_native_bar(&reserving, hwnd, height)
-                    }),
-                });
+                bw_native::bar_shown(state.config().bar.enable);
                 bw_native::spawn(
-                    bar,
+                    Some(bw_native::BarHooks {
+                        place: Box::new(move |hwnd, height| {
+                            surfaces::adopt_native_bar(&reserving, hwnd, height)
+                        }),
+                    }),
                     Box::new(|| {
                         commands::latest_readings()
                             .into_iter()
@@ -270,7 +267,7 @@ fn main() {
                 );
                 commands::emit_dock_settings(&handle);
                 // The window watcher only sends the icons when a window
-                // changes; the webview dock asked for them as it loaded.
+                // changes.
                 commands::rebuild_dock(&handle);
             }
 
@@ -884,19 +881,11 @@ fn start_app_scan(app: &AppHandle) -> CatalogueHandle {
     }
 }
 
-/// Shows the readout with a value, and lets it time itself out.
-///
-/// The timeout lives here rather than in the surface so that a burst of
-/// changes — holding a volume key — keeps the readout up instead of letting an
-/// early timer close it mid-press.
+/// Shows the readout with a value. `bw-native` times it out, and a burst of
+/// changes — holding a volume key — keeps it up rather than letting an early
+/// timer close it mid-press.
 #[cfg(windows)]
 fn show_osd(app: &AppHandle, kind: &str, value: f32, muted: bool) {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::OnceLock;
-
-    static GENERATION: OnceLock<AtomicU64> = OnceLock::new();
-    let generation = GENERATION.get_or_init(|| AtomicU64::new(0));
-
     let state = app.state::<AppState>();
     let config = state.config();
     if !config.osd.enable {
@@ -904,28 +893,5 @@ fn show_osd(app: &AppHandle, kind: &str, value: f32, muted: bool) {
     }
 
     let timeout = Duration::from_millis(u64::from(config.osd.timeout));
-    if surfaces::native() {
-        bw_native::osd(kind, value, muted, timeout, config.osd.position == "bottom");
-        return;
-    }
-
-    let _ = app.emit(
-        event::OSD,
-        serde_json::json!({ "kind": kind, "value": value, "muted": muted }),
-    );
-    if let Err(error) = surfaces::set_visible(app, surfaces::OSD.label, true) {
-        tracing::warn!(%error, "could not show the readout");
-        return;
-    }
-
-    // Only the newest change gets to close the readout.
-    let mine = generation.fetch_add(1, Ordering::Relaxed) + 1;
-    let handle = app.clone();
-
-    std::thread::spawn(move || {
-        std::thread::sleep(timeout);
-        if generation.load(Ordering::Relaxed) == mine {
-            let _ = surfaces::set_visible(&handle, surfaces::OSD.label, false);
-        }
-    });
+    bw_native::osd(kind, value, muted, timeout, config.osd.position == "bottom");
 }

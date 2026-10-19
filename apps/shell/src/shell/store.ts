@@ -34,7 +34,6 @@ import {
   type WifiNetwork,
   type ConnectOutcome,
   type BluetoothDeviceInfo,
-  type DockApp,
   type TranslationResult,
   type AiModel,
   type AiProvider,
@@ -91,7 +90,6 @@ export interface ShellState {
   todos: TodoItem[];
   persistent: Persistent;
   systemInfo: SystemInfo | null;
-  dock: DockApp[];
   /**
    * Bumped each time the application scan finishes. The overview watches it
    * rather than a list: it has to re-rank against what is typed anyway, so
@@ -171,7 +169,6 @@ const initial: ShellState = {
     },
   },
   systemInfo: null,
-  dock: [],
   appsScanned: 0,
   hasAiKey: false,
   aiKeyChanges: 0,
@@ -280,7 +277,6 @@ export function connect(): Promise<void> {
       api.listen<Persistent>(Event.Persistent, (persistent) =>
         set({ persistent }),
       ),
-      api.listen<DockApp[]>(Event.Dock, (dock) => set({ dock })),
       // The scan carries nothing; the overview re-runs its own query, which
       // is what it would have to do anyway to re-rank against what is typed.
       api.listen(Event.Apps, () =>
@@ -371,19 +367,6 @@ export function connectSidebar(): Promise<void> {
   })();
 
   return sidebarConnected;
-}
-
-let dockConnected: Promise<void> | undefined;
-
-/** Fetches the dock's icons. Kept out of `connect` for the same reason the
- * sidebar's data is: enumerating every window costs time no other surface
- * should pay at startup. */
-export function connectDock(): Promise<void> {
-  dockConnected ??= (async () => {
-    await connect();
-    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
-  })();
-  return dockConnected;
 }
 
 /** Folds one streamed delta into the conversation. */
@@ -477,20 +460,6 @@ export const actions = {
   },
   setState(name: StateFlagName, value: boolean) {
     return backend().invoke<GlobalStates>(Command.SetState, { name, value });
-  },
-  /** Slides an auto-hiding surface in or out. The window itself has to move:
-   *  it is not click-through, so one parked over its whole band would swallow
-   *  clicks meant for what is behind it. */
-  setSurfaceRevealed(label: string, revealed: boolean) {
-    return backend().invoke<void>(Command.SetSurfaceRevealed, {
-      label,
-      revealed,
-    });
-  },
-  /** Cuts the dock's window down to the band its icons sit in, so the rest
-   *  of the bottom edge lets clicks through to the windows under it. */
-  setDockShape(left: number, width: number) {
-    return backend().invoke<void>(Command.SetDockShape, { left, width });
   },
   /** Forwards a click to the application that owns a tray icon. */
   clickTrayIcon(icon: TrayIcon, secondary: boolean) {
@@ -607,9 +576,6 @@ export const actions = {
   },
   clearDoneTodos() {
     return backend().invoke<TodoItem[]>(Command.ClearDoneTodos);
-  },
-  async refreshDock() {
-    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
   },
   activateWindow(id: string, minimiseIfActive: boolean) {
     return backend().invoke<ActivateOutcome>(Command.ActivateWindow, {

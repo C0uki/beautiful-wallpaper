@@ -1,8 +1,10 @@
 //! Creating the shell's windows and putting them on the right layer.
 //!
 //! Each surface is one frameless, transparent webview. What distinguishes them is
-//! only where Win32 puts them: the background under the desktop icons, the bar
-//! along a reserved edge, the picker as a topmost overlay.
+//! only where Win32 puts them: the background under the desktop icons, the
+//! picker as a topmost overlay. The bar, the dock, the volume readout and the
+//! notification banners are not webviews at all: `bw-native` draws them, and
+//! the bar's edge is reserved here.
 
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -22,12 +24,9 @@ pub struct Surface {
 pub enum Layer {
     /// Below the icons, above the wallpaper.
     Background,
-    /// Along a screen edge, with the work area reserved for it.
-    Bar,
     /// Topmost, never focused.
     Overlay,
-    /// Topmost and on screen from the start, like the bar, but covering the
-    /// whole display: the screen's own decorations. Unlike an overlay it is
+    /// Topmost and on screen from the start, covering the whole display: the screen's own decorations. Unlike an overlay it is
     /// not shown and hidden by a `GlobalStates` flag, because it is not
     /// something the user opens.
     Chrome,
@@ -40,35 +39,11 @@ pub const BACKGROUND: Surface = Surface {
     size: None,
 };
 
-pub const BAR: Surface = Surface {
-    label: "bar",
-    page: "bar.html",
-    layer: Layer::Bar,
-    size: None,
-};
-
 pub const WALLPAPER_SELECTOR: Surface = Surface {
     label: "wallpaperSelector",
     page: "wallpaperSelector.html",
     layer: Layer::Overlay,
     size: Some((0.62, 0.7)),
-};
-
-/// The volume and brightness readout. Small, transient, never focused.
-pub const OSD: Surface = Surface {
-    label: "osd",
-    page: "osd.html",
-    layer: Layer::Overlay,
-    size: Some((0.24, 0.09)),
-};
-
-/// The toast stack. Covers its corner of the screen and passes clicks through
-/// everywhere a toast is not.
-pub const NOTIFICATIONS: Surface = Surface {
-    label: "notifications",
-    page: "notifications.html",
-    layer: Layer::Overlay,
-    size: Some((0.28, 0.85)),
 };
 
 /// The control centre. Full height along the right edge, and unlike the two
@@ -180,15 +155,6 @@ pub const SCREEN_CHROME: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
-/// The dock. Full width along the bottom, and never focused: clicking an icon
-/// should put the user in *that* application, not in the dock.
-pub const DOCK: Surface = Surface {
-    label: "dock",
-    page: "dock.html",
-    layer: Layer::Overlay,
-    size: Some((1.0, 0.12)),
-};
-
 /// The left panel: translator and media.
 pub const SIDEBAR_LEFT: Surface = Surface {
     label: "sidebarLeft",
@@ -199,13 +165,9 @@ pub const SIDEBAR_LEFT: Surface = Surface {
 
 pub const ALL: &[Surface] = &[
     BACKGROUND,
-    BAR,
     WALLPAPER_SELECTOR,
-    OSD,
-    NOTIFICATIONS,
     SIDEBAR_RIGHT,
     SIDEBAR_LEFT,
-    DOCK,
     OVERVIEW,
     REGION_SELECT,
     SESSION,
@@ -220,7 +182,7 @@ pub const ALL: &[Surface] = &[
 
 /// What the startup makes first: everything on screen from the start. A start
 /// is over, to whoever is watching it, once these are up.
-pub const FIRST: &[Surface] = &[BACKGROUND, BAR, DOCK, SCREEN_CHROME, NOTIFICATIONS, OSD];
+pub const FIRST: &[Surface] = &[BACKGROUND, SCREEN_CHROME];
 
 /// Made once the rest of the startup has run, so opening one is as quick as it
 /// always was.
@@ -374,7 +336,7 @@ pub fn warn_about_surfaces_that_swallow_a_monitor(app: &AppHandle) {
         // before `set_layer` puts it under the icons. Nothing here could tell
         // that apart from the real fault, and it does not have to: when that
         // reparenting fails, `apply_layer` says so where it happens.
-        if surface_of(&label) == BACKGROUND.label {
+        if label.starts_with(BACKGROUND.label) {
             continue;
         }
 
@@ -446,22 +408,8 @@ pub fn release_reservations(app: &AppHandle) {
 /// different scale factor, so the division has to happen per screen rather
 /// than once against the primary one.
 struct Screen {
-    /// Empty for the primary monitor, which keeps its plain `bar` label and so
-    /// its window through a `per_monitor` change.
-    device: String,
     origin: (f64, f64),
     size: (f64, f64),
-}
-
-/// Whether the always-on surfaces are native rather than webviews: the bar, the
-/// volume readout, the notification banners and the dock.
-///
-/// ponytail: an environment variable while they are tried out — `BW_NATIVE=1`
-/// — and only the top bar on the primary screen; a setting, and the other
-/// edges and screens, once they replace the webviews.
-pub fn native() -> bool {
-    static NATIVE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *NATIVE.get_or_init(|| std::env::var_os("BW_NATIVE").is_some_and(|value| value == "1"))
 }
 
 /// Reserves the top edge of the primary screen for the native bar's window,
@@ -501,29 +449,21 @@ pub fn reserve_native_bar(
     None
 }
 
-/// Creates a surface's windows if they do not exist yet, and layers them.
-///
-/// One window, except for a bar asked to appear on every monitor.
+/// Creates a surface's window if it does not exist yet, and layers it.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
-    if [BAR.label, OSD.label, NOTIFICATIONS.label, DOCK.label].contains(&surface.label) && native()
-    {
-        return Ok(());
-    }
     let config = app.state::<AppState>().config();
 
-    for screen in screens_for(app, surface, &config) {
+    for screen in screens_for(app) {
         let label = if surface.label == BACKGROUND.label {
             background_label()
         } else {
-            bar_label(surface.label, &screen.device)
+            surface.label.to_owned()
         };
         if app.get_webview_window(&label).is_some() {
             continue;
         }
 
-        // An auto-hiding surface starts hidden; the pointer reaching its strip
-        // is what reveals it, through `set_revealed`.
-        let (x, y, width, height) = geometry(surface, &config, screen.size, false);
+        let (x, y, width, height) = geometry(surface, &config, screen.size);
 
         let mut builder =
             WebviewWindowBuilder::new(app, &label, WebviewUrl::App(surface.page.into()))
@@ -561,42 +501,27 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         // about to show as hidden, and a page told it was hidden then stayed
         // blank until something showed it again.
         let born_visible = match surface.layer {
-            Layer::Bar => config.bar.enable,
-            Layer::Overlay if surface.label == DOCK.label => config.dock.enable,
             Layer::Overlay => false,
             Layer::Background | Layer::Chrome => true,
         };
 
         builder = match surface.layer {
             Layer::Background => builder.always_on_bottom(true),
-            // On screen from the start, and never taking the focus off whatever
-            // the user is actually working in — unless it is switched off.
-            // `bar.enable` was only ever read by the surfaces that keep clear of
-            // the bar, so turning it off moved them and left the bar itself up.
-            // A change while running goes through `place_bars`.
-            Layer::Bar => builder.always_on_top(true).visible(born_visible),
             Layer::Chrome => builder.always_on_top(true),
-            // The dock is layered like an overlay but nobody opens it, so there
-            // is no flag to show it and `surface_for_flag` has no entry to give.
-            // It is on screen whenever it is enabled, like the bar. A change
-            // while running goes through `place_overlays`.
-            Layer::Overlay if surface.label == DOCK.label => {
-                builder.always_on_top(true).visible(born_visible)
-            }
-            // Every other overlay starts hidden and is shown by its
-            // `GlobalStates` flag.
+            // Every overlay starts hidden and is shown by its `GlobalStates`
+            // flag.
             Layer::Overlay => builder.always_on_top(true).visible(born_visible),
         };
 
         // Tauri takes every drag over its windows to report dropped files,
         // and on Windows that ends a page's own drag the moment it starts: the
-        // dock's icons and the bar layout editor's chips could not be moved.
+        // pages' own drags could not move anything.
         // Nor did a file dropped on the shelf ever reach it that way; the
         // shelf has its own way in, below.
         builder = builder.disable_drag_drop_handler();
 
         let window = builder.build()?;
-        apply_layer(app, &window, surface.layer, &config, &screen.device);
+        apply_layer(app, &window, surface.layer, &config);
         // Born hidden, it is told so: the webview itself starts out visible.
         if !born_visible {
             set_webview_visible(&window, false);
@@ -609,32 +534,6 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
                 let _ = app.emit_to(SHELF.label, crate::commands::event::SHELF_DROPPED, paths);
             });
         }
-        // An application's icon opens the files dropped on it. The page says
-        // which application; it is only started if that is a program that is
-        // really there, whatever the message says.
-        #[cfg(windows)]
-        if surface.label == DOCK.label {
-            crate::platform::dragout::accept_drops(&window, |program, files| {
-                let program = std::path::Path::new(&program);
-                let runnable = program.is_file()
-                    && program
-                        .extension()
-                        .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"));
-                if !runnable {
-                    tracing::warn!(
-                        ?program,
-                        "files were dropped on something that is not a program"
-                    );
-                    return;
-                }
-                if let Err(error) =
-                    crate::platform::launch::open_with(&program.to_string_lossy(), &files)
-                {
-                    tracing::warn!(%error, "could not open the files dropped on the dock");
-                }
-            });
-        }
-
         // A flag set before this window existed — `bw settings open` sent while
         // the shell was still starting, say — found nothing to show and was
         // dropped, and nothing looks at it again: the request vanished, and
@@ -646,207 +545,140 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     Ok(())
 }
 
-/// The screens a surface gets a window on.
-///
-/// The primary one, unless this is the bar and `bar.perMonitor` is set — then
-/// every monitor, the primary one first so it keeps the plain `bar` label.
-fn screens_for(app: &AppHandle, surface: &Surface, config: &bw_core::Config) -> Vec<Screen> {
-    let primary = || {
-        vec![Screen {
-            device: String::new(),
-            origin: (0.0, 0.0),
-            size: primary_screen(app),
-        }]
-    };
-
-    if surface.layer != Layer::Bar || !config.bar.per_monitor {
-        return primary();
-    }
-
-    let Ok(monitors) = app.available_monitors() else {
-        return primary();
-    };
-
-    let mut screens: Vec<Screen> = monitors
-        .iter()
-        .map(|monitor| {
-            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
-            let position = monitor.position();
-            let size = monitor.size();
-            Screen {
-                device: monitor.name().cloned().unwrap_or_default(),
-                origin: (f64::from(position.x) / scale, f64::from(position.y) / scale),
-                size: (
-                    f64::from(size.width) / scale,
-                    f64::from(size.height) / scale,
-                ),
-            }
-        })
-        .collect();
-
-    if screens.is_empty() {
-        return primary();
-    }
-
-    // The primary monitor is the one at the origin: Windows lays every other
-    // monitor out relative to it, so this holds however they are arranged.
-    if let Some(index) = screens
-        .iter()
-        .position(|screen| screen.origin == (0.0, 0.0))
-    {
-        screens[index].device = String::new();
-        screens.swap(0, index);
-    }
-    screens
+/// The screen a surface gets its window on: the primary one.
+fn screens_for(app: &AppHandle) -> Vec<Screen> {
+    vec![Screen {
+        origin: (0.0, 0.0),
+        size: primary_screen(app),
+    }]
 }
 
-/// The window label a surface takes on a given monitor.
-///
-/// The primary monitor's bar keeps the bare label, so turning `perMonitor` on
-/// and off again does not orphan the window every other part of the shell has
-/// always known by that name. Tauri only accepts alphanumerics, `-`, `/`, `:`
-/// and `_` in a label, and a device name is `\\.\DISPLAY2`, so everything else
-/// is dropped rather than substituted — two monitors cannot produce the same
-/// name to begin with.
-fn bar_label(label: &str, device: &str) -> String {
-    if device.is_empty() {
-        return label.to_owned();
-    }
-    let cleaned: String = device
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-        .collect();
-    if cleaned.is_empty() {
-        return label.to_owned();
-    }
-    format!("{label}-{cleaned}")
-}
-
-/// Where a surface sits, hidden or revealed.
-///
-/// One entry point because two callers need the same answer: `ensure` when it
-/// creates the window, and `set_revealed` when the pointer arrives at an
-/// auto-hiding surface's strip and it has to come back.
+/// Where a surface sits.
 fn geometry(
     surface: &Surface,
     config: &bw_core::Config,
     screen: (f64, f64),
-    revealed: bool,
 ) -> (f64, f64, f64, f64) {
     match surface.layer {
         Layer::Background | Layer::Chrome => (0.0, 0.0, screen.0, screen.1),
-        Layer::Bar => bar_geometry(config, screen, revealed),
-        Layer::Overlay => overlay_geometry(surface, config, screen, revealed),
+        Layer::Overlay => overlay_geometry(surface, config, screen),
     }
 }
 
-/// The windows `set_revealed` last brought out, so that re-placing them for a
-/// changed config does not park a toast mid-read or hide a bar under the
-/// pointer.
-static REVEALED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// The native bar's window and the height it wants, in physical pixels, once
+/// it exists: `bw-native` makes it, and its edge is reserved from here.
+#[cfg(windows)]
+static NATIVE_BAR: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+#[cfg(windows)]
+static NATIVE_BAR_HEIGHT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
-fn is_revealed(label: &str) -> bool {
-    REVEALED.lock().iter().any(|each| each == label)
-}
-
-/// Moves an auto-hiding surface between its hidden and revealed positions.
-///
-/// The window has to move, rather than the page sliding its own content: it is
-/// not click-through, so a window left covering its whole band would swallow
-/// every click meant for what is behind it, and a window parked off the edge
-/// cannot bring content back on screen no matter what its CSS does. This is one
-/// `SetWindowPos` per transition, not per frame — the slide itself is still the
-/// page's transition, running in the compositor.
-pub fn set_revealed(app: &AppHandle, label: &str, revealed: bool) {
-    let Some(surface) = ALL
-        .iter()
-        .find(|surface| surface.label == surface_of(label))
-    else {
-        return;
-    };
-    let Some(window) = app.get_webview_window(label) else {
-        return;
-    };
-
-    // The screen this window is on, which for a `perMonitor` bar is not the
-    // primary one — hiding it against the primary monitor's height would send
-    // it off the wrong edge, or off no edge at all.
-    let (origin, screen) = match window.current_monitor() {
-        Ok(Some(monitor)) => {
-            let scale = monitor.scale_factor().max(f64::MIN_POSITIVE);
-            let position = monitor.position();
-            let size = monitor.size();
-            (
-                (f64::from(position.x) / scale, f64::from(position.y) / scale),
-                (
-                    f64::from(size.width) / scale,
-                    f64::from(size.height) / scale,
-                ),
-            )
-        }
-        _ => ((0.0, 0.0), primary_screen(app)),
-    };
-
+/// Takes the native bar's window as `bw-native` makes it, on that window's own
+/// thread: hears Explorer coming back and the monitors changing through it, and
+/// reserves its edge. Answers the rectangle the bar is to occupy.
+pub fn adopt_native_bar(app: &AppHandle, hwnd: isize, height: i32) -> Option<(i32, i32, i32, i32)> {
+    #[cfg(windows)]
     {
-        let mut shown = REVEALED.lock();
-        shown.retain(|each| each != label);
-        if revealed {
-            shown.push(label.to_owned());
+        use std::sync::atomic::Ordering::Relaxed;
+        NATIVE_BAR.store(hwnd, Relaxed);
+        NATIVE_BAR_HEIGHT.store(height, Relaxed);
+        // Subclassed from here because a window can only be subclassed from
+        // the thread that owns it, which is this one.
+        let app = app.clone();
+        unsafe {
+            crate::platform::win::watch_edge_window(
+                windows::Win32::Foundation::HWND(hwnd as _),
+                move || desktop_changed(&app),
+            );
         }
     }
-
     let config = app.state::<AppState>().config();
-    let (x, y, _, _) = geometry(surface, &config, screen, revealed);
-
-    let position = tauri::LogicalPosition::new(x + origin.0, y + origin.1);
-    if let Err(error) = window.set_position(position) {
-        tracing::warn!(%error, surface = label, "could not move a surface to its hover position");
+    if !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
+        return None;
     }
+    reserve_native_bar(app, hwnd, height)
 }
 
-/// Puts the bar where the config now says: on or off, which edge, how thick,
-/// on which monitors, and with its edge reserved or not.
+/// Puts everything back after Explorer has restarted, or the monitors have
+/// changed: the taskbar, the bar's edge, the overlays, the wallpaper surface.
 ///
-/// Every edge is given back first and taken again, because a bar that moved
-/// from the top to the bottom would otherwise go on holding the top open.
+/// On a thread of its own, not the one that heard it and not queued back onto
+/// it. Explorer sends `TaskbarCreated` to every top-level window in turn and
+/// waits on each; reserving the bar's edge asks Explorer for it, and asked from
+/// that thread, it waited on an Explorer still waiting on the shell. Neither
+/// ever answered: the shell hung for good on every restart of Explorer.
+///
+/// A monitor change arrives as a burst, one message per step Windows takes, so
+/// a pass that is already running is told to go round once more rather than
+/// ignoring the news. A change that lands after the last look but before the
+/// lock is let go of finds it held and leaves; the pass looks once more after
+/// letting go, and takes that change up itself.
+pub fn desktop_changed(app: &AppHandle) {
+    static PLACING: Mutex<()> = Mutex::new(());
+    static AGAIN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    use std::sync::atomic::Ordering::SeqCst;
+    AGAIN.store(true, SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || loop {
+        let Some(placing) = PLACING.try_lock() else {
+            return;
+        };
+        // Half a second for the burst to settle into one pass.
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        while AGAIN.swap(false, SeqCst) {
+            // The taskbar first: a new Explorer may have forgotten it was
+            // hiding itself, and the bar asks for what is left.
+            forget_dead_background(&app);
+            crate::services::integration::reassert_taskbar(&app);
+            place_bars(&app);
+            crate::services::integration::recompute_work_areas(&app);
+            place_overlays(&app);
+            crate::services::chrome::emit(&app);
+            restore_background(&app);
+        }
+        drop(placing);
+        if !AGAIN.load(SeqCst) {
+            return;
+        }
+    });
+}
+
+/// Puts the bar where the config now says: shown or not, and with its edge
+/// reserved or not. The edge is given back first and taken again, so a bar
+/// that was switched off, or a work area Explorer forgot, is put right.
 pub fn place_bars(app: &AppHandle) {
     let config = app.state::<AppState>().config();
     release_reservations(app);
+    bw_native::bar_shown(config.bar.enable);
 
-    // A bar whose monitor is no longer wanted goes: `perMonitor` switched
-    // off, or the monitor unplugged. `ensure` below makes the ones missing.
-    let screens = screens_for(app, &BAR, &config);
-    for (label, window) in app.webview_windows() {
-        if surface_of(&label) == BAR.label
-            && !screens
-                .iter()
-                .any(|screen| bar_label(BAR.label, &screen.device) == label)
-        {
-            let _ = window.destroy();
+    #[cfg(windows)]
+    {
+        use std::sync::atomic::Ordering::Relaxed;
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE,
+        };
+
+        let hwnd = NATIVE_BAR.load(Relaxed);
+        if hwnd == 0 || !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
+            return;
         }
-    }
-
-    for screen in screens {
-        let Some(window) = app.get_webview_window(&bar_label(BAR.label, &screen.device)) else {
-            continue;
-        };
-        let revealed = is_revealed(window.label());
-        let (x, y, width, height) = bar_geometry(&config, screen.size, revealed);
-        let _ = window.set_position(tauri::LogicalPosition::new(
-            x + screen.origin.0,
-            y + screen.origin.1,
-        ));
-        let _ = window.set_size(tauri::LogicalSize::new(width, height));
-        reserve(app, &window, &config, &screen.device);
-        let _ = if config.bar.enable {
-            show_without_taking_the_foreground(&window)
-        } else {
-            hide(&window)
-        };
-    }
-
-    if let Err(error) = ensure(app, &BAR) {
-        tracing::warn!(%error, "could not create a bar for a new monitor");
+        if let Some((x, y, width, height)) =
+            reserve_native_bar(app, hwnd, NATIVE_BAR_HEIGHT.load(Relaxed))
+        {
+            // Asynchronously: the window belongs to the native thread, and
+            // this may be any other.
+            unsafe {
+                let _ = SetWindowPos(
+                    HWND(hwnd as _),
+                    HWND_TOPMOST,
+                    x,
+                    y,
+                    width,
+                    height,
+                    SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS,
+                );
+            }
+        }
     }
 }
 
@@ -902,7 +734,7 @@ pub fn restore_background(app: &AppHandle) {
         // the icons of the one that came. A dead one was let go of already.
         if let Some(window) = handle.get_webview_window(&background_label()) {
             let config = handle.state::<AppState>().config();
-            apply_layer(&handle, &window, Layer::Background, &config, "");
+            apply_layer(&handle, &window, Layer::Background, &config);
             return;
         }
         if let Err(error) = ensure(&handle, &BACKGROUND) {
@@ -969,8 +801,7 @@ pub fn place_overlays(app: &AppHandle) {
         let Some(window) = app.get_webview_window(surface.label) else {
             continue;
         };
-        let revealed = is_revealed(surface.label);
-        let (x, y, width, height) = overlay_geometry(surface, &config, screen, revealed);
+        let (x, y, width, height) = overlay_geometry(surface, &config, screen);
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
         let _ = window.set_size(tauri::LogicalSize::new(width, height));
     }
@@ -990,36 +821,16 @@ pub fn place_overlays(app: &AppHandle) {
             let _ = window.set_size(tauri::LogicalSize::new(screen.0, screen.1));
         }
     }
-
-    // The dock is on screen whenever it is enabled; nothing else shows it.
-    if let Some(dock) = app.get_webview_window(DOCK.label) {
-        let _ = if config.dock.enable {
-            show_without_taking_the_foreground(&dock)
-        } else {
-            hide(&dock)
-        };
-    }
-}
-
-/// The surface a window label is an instance of.
-///
-/// `perMonitor` gives every bar but the primary one a label like
-/// `bar-DISPLAY2`; no surface label contains a dash of its own, which is what
-/// makes the suffix separable at all.
-fn surface_of(label: &str) -> &str {
-    label.split_once('-').map_or(label, |(base, _)| base)
 }
 
 /// Where an overlay sits.
 ///
-/// Most overlays are centred, but the two transient ones are not: the readout
-/// hugs the edge opposite the bar, and the toasts sit in the corner the user
-/// chose. Both keep clear of the bar rather than sliding under it.
+/// Most overlays are centred; the sidebars keep clear of the bar rather than
+/// sliding under it.
 fn overlay_geometry(
     surface: &Surface,
     config: &bw_core::Config,
     screen: (f64, f64),
-    revealed: bool,
 ) -> (f64, f64, f64, f64) {
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
@@ -1029,58 +840,6 @@ fn overlay_geometry(
         0.0
     };
     let margin = 8.0;
-
-    if surface.label == OSD.label {
-        // The readout goes to the top unless the bar is there, in which case it
-        // goes below it — the original does the same.
-        let y = if config.bar.bottom {
-            margin
-        } else {
-            bar + margin
-        };
-        let y = if config.osd.position == "bottom" {
-            screen.1
-                - height
-                - if config.bar.bottom {
-                    bar + margin
-                } else {
-                    margin
-                }
-        } else {
-            y
-        };
-        return ((screen.0 - width) / 2.0, y, width, height);
-    }
-
-    if surface.label == DOCK.label {
-        // As wide as its content, centred, and pushed off the bottom while
-        // hidden — all but the hover strip, which is what the pointer has to
-        // reach to bring it back.
-        let height = f64::from(config.dock.height) + margin * 2.0;
-        let hidden = if config.dock.auto_hide && !config.dock.pinned_on_startup && !revealed {
-            bw_core::dock::hidden_offset(height, f64::from(config.dock.hover_region_height))
-        } else {
-            0.0
-        };
-        // Clear of a bar along the bottom — unless that bar hides itself and
-        // so does the dock. Hidden, the bar is only its own strip, and keeping
-        // clear of the band it is not in left the dock's window over that band:
-        // a 43-pixel strip along the bottom of the screen that took every click
-        // meant for the windows under it, and brought the dock up on the way.
-        let bar_is_gone = config.bar.auto_hide && hidden > 0.0;
-        let bottom_bar =
-            if config.bar.enable && !config.bar.vertical && config.bar.bottom && !bar_is_gone {
-                bar
-            } else {
-                0.0
-            };
-        return (
-            0.0,
-            screen.1 - height - bottom_bar + hidden,
-            screen.0,
-            height,
-        );
-    }
 
     if surface.label == SIDEBAR_LEFT.label {
         let width = screen.0 * config.sidebar.left.width;
@@ -1195,92 +954,12 @@ fn overlay_geometry(
         );
     }
 
-    if surface.label == NOTIFICATIONS.label {
-        let position = config.notifications.position.as_str();
-        let x = if position.ends_with("left") {
-            margin
-        } else if position.ends_with("center") {
-            (screen.0 - width) / 2.0
-        } else {
-            screen.0 - width - margin
-        };
-        let y = if position.starts_with("bottom") {
-            screen.1
-                - height
-                - if config.bar.bottom {
-                    bar + margin
-                } else {
-                    margin
-                }
-        } else if config.bar.bottom {
-            margin
-        } else {
-            bar + margin
-        };
-
-        // Parked off the side it hugs while it has no toast on it. A window
-        // with nothing to show is still a window: Windows delivers the click
-        // to it and the page cannot hand that on, so `pointer-events: none`
-        // in the stylesheet cannot save the desktop underneath. Nothing was
-        // ever hiding this surface again after the first notification showed
-        // it, which left a rectangle this size swallowing every click in it
-        // for the life of the shell.
-        if !revealed {
-            let parked = if position.ends_with("left") {
-                -width
-            } else {
-                screen.0
-            };
-            return (parked, y, width, height);
-        }
-        return (x, y, width, height);
-    }
-
     (
         (screen.0 - width) / 2.0,
         (screen.1 - height) / 2.0,
         width,
         height,
     )
-}
-
-/// The bar's rectangle before the shell has had a chance to negotiate it.
-fn bar_geometry(
-    config: &bw_core::Config,
-    screen: (f64, f64),
-    revealed: bool,
-) -> (f64, f64, f64, f64) {
-    let thickness = f64::from(config.bar.height);
-    let (screen_width, screen_height) = screen;
-
-    // Pushed off its own edge while hidden, all but the strip the pointer has
-    // to reach. The dock hides the same way, so it is the dock's arithmetic —
-    // the sign is what differs, because the bar can be on any of four edges
-    // while the dock is only ever on the bottom.
-    let hidden = if config.bar.auto_hide && !revealed {
-        bw_core::dock::hidden_offset(thickness, f64::from(config.bar.hover_region_height))
-    } else {
-        0.0
-    };
-
-    if config.bar.vertical {
-        // A vertical bar is anchored left unless it is configured to the far
-        // side, which `bar.bottom` doubles as in vertical mode — the same
-        // overload the original's config uses.
-        let x = if config.bar.bottom {
-            screen_width - thickness + hidden
-        } else {
-            -hidden
-        };
-        (x, 0.0, thickness, screen_height)
-    } else {
-        let y = if config.bar.bottom {
-            screen_height - thickness + hidden
-        } else {
-            -hidden
-        };
-        (0.0, y, screen_width, thickness)
-    }
 }
 
 /// Logical size of the primary monitor.
@@ -1305,7 +984,6 @@ fn apply_layer(
     window: &tauri::WebviewWindow,
     layer: Layer,
     config: &bw_core::Config,
-    device: &str,
 ) {
     use crate::platform::win::{self, Layer as WinLayer};
     use windows::Win32::Foundation::HWND;
@@ -1321,7 +999,7 @@ fn apply_layer(
 
     let target = match layer {
         Layer::Background => WinLayer::Wallpaper,
-        Layer::Bar | Layer::Overlay | Layer::Chrome => WinLayer::Overlay,
+        Layer::Overlay | Layer::Chrome => WinLayer::Overlay,
     };
 
     // Everything that goes through Tao comes first, because Tao owns these
@@ -1375,120 +1053,7 @@ fn apply_layer(
             win::set_backdrop(hwnd, backdrop, config.appearance.palette.mode != "light");
         }
     }
-    if layer == Layer::Bar || window.label() == DOCK.label {
-        let app = app.clone();
-        unsafe {
-            win::watch_edge_window(hwnd, move || {
-                // On a thread of its own, not this one and not queued back
-                // onto it. Explorer sends this to every top-level window in
-                // turn and waits on each; placing the bars asks Explorer for
-                // an edge, and asked from this thread, that waited on an
-                // Explorer still waiting on the shell's next window. Neither
-                // ever answered: the shell hung for good on every restart of
-                // Explorer. The bar and the dock both hear it, so the second
-                // finds the first already at work and leaves it.
-                //
-                // A monitor change arrives as a burst, one message per step
-                // Windows takes, so a pass that is already running is told to
-                // go round once more rather than ignoring the news.
-                //
-                // A change that lands after the last look but before the lock
-                // is let go of finds it held and leaves; the pass looks once
-                // more after letting go, and takes that change up itself.
-                static PLACING: Mutex<()> = Mutex::new(());
-                static AGAIN: std::sync::atomic::AtomicBool =
-                    std::sync::atomic::AtomicBool::new(false);
-                use std::sync::atomic::Ordering::SeqCst;
-                AGAIN.store(true, SeqCst);
-                let app = app.clone();
-                std::thread::spawn(move || loop {
-                    let Some(placing) = PLACING.try_lock() else {
-                        return;
-                    };
-                    // Half a second for the burst to settle into one pass.
-                    std::thread::sleep(std::time::Duration::from_millis(500));
-                    while AGAIN.swap(false, SeqCst) {
-                        // The taskbar first: a new Explorer may have
-                        // forgotten it was hiding itself, and the bar asks
-                        // for what is left.
-                        forget_dead_background(&app);
-                        crate::services::integration::reassert_taskbar(&app);
-                        place_bars(&app);
-                        crate::services::integration::recompute_work_areas(&app);
-                        place_overlays(&app);
-                        crate::services::chrome::emit(&app);
-                        restore_background(&app);
-                    }
-                    drop(placing);
-                    if !AGAIN.load(SeqCst) {
-                        return;
-                    }
-                });
-            });
-        }
-    }
-
-    if layer == Layer::Bar {
-        reserve(app, window, config, device);
-    }
-}
-
-/// Reserves the bar's edge of the screen, and moves the bar to what was granted.
-#[cfg(windows)]
-fn reserve(app: &AppHandle, window: &tauri::WebviewWindow, config: &bw_core::Config, device: &str) {
-    use crate::platform::win::{self, Edge};
-    use windows::Win32::Foundation::HWND;
-
-    let Ok(handle) = window.hwnd() else {
-        return;
-    };
-    let hwnd = HWND(handle.0);
-
-    // An auto-hiding bar must not reserve its edge, whatever `reserve_space`
-    // says: the reservation would hold a strip open that no window may use and
-    // the bar is not in, which is the opposite of what hiding it is for. A bar
-    // that is switched off is not in it either.
-    if !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
-        return;
-    }
-
-    let edge = match (config.bar.vertical, config.bar.bottom) {
-        (false, false) => Edge::Top,
-        (false, true) => Edge::Bottom,
-        (true, false) => Edge::Left,
-        (true, true) => Edge::Right,
-    };
-
-    // The bar reserves an edge of the screen it is actually on. `device` is
-    // empty for the primary monitor, which is also the only screen there is
-    // unless `perMonitor` is set.
-    let monitors = win::monitors();
-    let Some(monitor) = monitors
-        .iter()
-        .find(|monitor| !device.is_empty() && monitor.name == device)
-        .or_else(|| monitors.iter().find(|monitor| monitor.primary))
-        .or_else(|| monitors.first())
-    else {
-        return;
-    };
-
-    let thickness = config.bar.height as i32;
-    let reservation = unsafe { win::AppBar::register(hwnd, edge, thickness, monitor) };
-
-    match reservation {
-        Some(bar) => {
-            // Windows may grant a different rectangle than the one asked for, so
-            // the window follows the grant rather than the request.
-            let granted = bar.granted;
-            let _ = window.set_position(tauri::PhysicalPosition::new(granted.left, granted.top));
-            let _ = window.set_size(tauri::PhysicalSize::new(
-                (granted.right - granted.left).max(1),
-                (granted.bottom - granted.top).max(1),
-            ));
-            app.state::<Reservations>().bars.lock().push(bar);
-        }
-        None => tracing::warn!("the shell refused to reserve space for the bar"),
-    }
+    let _ = app;
 }
 
 #[cfg(not(windows))]
@@ -1497,16 +1062,6 @@ fn apply_layer(
     _window: &tauri::WebviewWindow,
     _layer: Layer,
     _config: &bw_core::Config,
-    _device: &str,
-) {
-}
-
-#[cfg(not(windows))]
-fn reserve(
-    _app: &AppHandle,
-    _window: &tauri::WebviewWindow,
-    _config: &bw_core::Config,
-    _device: &str,
 ) {
 }
 
@@ -1643,22 +1198,13 @@ fn takes_focus(label: &str) -> bool {
     // click to take it back. Every click they make afterwards lands on a
     // window that never becomes active, which reads as the mouse having died
     // rather than as anything to do with a shell surface.
-    let Some(surface) = ALL
-        .iter()
-        .find(|surface| surface.label == surface_of(label))
-    else {
+    let Some(surface) = ALL.iter().find(|surface| surface.label == label) else {
         return false;
     };
 
-    // The background, the bar and the decorations are furniture; nobody opens
-    // them. Of the overlays, the dock and the two that only ever report
-    // something are shown without being asked for, and the overlay's passive
-    // half is never opened at all.
-    surface.layer == Layer::Overlay
-        && !matches!(label, l if l == DOCK.label
-            || l == OSD.label
-            || l == NOTIFICATIONS.label
-            || l == OVERLAY_PINNED.label)
+    // The background and the decorations are furniture; nobody opens them.
+    // The overlay's passive half is never opened at all.
+    surface.layer == Layer::Overlay && label != OVERLAY_PINNED.label
 }
 
 #[cfg(test)]
@@ -1679,7 +1225,6 @@ mod tests {
     }
 
     use super::*;
-    use bw_core::Config;
 
     #[test]
     fn every_surface_has_a_distinct_label_and_page() {
@@ -1723,40 +1268,13 @@ mod tests {
             );
         }
 
-        for surface in [
-            BACKGROUND,
-            BAR,
-            SCREEN_CHROME,
-            DOCK,
-            OSD,
-            NOTIFICATIONS,
-            OVERLAY_PINNED,
-        ] {
+        for surface in [BACKGROUND, SCREEN_CHROME, OVERLAY_PINNED] {
             assert!(
                 !takes_focus(surface.label),
                 "{} is never opened by anyone",
                 surface.label
             );
         }
-
-        // A per-monitor bar carries its screen in its label and must resolve
-        // to the same answer as the surface it was made from.
-        assert!(!takes_focus(&bar_label(BAR.label, r"\\.\DISPLAY2")));
-    }
-
-    #[test]
-    fn the_toasts_park_off_screen_when_they_have_nothing_to_show() {
-        let config = Config::default();
-        let screen = (1920.0, 1080.0);
-
-        let (shown_x, _, width, _) = overlay_geometry(&NOTIFICATIONS, &config, screen, true);
-        let (parked_x, _, _, _) = overlay_geometry(&NOTIFICATIONS, &config, screen, false);
-
-        assert!(shown_x + width <= screen.0, "a toast must be on screen");
-        assert!(
-            parked_x >= screen.0 || parked_x + width <= 0.0,
-            "a parked toast must be off screen entirely, got x={parked_x} width={width}"
-        );
     }
 
     #[test]
@@ -1768,24 +1286,7 @@ mod tests {
         assert!(flagged_open(&states, SETTINGS.label));
         assert!(!flagged_open(&states, WIZARD.label));
         // The furniture has no flag, so nothing may open it by accident.
-        assert!(!flagged_open(&states, BAR.label));
-    }
-
-    #[test]
-    fn a_hidden_dock_leaves_only_its_strip_above_a_hidden_bottom_bar() {
-        let mut config = Config::default();
-        config.bar.bottom = true;
-        config.bar.auto_hide = true;
-        config.dock.auto_hide = true;
-        config.dock.pinned_on_startup = false;
-        let screen = (1920.0, 1280.0);
-
-        let (_, y, _, _) = overlay_geometry(&DOCK, &config, screen, false);
-        assert_eq!(screen.1 - y, f64::from(config.dock.hover_region_height));
-
-        // Shown, it still sits above the bar, which is shown along with it.
-        let (_, y, _, height) = overlay_geometry(&DOCK, &config, screen, true);
-        assert_eq!(y + height, screen.1 - f64::from(config.bar.height));
+        assert!(!flagged_open(&states, SCREEN_CHROME.label));
     }
 
     #[test]
@@ -1793,121 +1294,5 @@ mod tests {
         assert!(BACKGROUND.size.is_none());
         let (w, h) = WALLPAPER_SELECTOR.size.expect("an overlay needs a size");
         assert!((0.0..=1.0).contains(&w) && (0.0..=1.0).contains(&h));
-    }
-
-    #[test]
-    fn a_top_bar_spans_the_width_at_the_top() {
-        let config = Config::default();
-        assert_eq!(
-            bar_geometry(&config, (1920.0, 1080.0), false),
-            (0.0, 0.0, 1920.0, f64::from(config.bar.height))
-        );
-    }
-
-    #[test]
-    fn a_bottom_bar_sits_on_the_bottom_edge() {
-        let mut config = Config::default();
-        config.bar.bottom = true;
-        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0), false);
-        assert_eq!((x, width), (0.0, 1920.0));
-        assert_eq!(y + height, 1080.0);
-    }
-
-    #[test]
-    fn a_vertical_bar_spans_the_height() {
-        let mut config = Config::default();
-        config.bar.vertical = true;
-        let (x, y, width, height) = bar_geometry(&config, (1920.0, 1080.0), false);
-        assert_eq!((x, y, height), (0.0, 0.0, 1080.0));
-        assert_eq!(width, f64::from(config.bar.height));
-
-        // In vertical mode `bottom` means the far side.
-        config.bar.bottom = true;
-        let (x, _, width, _) = bar_geometry(&config, (1920.0, 1080.0), false);
-        assert_eq!(x + width, 1920.0);
-    }
-
-    /// Every edge has to hide *outwards*. A sign the wrong way round puts the
-    /// bar a screen's width into the desktop instead of off its own edge, and
-    /// nothing else in the shell would notice.
-    #[test]
-    fn an_auto_hiding_bar_leaves_only_its_hover_strip_on_screen() {
-        let mut config = Config::default();
-        config.bar.auto_hide = true;
-        let strip = f64::from(config.bar.hover_region_height);
-        let thickness = f64::from(config.bar.height);
-        let screen = (1920.0, 1080.0);
-
-        let (_, y, _, height) = bar_geometry(&config, screen, false);
-        assert_eq!(y + height, strip, "a top bar hides upwards");
-
-        config.bar.bottom = true;
-        let (_, y, _, _) = bar_geometry(&config, screen, false);
-        assert_eq!(screen.1 - y, strip, "a bottom bar hides downwards");
-
-        config.bar.vertical = true;
-        config.bar.bottom = false;
-        let (x, _, width, _) = bar_geometry(&config, screen, false);
-        assert_eq!(x + width, strip, "a left bar hides leftwards");
-
-        config.bar.bottom = true;
-        let (x, _, _, _) = bar_geometry(&config, screen, false);
-        assert_eq!(screen.0 - x, strip, "a right bar hides rightwards");
-
-        // The strip is what makes an auto-hiding bar reachable at all, so it
-        // survives a configuration that asks for none.
-        config.bar.hover_region_height = 0;
-        let (x, _, _, _) = bar_geometry(&config, screen, false);
-        assert_eq!(screen.0 - x, 1.0);
-
-        // A hover region bigger than the bar cannot hide it further than flush.
-        config.bar.hover_region_height = thickness as u32 * 2;
-        let (x, _, _, _) = bar_geometry(&config, screen, false);
-        assert_eq!(screen.0 - x, thickness);
-    }
-
-    #[test]
-    fn a_bar_that_is_not_hiding_is_where_it_always_was() {
-        let mut config = Config::default();
-        config.bar.auto_hide = false;
-        config.bar.hover_region_height = 40;
-        assert_eq!(
-            bar_geometry(&config, (1920.0, 1080.0), false),
-            (0.0, 0.0, 1920.0, f64::from(config.bar.height))
-        );
-    }
-
-    /// `surface_of` splits on the first dash, so a surface whose own label had
-    /// one would resolve to something shorter than itself and its window would
-    /// stop being found at all.
-    #[test]
-    fn no_surface_label_contains_the_character_that_separates_a_monitor() {
-        for surface in ALL {
-            assert!(!surface.label.contains('-'), "{}", surface.label);
-            assert_eq!(surface_of(surface.label), surface.label);
-        }
-    }
-
-    #[test]
-    fn a_per_monitor_label_names_its_monitor_and_still_resolves_to_its_surface() {
-        // Tauri accepts only alphanumerics, `-`, `/`, `:` and `_` in a label,
-        // and a Windows device name is `\\.\DISPLAY2`.
-        let label = bar_label(BAR.label, r"\\.\DISPLAY2");
-        assert_eq!(label, "bar-DISPLAY2");
-        assert!(label
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "-/:_".contains(c)));
-        assert_eq!(surface_of(&label), BAR.label);
-    }
-
-    /// The primary monitor keeps the bare label so that turning `perMonitor`
-    /// on and off does not leave the window every other part of the shell
-    /// knows as `bar` orphaned under a different name.
-    #[test]
-    fn the_primary_monitor_keeps_the_plain_label() {
-        assert_eq!(bar_label(BAR.label, ""), "bar");
-        // A device name with nothing Tauri would accept falls back rather than
-        // producing `bar-`, which is a label no monitor could be read out of.
-        assert_eq!(bar_label(BAR.label, r"\\.\"), "bar");
     }
 }

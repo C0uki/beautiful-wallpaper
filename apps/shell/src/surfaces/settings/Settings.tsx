@@ -23,8 +23,6 @@ import { OVERRIDES } from "./overrides";
 import { PAGES, orderOn, pageFor } from "./pages";
 import { Presets } from "./Presets";
 import { Shortcuts } from "./Shortcuts";
-import { BarSlotEditor } from "./BarSlotEditor";
-import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
 import { ColorPicker, FontPicker } from "./pickers";
 import { ApiKeys, ModelPicker } from "./ai";
 import "./settings.css";
@@ -309,24 +307,12 @@ function Row({
         {override?.hint ? <em>{override.hint()}</em> : null}
       </div>
       <div className="bw-settings-control">
-        {override?.barSlot ? (
-          <BarSlotEditor
-            slot={field.path as BarSlot}
-            layout={
-              Object.fromEntries(
-                BAR_SLOTS.map((slot) => [slot, valueAt(config, slot) ?? []]),
-              ) as BarLayout
-            }
-            onSet={onSet}
-          />
-        ) : (
-          <Control
-            field={field}
-            value={value}
-            override={override}
-            onSet={onSet}
-          />
-        )}
+        <Control
+          field={field}
+          value={value}
+          override={override}
+          onSet={onSet}
+        />
       </div>
     </div>
   );
