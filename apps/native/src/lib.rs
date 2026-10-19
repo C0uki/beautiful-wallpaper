@@ -35,6 +35,12 @@ const HEIGHT: f32 = 30.0;
 /// it was not.
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// The last notifications and settings sent, kept for the thread to pick up
+/// when it is ready: the shell posts its first notices while it is still
+/// starting, before there is a loop to send them to.
+static PENDING_TOASTS: std::sync::Mutex<Option<(Value, ToastSettings)>> =
+    std::sync::Mutex::new(None);
+
 thread_local! {
     /// The bar, on its own thread, for what [`update`] sends there.
     static BAR: RefCell<Option<slint::Weak<Bar>>> = const { RefCell::new(None) };
@@ -124,10 +130,22 @@ pub fn osd(kind: &str, value: f32, muted: bool, timeout: Duration, bottom: bool)
 /// Shows the notification banners for this list — the same payload the
 /// webview surfaces are sent — with these settings. Any thread.
 pub fn toasts(list: Value, settings: ToastSettings) {
-    if !RUNNING.load(Ordering::Relaxed) {
-        return;
+    if let Ok(mut pending) = PENDING_TOASTS.lock() {
+        *pending = Some((list, settings));
     }
-    let _ = slint::invoke_from_event_loop(move || toasts::show(&list, settings));
+    if RUNNING.load(Ordering::Relaxed) {
+        let _ = slint::invoke_from_event_loop(show_pending_toasts);
+    }
+}
+
+fn show_pending_toasts() {
+    let pending = PENDING_TOASTS
+        .lock()
+        .ok()
+        .and_then(|mut pending| pending.take());
+    if let Some((list, settings)) = pending {
+        toasts::show(&list, settings);
+    }
 }
 
 fn run(
@@ -149,6 +167,7 @@ fn run(
 
     let act: Rc<dyn Fn(Action)> = Rc::from(act as Box<dyn Fn(Action)>);
     toasts::set_act(act.clone());
+    show_pending_toasts();
 
     // Kept alive for as long as the loop runs.
     let _bar = match hooks {
