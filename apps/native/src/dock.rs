@@ -274,7 +274,7 @@ fn look_for_pointer() {
     }
 }
 
-fn cursor() -> (i32, i32) {
+pub(crate) fn cursor() -> (i32, i32) {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::Foundation::POINT;

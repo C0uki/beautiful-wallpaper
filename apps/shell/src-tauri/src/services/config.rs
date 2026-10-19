@@ -168,11 +168,10 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     }
 
     // Where each surface sits is worked out when its window is made; without
-    // this, moving the bar to the bottom took a restart, and left the dock and
-    // the sidebars keeping clear of where it used to be. On the main thread,
-    // because a bar for a monitor that did not have one is a window to create.
-    // After the taskbar, which has to have given up its edge or taken it back
-    // before the bar asks what is left.
+    // the pass below, moving the bar to the left took a restart, and left the
+    // sidebars keeping clear of where it used to be. It runs after the
+    // taskbar, which has to have given up its edge or taken it back before
+    // the bar asks what is left.
     if config.dock != previous.dock {
         crate::commands::emit_dock_settings(app);
         // Pinning lives in the config, and the icons say which are pinned.
