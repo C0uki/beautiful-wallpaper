@@ -111,7 +111,7 @@ pub fn start(app: &AppHandle) {
 /// `ja-JP`: what WebView2 hands the surfaces as `navigator.languages`. Empty
 /// when Windows will not say, which asks wttr.in for English.
 #[cfg(windows)]
-fn system_language() -> String {
+pub(crate) fn system_language() -> String {
     windows::Globalization::ApplicationLanguages::Languages()
         .and_then(|languages| languages.GetAt(0))
         .map(|tag| tag.to_string())
@@ -119,7 +119,7 @@ fn system_language() -> String {
 }
 
 #[cfg(not(windows))]
-fn system_language() -> String {
+pub(crate) fn system_language() -> String {
     String::new()
 }
 

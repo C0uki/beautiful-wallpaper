@@ -173,6 +173,14 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     // because a bar for a monitor that did not have one is a window to create.
     // After the taskbar, which has to have given up its edge or taken it back
     // before the bar asks what is left.
+    // The native banners are told their settings with the list.
+    if config.notifications != previous.notifications
+        || config.language != previous.language
+        || bar_moved
+    {
+        crate::commands::emit_notifications(app);
+    }
+
     if overlays_moved {
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {

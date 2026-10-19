@@ -1,5 +1,5 @@
 //! The always-on surfaces, drawn natively with Slint instead of in webviews:
-//! the bar and the volume readout so far.
+//! the bar, the volume readout and the notification banners so far.
 //!
 //! Without Chromium behind it the bar is on screen in about a second and costs
 //! about 10 MB, where the webview bar needs WebView2's browser and GPU
@@ -9,7 +9,8 @@
 //! on Windows Slint's winit backend allows that, and its windows never touch the
 //! shell's. They read nothing themselves but the clock. The shell hands them
 //! the readings it sends the webview surfaces, through [`update`], asks for the
-//! readout through [`osd`], and hears what was pressed through [`BarHooks`].
+//! readout through [`osd`] and the banners through [`toasts`], and hears what
+//! was pressed through the callback given to [`spawn`].
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,6 +23,9 @@ use serde_json::Value;
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 slint::include_modules!();
+
+mod toasts;
+pub use toasts::ToastSettings;
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
 /// The webview bar's height at 100%.
@@ -51,6 +55,8 @@ pub enum Action {
     Media(String),
     /// A tray icon, as the shell sent it, and whether it was the right button.
     Tray(Value, bool),
+    /// A notification closed or swiped away.
+    Dismiss(u32),
 }
 
 /// The bar's place on the screen.
@@ -65,17 +71,16 @@ pub struct BarHooks {
     /// The last of each reading the shell has sent, once the bar can take
     /// them: anything sent before then is not seen.
     pub latest: Box<dyn FnOnce() -> Vec<(String, Value)> + Send>,
-    /// What was pressed.
-    pub act: Box<dyn Fn(Action) + Send>,
 }
 
-/// Starts the native surfaces' thread, with the bar when there is one.
-pub fn spawn(bar: Option<BarHooks>) {
+/// Starts the native surfaces' thread, with the bar when there is one. `act` is
+/// called with whatever is pressed on any of them.
+pub fn spawn(bar: Option<BarHooks>, act: Box<dyn Fn(Action) + Send>) {
     RUNNING.store(true, Ordering::Relaxed);
     let started = std::thread::Builder::new()
         .name("bw-native".to_owned())
         .spawn(move || {
-            if let Err(error) = run(bar) {
+            if let Err(error) = run(bar, act) {
                 tracing::error!(%error, "the native surfaces stopped");
             }
         });
@@ -116,7 +121,19 @@ pub fn osd(kind: &str, value: f32, muted: bool, timeout: Duration, bottom: bool)
     });
 }
 
-fn run(hooks: Option<BarHooks>) -> Result<(), slint::PlatformError> {
+/// Shows the notification banners for this list — the same payload the
+/// webview surfaces are sent — with these settings. Any thread.
+pub fn toasts(list: Value, settings: ToastSettings) {
+    if !RUNNING.load(Ordering::Relaxed) {
+        return;
+    }
+    let _ = slint::invoke_from_event_loop(move || toasts::show(&list, settings));
+}
+
+fn run(
+    hooks: Option<BarHooks>,
+    act: Box<dyn Fn(Action) + Send>,
+) -> Result<(), slint::PlatformError> {
     // Drawn on the CPU: OpenGL took five seconds to come up on a slow machine,
     // and surfaces this size are cheap to draw either way. Never activated and
     // never on the taskbar, from birth.
@@ -130,9 +147,12 @@ fn run(hooks: Option<BarHooks>) -> Result<(), slint::PlatformError> {
     });
     selector.select()?;
 
+    let act: Rc<dyn Fn(Action)> = Rc::from(act as Box<dyn Fn(Action)>);
+    toasts::set_act(act.clone());
+
     // Kept alive for as long as the loop runs.
     let _bar = match hooks {
-        Some(hooks) => Some(start_bar(hooks)?),
+        Some(hooks) => Some(start_bar(hooks, act)?),
         None => None,
     };
     // Hiding the readout must not end the loop, as the last window closing
@@ -140,7 +160,10 @@ fn run(hooks: Option<BarHooks>) -> Result<(), slint::PlatformError> {
     slint::run_event_loop_until_quit()
 }
 
-fn start_bar(hooks: BarHooks) -> Result<(Bar, slint::Timer), slint::PlatformError> {
+fn start_bar(
+    hooks: BarHooks,
+    act: Rc<dyn Fn(Action)>,
+) -> Result<(Bar, slint::Timer), slint::PlatformError> {
     let started = Instant::now();
     let bar = Bar::new()?;
     set_icons(&bar);
@@ -151,7 +174,6 @@ fn start_bar(hooks: BarHooks) -> Result<(Bar, slint::Timer), slint::PlatformErro
     bar.window()
         .set_size(slint::PhysicalSize::new(width, height as u32));
 
-    let act: Rc<dyn Fn(Action) + Send> = Rc::from(hooks.act);
     let acting = act.clone();
     bar.on_clicked(move |what| {
         let what = what.to_string();

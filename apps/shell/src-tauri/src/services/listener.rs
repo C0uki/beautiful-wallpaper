@@ -8,9 +8,8 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
-use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
 
 /// The reader's thread, and the switch that stops it.
@@ -153,7 +152,7 @@ fn post(app: &AppHandle, found: Vec<(u32, bw_core::NewNotification)>, arrivals: 
         }
     }
 
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    crate::commands::emit_notifications(app);
     let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
 }
 
@@ -193,5 +192,5 @@ fn say(app: &AppHandle, problem: String) {
         return;
     }
     store.0.post(notice);
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    crate::commands::emit_notifications(app);
 }
