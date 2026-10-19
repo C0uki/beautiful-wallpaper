@@ -241,7 +241,6 @@ impl NotificationStore {
         }
         let posted = store.0.post(notification);
         crate::commands::emit_notifications(app);
-        let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
         Some(posted)
     }
 }

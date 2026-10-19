@@ -109,8 +109,6 @@ pub mod event {
     /// moved its own level.
     pub const AUDIO_SESSIONS: &str = "bw://audio-sessions";
     pub const BRIGHTNESS: &str = "bw://brightness";
-    /// Asks the readout surface to appear, carrying what to show.
-    pub const OSD: &str = "bw://osd";
 }
 
 #[tauri::command]
@@ -181,56 +179,6 @@ pub fn click_tray_icon(window: String, id: u32, callback_message: u32, secondary
     }
     #[cfg(not(windows))]
     let _ = (window, id, callback_message, secondary);
-}
-
-/// Moves an auto-hiding surface in or out, as the pointer arrives and leaves.
-///
-/// The bar and the dock both park off their edge while hidden, leaving only a
-/// strip for the pointer to find. Only the page knows when the pointer is on
-/// that strip; only Rust can move the window. This is the join.
-#[tauri::command]
-pub fn set_surface_revealed(app: AppHandle, label: String, revealed: bool) {
-    crate::surfaces::set_revealed(&app, &label, revealed);
-}
-
-/// Cuts the dock's window down to the band its icons sit in.
-///
-/// The window spans the screen so the dock can be centred in it, and it is
-/// not click-through — it has to notice the pointer to come back — so every
-/// pixel of it took clicks: the strip left on screen while hidden ran along
-/// the whole bottom edge, and once revealed, a band the full width of the
-/// screen swallowed every click meant for the windows under it. With the
-/// taskbar's strip given back, maximised windows reach that band, and their
-/// buttons stopped working there. Only the page knows where the icons are;
-/// `left` and `width` are its CSS pixels across, and the band keeps the
-/// window's full height so the strip the pointer finds stays in it.
-#[tauri::command]
-pub fn set_dock_shape(app: AppHandle, left: f64, width: f64) {
-    #[cfg(windows)]
-    {
-        let Some(window) = app.get_webview_window(crate::surfaces::DOCK.label) else {
-            return;
-        };
-        let (Ok(handle), Ok(scale), Ok(size)) =
-            (window.hwnd(), window.scale_factor(), window.outer_size())
-        else {
-            return;
-        };
-        let band = bw_core::capture::Rect {
-            x: (left * scale).floor() as i32,
-            y: 0,
-            width: (width * scale).ceil() as i32,
-            height: size.height as i32,
-        };
-        if let Err(error) = crate::platform::region::set_window_region(
-            windows::Win32::Foundation::HWND(handle.0),
-            &[band],
-        ) {
-            tracing::warn!(%error, "could not cut the dock down to its icons");
-        }
-    }
-    #[cfg(not(windows))]
-    let _ = (app, left, width);
 }
 
 #[tauri::command]
@@ -427,26 +375,20 @@ pub fn clear_notifications(app: AppHandle, store: State<'_, NotificationStore>) 
 }
 
 /// Sends every surface the notifications as they are now, and the native
-/// banners too when they are the ones drawing them.
+/// banners, which draw them.
 pub fn emit_notifications(app: &AppHandle) {
     let Some(store) = app.try_state::<NotificationStore>() else {
         return;
     };
     let list = store.0.list();
-    if crate::surfaces::native() {
-        if let (Ok(value), Some(state)) = (serde_json::to_value(&list), app.try_state::<AppState>())
-        {
-            bw_native::toasts(value, toast_settings(&state.config()));
-        }
+    if let (Ok(value), Some(state)) = (serde_json::to_value(&list), app.try_state::<AppState>()) {
+        bw_native::toasts(value, toast_settings(&state.config()));
     }
     let _ = app.emit(event::NOTIFICATIONS, list);
 }
 
-/// The dock's settings, for the native dock when it is the one drawing it.
+/// The dock's settings, for the native dock.
 pub fn emit_dock_settings(app: &AppHandle) {
-    if !crate::surfaces::native() {
-        return;
-    }
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
@@ -1832,14 +1774,6 @@ pub fn run_command(state: State<'_, AppState>, _line: String) -> Result<(), Stri
 }
 
 // --- The dock --------------------------------------------------------------
-
-#[tauri::command]
-pub fn get_dock_items(
-    state: State<'_, AppState>,
-    dock: State<'_, DockHandle>,
-) -> Vec<bw_core::dock::DockApp> {
-    dock.items(&state.config())
-}
 
 /// What happened when the dock was clicked, so the UI can say something useful
 /// rather than looking inert.

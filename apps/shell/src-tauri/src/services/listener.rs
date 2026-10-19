@@ -153,7 +153,6 @@ fn post(app: &AppHandle, found: Vec<(u32, bw_core::NewNotification)>, arrivals: 
     }
 
     crate::commands::emit_notifications(app);
-    let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
 }
 
 /// What to tell the user about a gate they are standing at.

@@ -23,7 +23,6 @@ import {
   type NetworkReading,
   type TrayIcon,
   type Notification,
-  type OsdReading,
   type VolumeReading,
   type BrightnessReading,
   type AudioSession,
@@ -872,7 +871,6 @@ export function mockBackend(): Backend {
       active: false,
     },
   ];
-  const osd: OsdReading = { kind: "volume", value: 42, muted: false };
 
   // Push the periodic events the real backend sends.
   const timers: ReturnType<typeof setInterval>[] = [];
@@ -944,12 +942,8 @@ export function mockBackend(): Backend {
           return config as T;
         }
 
-        // Both of these ask Win32 to move or message a window, which is the one
-        // thing a browser cannot stand in for. Accepting them is the point: the
-        // dock asks to be revealed the moment it mounts, and a mock that threw
-        // would take down every surface on the harness page with it.
-        case Command.SetSurfaceRevealed:
-        case Command.SetDockShape:
+        // This asks Win32 to message a window, which is the one thing a
+        // browser cannot stand in for.
         case Command.ClickTrayIcon:
           return undefined as T;
 
@@ -1625,9 +1619,6 @@ export function mockBackend(): Backend {
           // the harness usable: the overview closes, as it would in the shell.
           return undefined as T;
 
-        case Command.GetDockItems:
-          return dock as T;
-
         case Command.ActivateWindow: {
           const id = String(args["id"]);
           const wasActive = dock.some((app) =>
@@ -1968,7 +1959,6 @@ export function mockBackend(): Backend {
         if (event === Event.Dock) handler(dock as T);
         if (event === Event.Chat) handler(chat as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
-        if (event === Event.Osd) handler(osd as T);
       });
 
       return () => {

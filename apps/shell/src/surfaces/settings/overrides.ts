@@ -36,8 +36,6 @@ export interface Override {
   unset?: string;
   /** A font stack: picked from the installed families of this kind. */
   font?: "sans" | "mono";
-  /** One of the bar's three slots: chips dragged between the three rows. */
-  barSlot?: true;
   /** A model: chosen from the ones this service lists. */
   model?: AiProvider;
 }
@@ -150,9 +148,6 @@ export const OVERRIDES: Record<string, Override> = {
       ["islands", "Islands"],
     ]),
   },
-  "bar.left": { barSlot: true },
-  "bar.center": { barSlot: true },
-  "bar.right": { barSlot: true },
   "background.wallpaperAnimation": {
     choices: plain([...TRANSITION_NAMES, "random"]),
   },

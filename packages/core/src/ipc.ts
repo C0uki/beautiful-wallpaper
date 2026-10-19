@@ -54,8 +54,6 @@ export const Event = {
   Visualizer: "bw://visualizer",
   /** One piece of a reply as it streams. */
   ChatEvent: "bw://chat-event",
-  /** Asks the readout to appear, carrying what to show. */
-  Osd: "bw://osd",
   /**
    * The scan of installed applications finished, or found a change. Carries
    * nothing: the overview re-runs whatever query is in its box.
@@ -118,8 +116,6 @@ export const Command = {
   ThumbnailFor: "thumbnail_for",
   SetMode: "set_mode",
   ToggleState: "toggle_state",
-  SetSurfaceRevealed: "set_surface_revealed",
-  SetDockShape: "set_dock_shape",
   ClickTrayIcon: "click_tray_icon",
   SetState: "set_state",
   GetStates: "get_states",
@@ -171,7 +167,6 @@ export const Command = {
   ReorderTodo: "reorder_todo",
   GetPersistent: "get_persistent",
   SetPersistentValue: "set_persistent_value",
-  GetDockItems: "get_dock_items",
   ActivateWindow: "activate_window",
   LaunchApp: "launch_app",
   GetLyrics: "get_lyrics",

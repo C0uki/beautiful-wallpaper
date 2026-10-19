@@ -30,10 +30,6 @@ export default defineConfig({
       input: {
         index: surface("index"),
         background: surface("background"),
-        bar: surface("bar"),
-        osd: surface("osd"),
-        notifications: surface("notifications"),
-        dock: surface("dock"),
         desktopMenu: surface("desktopMenu"),
         overview: surface("overview"),
         regionSelect: surface("regionSelect"),
