@@ -90,12 +90,14 @@ export component Toast inherits Window {
                 font-weight: 600;
                 wrap: word-wrap;
             }
+            // Two lines, then elide: a banner is a glance, not a document.
             if root.body != "": Text {
                 text: root.body;
-                color: Palette.foreground;
+                color: Palette.quiet;
+                font-size: 11.5px;
                 wrap: word-wrap;
                 overflow: elide;
-                max-height: 54px;
+                height: min(self.preferred-height, 32px);
             }
             if root.more != "": Text {
                 text: root.more;
