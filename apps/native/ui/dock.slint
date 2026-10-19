@@ -96,6 +96,10 @@ export component Dock inherits Window {
     callback media();
     callback keep();
     callback hovered(bool);
+    /// The size the dock wants, which a hidden window does not take on until
+    /// it is shown again.
+    out property <length> wanted-width: row.preferred-width;
+    out property <length> wanted-height: row.preferred-height;
 
     title: "bw-dock-native";
     no-frame: true;
