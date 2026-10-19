@@ -1309,13 +1309,6 @@
     "kind": "text"
   },
   {
-    "path": "time.dateFormat",
-    "section": "time",
-    "label": "Date format",
-    "group": "",
-    "kind": "text"
-  },
-  {
     "path": "time.weekStartsOnMonday",
     "section": "time",
     "label": "Week starts on monday",

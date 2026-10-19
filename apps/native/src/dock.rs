@@ -53,6 +53,15 @@ thread_local! {
     static STATE: RefCell<State> = RefCell::new(State::default());
 }
 
+/// Recolours the dock, as the theme goes light or dark.
+pub(crate) fn repaint(light: bool) {
+    STATE.with(|state| {
+        if let Some(window) = &state.borrow().window {
+            window.global::<crate::Palette>().set_light(light);
+        }
+    });
+}
+
 pub(crate) fn set_act(act: Rc<dyn Fn(Action)>) {
     STATE.with(|state| state.borrow_mut().act = Some(act));
 }
@@ -280,6 +289,9 @@ fn cursor() -> (i32, i32) {
 
 fn make_window() -> Result<Dock, slint::PlatformError> {
     let window = Dock::new()?;
+    window
+        .global::<crate::Palette>()
+        .set_light(crate::is_light());
     window.set_fallback(icon("apps", 24.0, false));
 
     window.on_hovered(|inside| {

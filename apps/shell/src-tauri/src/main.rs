@@ -251,6 +251,7 @@ fn main() {
                 let reserving = handle.clone();
                 let clicking = handle.clone();
                 bw_native::bar_shown(state.config().bar.enable);
+                commands::emit_bar_settings(&state.config());
                 bw_native::spawn(
                     Some(bw_native::BarHooks {
                         place: Box::new(move |hwnd, height| {

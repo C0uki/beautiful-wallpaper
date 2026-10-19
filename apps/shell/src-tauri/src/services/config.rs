@@ -179,6 +179,10 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         crate::commands::rebuild_dock(app);
     }
 
+    if config.time != previous.time || config.language != previous.language {
+        crate::commands::emit_bar_settings(&config);
+    }
+
     // The native banners are told their settings with the list.
     if config.notifications != previous.notifications
         || config.language != previous.language

@@ -414,19 +414,33 @@ pub fn rebuild_dock(app: &AppHandle) {
     emit_reading(app, event::DOCK, dock.items(&state.config()));
 }
 
-/// What the native banners need from the config.
-fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
-    let language = match config.language.ui.as_str() {
+/// Whether the shell is in Japanese: `language.ui`, or Windows' own when that
+/// is `auto`.
+fn japanese(config: &bw_core::Config) -> bool {
+    match config.language.ui.as_str() {
         "auto" => services::weather::system_language(),
         chosen => chosen.to_owned(),
-    };
+    }
+    .starts_with("ja")
+}
+
+/// Tells the native bar how to write the time and the date.
+pub fn emit_bar_settings(config: &bw_core::Config) {
+    bw_native::bar(bw_native::BarSettings {
+        time_format: config.time.format.clone(),
+        japanese: japanese(config),
+    });
+}
+
+/// What the native banners need from the config.
+fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
     bw_native::ToastSettings {
         timeout: config.notifications.timeout,
         position: config.notifications.position.clone(),
         max_visible: config.notifications.max_visible,
         do_not_disturb: config.notifications.do_not_disturb || !config.notifications.enable,
         bar: config.bar.enable && !config.bar.vertical,
-        japanese: language.starts_with("ja"),
+        japanese: japanese(config),
     }
 }
 

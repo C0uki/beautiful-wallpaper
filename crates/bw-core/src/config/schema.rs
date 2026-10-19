@@ -111,7 +111,7 @@ config_struct! {
         /// The two sidebars — the left one's tabs, the right one's toggles,
         /// sliders and notification centre.
         pub sidebar: Sidebar = Sidebar::default(),
-        /// Clock and date formats, and which day a week starts on.
+        /// How the clock reads, and which day a week starts on.
         pub time: Time = Time::default(),
         /// The wallpaper picker: the folder it reads, how it is laid out, and
         /// the online sources it can search.
@@ -708,8 +708,9 @@ config_struct! {
 
 config_struct! {
     pub struct Time {
+        /// `HH:mm`, `HH:mm:ss` or `hh:mm AP`. The date beside it follows the
+        /// shell's language.
         pub format: String = s("HH:mm"),
-        pub date_format: String = s("ddd, dd/MM"),
         pub week_starts_on_monday: bool = true,
     }
 }

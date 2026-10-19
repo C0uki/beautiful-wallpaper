@@ -85,6 +85,8 @@ export component Bar inherits Window {
     in property <bool> charging;
     in property <string> date;
     in property <string> time;
+    // What the centre says over the desktop, in the shell's language.
+    in property <string> desktop-label;
     in property <image> weather-icon;
     in property <string> weather;
     in property <string> media-title;
@@ -165,7 +167,7 @@ export component Bar inherits Window {
         }
         Item {
             icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
-            text: root.active-title != "" ? root.active-title : "デスクトップ";
+            text: root.active-title != "" ? root.active-title : root.desktop-label;
             tint: root.active-title != "" ? Palette.foreground : Palette.quiet;
         }
     }
