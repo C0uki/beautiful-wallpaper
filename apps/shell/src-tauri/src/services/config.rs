@@ -173,6 +173,12 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     // because a bar for a monitor that did not have one is a window to create.
     // After the taskbar, which has to have given up its edge or taken it back
     // before the bar asks what is left.
+    if config.dock != previous.dock {
+        crate::commands::emit_dock_settings(app);
+        // Pinning lives in the config, and the icons say which are pinned.
+        crate::commands::rebuild_dock(app);
+    }
+
     // The native banners are told their settings with the list.
     if config.notifications != previous.notifications
         || config.language != previous.language

@@ -257,17 +257,21 @@ fn main() {
                     place: Box::new(move |hwnd, height| {
                         surfaces::reserve_native_bar(&reserving, hwnd, height)
                     }),
-                    latest: Box::new(|| {
+                });
+                bw_native::spawn(
+                    bar,
+                    Box::new(|| {
                         commands::latest_readings()
                             .into_iter()
                             .map(|(event, value)| (event.to_owned(), value))
                             .collect()
                     }),
-                });
-                bw_native::spawn(
-                    bar,
                     Box::new(move |action| native_pressed(&clicking, action)),
                 );
+                commands::emit_dock_settings(&handle);
+                // The window watcher only sends the icons when a window
+                // changes; the webview dock asked for them as it loaded.
+                commands::rebuild_dock(&handle);
             }
 
             // One surface to a turn of the event loop, rather than all of them
@@ -582,6 +586,51 @@ fn native_pressed(app: &AppHandle, action: bw_native::Action) {
         bw_native::Action::Dismiss(id) => {
             if app.state::<NotificationStore>().0.dismiss(id) {
                 commands::emit_notifications(app);
+            }
+        }
+        // As the webview dock's `activate`: start it when nothing of it is
+        // open, otherwise bring up the window after the one in front, so a
+        // program with several windows cycles through them.
+        bw_native::Action::DockActivate(dock_app) => {
+            let windows = dock_app["windows"].as_array().cloned().unwrap_or_default();
+            if windows.is_empty() {
+                let path = dock_app["executable"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                if let Err(error) = commands::launch_app(app.clone(), path) {
+                    tracing::warn!(%error, "the dock could not start an application");
+                }
+                return;
+            }
+            let current = windows
+                .iter()
+                .position(|window| window["active"].as_bool().unwrap_or(false));
+            let next = &windows[current.map_or(0, |at| (at + 1) % windows.len())];
+            let id = next["id"].as_str().unwrap_or_default().to_owned();
+            let active = dock_app["active"].as_bool().unwrap_or(false);
+            // ponytail: a refused activation only flashes the window; the
+            // webview dock also bounced its icon.
+            if commands::activate_window(id, active) == commands::ActivateOutcome::Gone {
+                commands::rebuild_dock(app);
+            }
+        }
+        bw_native::Action::DockPin(path, pinned) => {
+            if let Err(error) = commands::set_pinned(app.state(), path, pinned) {
+                tracing::warn!(%error, "the dock could not pin an application");
+            }
+            commands::rebuild_dock(app);
+        }
+        bw_native::Action::DockMove(moved, target) => {
+            let state = app.state::<AppState>();
+            let pinned = state.config().dock.pinned_apps;
+            if let Some(next) = bw_core::dock::reorder(&pinned, &moved, &target) {
+                if let Err(error) =
+                    state.set_config_value("dock.pinnedApps", serde_json::json!(next))
+                {
+                    tracing::warn!(%error, "the dock could not move an icon");
+                }
+                commands::rebuild_dock(app);
             }
         }
     }

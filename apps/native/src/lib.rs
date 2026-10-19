@@ -1,5 +1,5 @@
 //! The always-on surfaces, drawn natively with Slint instead of in webviews:
-//! the bar, the volume readout and the notification banners so far.
+//! the bar, the volume readout, the notification banners and the dock.
 //!
 //! Without Chromium behind it the bar is on screen in about a second and costs
 //! about 10 MB, where the webview bar needs WebView2's browser and GPU
@@ -9,8 +9,9 @@
 //! on Windows Slint's winit backend allows that, and its windows never touch the
 //! shell's. They read nothing themselves but the clock. The shell hands them
 //! the readings it sends the webview surfaces, through [`update`], asks for the
-//! readout through [`osd`] and the banners through [`toasts`], and hears what
-//! was pressed through the callback given to [`spawn`].
+//! readout through [`osd`], the banners through [`toasts`] and the dock's
+//! settings through [`dock`], and hears what was pressed through the callback
+//! given to [`spawn`].
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -24,7 +25,9 @@ use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 slint::include_modules!();
 
+mod dock;
 mod toasts;
+pub use dock::DockSettings;
 pub use toasts::ToastSettings;
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
@@ -40,6 +43,8 @@ static RUNNING: AtomicBool = AtomicBool::new(false);
 /// starting, before there is a loop to send them to.
 static PENDING_TOASTS: std::sync::Mutex<Option<(Value, ToastSettings)>> =
     std::sync::Mutex::new(None);
+/// The dock's settings, kept the same way.
+static PENDING_DOCK: std::sync::Mutex<Option<DockSettings>> = std::sync::Mutex::new(None);
 
 thread_local! {
     /// The bar, on its own thread, for what [`update`] sends there.
@@ -51,7 +56,7 @@ thread_local! {
     static OSD_TIMER: slint::Timer = slint::Timer::default();
 }
 
-/// Something pressed on the bar, for the shell to act on.
+/// Something pressed on a native surface, for the shell to act on.
 #[derive(Debug)]
 pub enum Action {
     /// `sidebarLeft`, `sidebarRight`, `wallpaperSelector`, `settings` or
@@ -63,6 +68,12 @@ pub enum Action {
     Tray(Value, bool),
     /// A notification closed or swiped away.
     Dismiss(u32),
+    /// A dock icon clicked: the application, as the shell sent it.
+    DockActivate(Value),
+    /// A dock icon to pin, by its executable, or to unpin.
+    DockPin(String, bool),
+    /// A pinned icon dragged onto another's place, both by executable.
+    DockMove(String, String),
 }
 
 /// The bar's place on the screen.
@@ -74,19 +85,21 @@ pub struct BarHooks {
     /// in physical pixels; reserves the edge and answers the rectangle the bar
     /// is to occupy.
     pub place: Place,
-    /// The last of each reading the shell has sent, once the bar can take
-    /// them: anything sent before then is not seen.
-    pub latest: Box<dyn FnOnce() -> Vec<(String, Value)> + Send>,
 }
 
-/// Starts the native surfaces' thread, with the bar when there is one. `act` is
-/// called with whatever is pressed on any of them.
-pub fn spawn(bar: Option<BarHooks>, act: Box<dyn Fn(Action) + Send>) {
+/// The last of each reading the shell has sent.
+pub type Latest = Box<dyn FnOnce() -> Vec<(String, Value)> + Send>;
+
+/// Starts the native surfaces' thread, with the bar when there is one.
+/// `latest` is called once the surfaces can take readings, for the last of each
+/// the shell has sent: anything sent before then is not seen. `act` is called
+/// with whatever is pressed on any of them.
+pub fn spawn(bar: Option<BarHooks>, latest: Latest, act: Box<dyn Fn(Action) + Send>) {
     RUNNING.store(true, Ordering::Relaxed);
     let started = std::thread::Builder::new()
         .name("bw-native".to_owned())
         .spawn(move || {
-            if let Err(error) = run(bar, act) {
+            if let Err(error) = run(bar, latest, act) {
                 tracing::error!(%error, "the native surfaces stopped");
             }
         });
@@ -109,7 +122,29 @@ pub fn update(event: &str, value: &Value) {
                 apply(&bar, &event, &value);
             }
         });
+        dock::apply(&event, &value);
     });
+}
+
+/// The dock's settings, as they are now: made, changed, or put away. Any
+/// thread.
+pub fn dock(settings: DockSettings) {
+    if let Ok(mut pending) = PENDING_DOCK.lock() {
+        *pending = Some(settings);
+    }
+    if RUNNING.load(Ordering::Relaxed) {
+        let _ = slint::invoke_from_event_loop(configure_pending_dock);
+    }
+}
+
+fn configure_pending_dock() {
+    let pending = PENDING_DOCK
+        .lock()
+        .ok()
+        .and_then(|mut pending| pending.take());
+    if let Some(settings) = pending {
+        dock::configure(settings);
+    }
 }
 
 /// Shows the volume or brightness readout for `timeout`, or for longer if
@@ -150,6 +185,7 @@ fn show_pending_toasts() {
 
 fn run(
     hooks: Option<BarHooks>,
+    latest: Latest,
     act: Box<dyn Fn(Action) + Send>,
 ) -> Result<(), slint::PlatformError> {
     // Drawn on the CPU: OpenGL took five seconds to come up on a slow machine,
@@ -167,11 +203,18 @@ fn run(
 
     let act: Rc<dyn Fn(Action)> = Rc::from(act as Box<dyn Fn(Action)>);
     toasts::set_act(act.clone());
+    dock::set_act(act.clone());
     show_pending_toasts();
+
+    let latest = latest();
+    for (event, value) in &latest {
+        dock::apply(event, value);
+    }
+    configure_pending_dock();
 
     // Kept alive for as long as the loop runs.
     let _bar = match hooks {
-        Some(hooks) => Some(start_bar(hooks, act)?),
+        Some(hooks) => Some(start_bar(hooks, &latest, act)?),
         None => None,
     };
     // Hiding the readout must not end the loop, as the last window closing
@@ -181,6 +224,7 @@ fn run(
 
 fn start_bar(
     hooks: BarHooks,
+    latest: &[(String, Value)],
     act: Rc<dyn Fn(Action)>,
 ) -> Result<(Bar, slint::Timer), slint::PlatformError> {
     let started = Instant::now();
@@ -209,8 +253,8 @@ fn start_bar(
     });
 
     BAR.with(|slot| *slot.borrow_mut() = Some(bar.as_weak()));
-    for (event, value) in (hooks.latest)() {
-        apply(&bar, &event, &value);
+    for (event, value) in latest {
+        apply(&bar, event, value);
     }
 
     let tick = slint::Timer::default();
