@@ -369,7 +369,6 @@ export function connectSidebar(): Promise<void> {
   return sidebarConnected;
 }
 
-
 /** Folds one streamed delta into the conversation. */
 function applyStreamEvent(
   state: ShellState,
