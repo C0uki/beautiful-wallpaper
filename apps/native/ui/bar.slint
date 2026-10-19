@@ -1,0 +1,263 @@
+// The bar, drawn natively: the same strip the webview bar draws, in the order
+// the default config puts it in.
+
+import { Palette } from "palette.slint";
+
+
+// Set from Rust, out of the same icon set the webview surfaces draw.
+export global Icons {
+    in property <image> left-panel;
+    in property <image> right-panel;
+    in property <image> desktop;
+    in property <image> wallpaper;
+    in property <image> speed;
+    in property <image> memory;
+    in property <image> storage;
+    in property <image> down;
+    in property <image> up;
+    in property <image> battery;
+    in property <image> battery-charging;
+    in property <image> photos;
+    in property <image> shuffle;
+    in property <image> settings;
+    in property <image> play;
+    in property <image> pause;
+    in property <image> next;
+}
+
+export struct TrayItem {
+    icon: image,
+}
+
+export struct WorkspaceItem {
+    name: string,
+    focused: bool,
+    populated: bool,
+}
+
+component Item inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <length> icon-size: 16px;
+    in property <color> tint: Palette.foreground;
+    in property <length> max-text: 400px;
+    callback clicked;
+
+    height: 24px;
+    border-radius: 6px;
+    background: area.has-hover ? Palette.hover : transparent;
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
+        if root.icon.width > 0: Image {
+            source: root.icon;
+            colorize: root.tint;
+            width: root.icon-size;
+            height: root.icon-size;
+            y: (parent.height - self.height) / 2;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: root.tint;
+            vertical-alignment: center;
+            overflow: elide;
+            max-width: root.max-text;
+        }
+    }
+
+    area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Bar inherits Window {
+    in property <string> active-title;
+    in property <string> cpu;
+    in property <string> memory;
+    in property <string> disk;
+    in property <string> down;
+    in property <string> up;
+    in property <string> battery;
+    in property <bool> charging;
+    in property <string> date;
+    in property <string> time;
+    in property <image> weather-icon;
+    in property <string> weather;
+    in property <string> media-title;
+    in property <bool> media-playing;
+    in property <[TrayItem]> tray;
+    in property <[WorkspaceItem]> workspaces;
+    callback clicked(string);
+    callback tray-clicked(int, bool);
+
+    title: "bw-bar-native";
+    no-frame: true;
+    always-on-top: true;
+    background: Palette.background;
+    default-font-family: "Segoe UI Variable Text";
+    default-font-size: 13px;
+
+    HorizontalLayout {
+        x: 6px;
+        width: self.preferred-width;
+        spacing: 2px;
+        Item {
+            icon: Icons.left-panel;
+            clicked => {
+                root.clicked("sidebarLeft");
+            }
+        }
+        if root.media-title != "": HorizontalLayout {
+            Item {
+                icon: root.media-playing ? Icons.pause : Icons.play;
+                clicked => {
+                    root.clicked("playPause");
+                }
+            }
+            Item {
+                text: root.media-title;
+                max-text: 220px;
+            }
+            Item {
+                icon: Icons.next;
+                clicked => {
+                    root.clicked("next");
+                }
+            }
+        }
+        if root.weather != "": Item {
+            icon: root.weather-icon;
+            icon-size: 17px;
+            text: root.weather;
+        }
+    }
+
+    // Centred on the screen, not on what the two sides leave over, so the
+    // clock does not drift as the title grows.
+    HorizontalLayout {
+        width: min(self.preferred-width, root.width * 60%);
+        x: (root.width - self.width) / 2;
+        spacing: 4px;
+        for workspace in root.workspaces: Rectangle {
+            y: (parent.height - self.height) / 2;
+            height: 22px;
+            min-width: workspace.focused ? 30px : 22px;
+            border-radius: 11px;
+            background: workspace.focused ? Palette.accent : workspace.populated ? Palette.filled : transparent;
+            border-width: workspace.focused || workspace.populated ? 0px : 1px;
+            border-color: Palette.outline;
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-right: 6px;
+                Text {
+                    text: workspace.name;
+                    color: workspace.focused ? white : Palette.quiet;
+                    font-size: 11px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        Item {
+            icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
+            text: root.active-title != "" ? root.active-title : "デスクトップ";
+            tint: root.active-title != "" ? Palette.foreground : Palette.quiet;
+        }
+    }
+
+    HorizontalLayout {
+        width: self.preferred-width;
+        x: root.width - self.width - 6px;
+        spacing: 2px;
+        for icon[index] in root.tray: Rectangle {
+            width: 26px;
+            height: 24px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 6px;
+            background: tray-area.has-hover ? Palette.hover : transparent;
+            if icon.icon.width > 0: Image {
+                source: icon.icon;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 16px;
+                height: 16px;
+            }
+            if icon.icon.width == 0: Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: Palette.quiet;
+            }
+            tray-area := TouchArea {
+                clicked => {
+                    root.tray-clicked(index, false);
+                }
+                pointer-event(event) => {
+                    if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
+                        root.tray-clicked(index, true);
+                    }
+                }
+            }
+        }
+        Item {
+            icon: Icons.speed;
+            text: root.cpu;
+        }
+        Item {
+            icon: Icons.memory;
+            text: root.memory;
+        }
+        Item {
+            icon: Icons.storage;
+            text: root.disk;
+        }
+        Item {
+            icon: Icons.down;
+            icon-size: 14px;
+            text: root.down;
+        }
+        Item {
+            icon: Icons.up;
+            icon-size: 14px;
+            text: root.up;
+        }
+        if root.battery != "": Item {
+            icon: root.charging ? Icons.battery-charging : Icons.battery;
+            text: root.battery;
+        }
+        Item {
+            icon: Icons.photos;
+            clicked => {
+                root.clicked("wallpaperSelector");
+            }
+        }
+        Item {
+            icon: Icons.shuffle;
+            clicked => {
+                root.clicked("randomWallpaper");
+            }
+        }
+        Item {
+            icon: Icons.settings;
+            clicked => {
+                root.clicked("settings");
+            }
+        }
+        Item {
+            icon: Icons.right-panel;
+            clicked => {
+                root.clicked("sidebarRight");
+            }
+        }
+        Item {
+            text: root.date + "  " + root.time;
+        }
+    }
+}

@@ -1,0 +1,35 @@
+[package]
+name = "bw-native"
+description = "The always-on surfaces, drawn natively with Slint instead of in webviews."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+# Only the software renderer: OpenGL took seconds to come up on a slow machine.
+slint = { version = "1", default-features = false, features = [
+  "std",
+  "backend-winit",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+  "raw-window-handle-06",
+  "unstable-winit-030",
+] }
+raw-window-handle = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4.45"
+tracing = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_HiDpi",
+  "Win32_Graphics_Dwm",
+] }
+
+[build-dependencies]
+slint-build = "1"
