@@ -180,17 +180,6 @@ pub const SCREEN_CHROME: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
-/// The hot corners. Also covers the whole display, but it is emphatically not
-/// click-through: what keeps it out of the way is its window region, which is
-/// cut down to the corner strips so every click outside them lands on whatever
-/// is underneath.
-pub const HOT_CORNERS: Surface = Surface {
-    label: "hotCorners",
-    page: "hotCorners.html",
-    layer: Layer::Chrome,
-    size: Some((1.0, 1.0)),
-};
-
 /// The dock. Full width along the bottom, and never focused: clicking an icon
 /// should put the user in *that* application, not in the dock.
 pub const DOCK: Surface = Surface {
@@ -223,7 +212,6 @@ pub const ALL: &[Surface] = &[
     DESKTOP_MENU,
     SHELF,
     SCREEN_CHROME,
-    HOT_CORNERS,
     OVERLAY,
     OVERLAY_PINNED,
     SETTINGS,
@@ -232,15 +220,7 @@ pub const ALL: &[Surface] = &[
 
 /// What the startup makes first: everything on screen from the start. A start
 /// is over, to whoever is watching it, once these are up.
-pub const FIRST: &[Surface] = &[
-    BACKGROUND,
-    BAR,
-    DOCK,
-    SCREEN_CHROME,
-    HOT_CORNERS,
-    NOTIFICATIONS,
-    OSD,
-];
+pub const FIRST: &[Surface] = &[BACKGROUND, BAR, DOCK, SCREEN_CHROME, NOTIFICATIONS, OSD];
 
 /// Made once the rest of the startup has run, so opening one is as quick as it
 /// always was.
@@ -473,8 +453,8 @@ struct Screen {
     size: (f64, f64),
 }
 
-/// Whether the always-on surfaces are native rather than webviews: the bar, the
-/// hot corners and the volume readout so far.
+/// Whether the always-on surfaces are native rather than webviews: the bar and
+/// the volume readout so far.
 ///
 /// ponytail: an environment variable while they are tried out — `BW_NATIVE=1`
 /// — and only the top bar on the primary screen; a setting, and the other
@@ -525,7 +505,7 @@ pub fn reserve_native_bar(
 ///
 /// One window, except for a bar asked to appear on every monitor.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
-    if [BAR.label, HOT_CORNERS.label, OSD.label].contains(&surface.label) && native() {
+    if [BAR.label, OSD.label].contains(&surface.label) && native() {
         return Ok(());
     }
     let config = app.state::<AppState>().config();
@@ -580,7 +560,6 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         // about to show as hidden, and a page told it was hidden then stayed
         // blank until something showed it again.
         let born_visible = match surface.layer {
-            Layer::Chrome if surface.label == HOT_CORNERS.label => false,
             Layer::Bar => config.bar.enable,
             Layer::Overlay if surface.label == DOCK.label => config.dock.enable,
             Layer::Overlay => false,
@@ -589,16 +568,6 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
 
         builder = match surface.layer {
             Layer::Background => builder.always_on_bottom(true),
-            // The hot corners are the one surface that is neither
-            // click-through nor small: what keeps them out of the way is a
-            // window region, and `services::chrome::apply` is what puts it on.
-            // Born visible, they cover the screen and eat every click until it
-            // does — and if it ran before this window existed, it returned
-            // without applying anything and nothing tries again. Born hidden,
-            // there is no such moment: `apply` shows them once they are masked.
-            Layer::Chrome if surface.label == HOT_CORNERS.label => {
-                builder.always_on_top(true).visible(born_visible)
-            }
             // On screen from the start, and never taking the focus off whatever
             // the user is actually working in — unless it is switched off.
             // `bar.enable` was only ever read by the surfaces that keep clear of
@@ -1365,16 +1334,14 @@ fn apply_layer(
     // subclass `set_layer` installs rather than by getting the order right.
     // `WS_EX_NOACTIVATE` is Tao's own flag, set by the builder in `ensure`.
 
-    // The decorations are drawn over everything and pressed by nobody. The hot
-    // corners are the exception: they are masked by their window region
-    // instead, which is applied once the strips are known.
+    // The decorations are drawn over everything and pressed by nobody.
     //
     // Tauri's own call rather than `WS_EX_TRANSPARENT` by hand: on Windows a
     // transparent window is only see-through to the pointer when it is layered
     // as well, and setting one without the other leaves a window that looks
     // click-through in a list of styles and swallows every click underneath it.
     // `screenChrome` covers the screen, so that was every click on the desktop.
-    if layer == Layer::Chrome && window.label() != HOT_CORNERS.label {
+    if layer == Layer::Chrome {
         if let Err(error) = window.set_ignore_cursor_events(true) {
             tracing::warn!(%error, surface = window.label(), "could not let the pointer through a surface");
         }
@@ -1384,10 +1351,6 @@ fn apply_layer(
         if let Err(error) = win::set_layer(hwnd, target) {
             tracing::warn!(%error, "could not place the surface on its layer");
         }
-    }
-
-    if window.label() == HOT_CORNERS.label {
-        win::set_hot_corners(hwnd);
     }
 
     // The desktop blurred behind the panel, as a Mac's are. Two limits pick
@@ -1411,7 +1374,7 @@ fn apply_layer(
             win::set_backdrop(hwnd, backdrop, config.appearance.palette.mode != "light");
         }
     }
-    if layer == Layer::Bar || window.label() == DOCK.label || window.label() == HOT_CORNERS.label {
+    if layer == Layer::Bar || window.label() == DOCK.label {
         let app = app.clone();
         unsafe {
             win::watch_edge_window(hwnd, move || {
@@ -1452,7 +1415,6 @@ fn apply_layer(
                         place_bars(&app);
                         crate::services::integration::recompute_work_areas(&app);
                         place_overlays(&app);
-                        crate::services::chrome::apply(&app);
                         crate::services::chrome::emit(&app);
                         restore_background(&app);
                     }
@@ -1671,8 +1633,7 @@ fn takes_focus(label: &str) -> bool {
     // Only a surface the user opened on purpose may take the focus off what
     // they were doing, so this asks which surfaces those are rather than
     // listing the ones that must not. Naming the exceptions was what let the
-    // decorations through: the hot corners and the screen chrome are opened by
-    // nobody, are shown again every time the config is applied, and were on
+    // decorations through: the screen chrome is opened by nobody, are shown again every time the config is applied, and were on
     // the permitted side of a list of three.
     //
     // Taking the focus is not a small thing here. `set_focus` puts the window
@@ -1765,7 +1726,6 @@ mod tests {
             BACKGROUND,
             BAR,
             SCREEN_CHROME,
-            HOT_CORNERS,
             DOCK,
             OSD,
             NOTIFICATIONS,

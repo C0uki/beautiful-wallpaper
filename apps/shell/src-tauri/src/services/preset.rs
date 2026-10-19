@@ -92,7 +92,7 @@ fn adopt(app: &AppHandle, state: &AppState, updated: bw_core::Config) {
     }
 
     // Everything a wholesale config change invalidates — the palette, the
-    // hotkeys, the hot corners, the desktop wallpaper — is the watcher's list,
+    // hotkeys, the desktop wallpaper — is the watcher's list,
     // used here rather than copied. A second copy would drift the first time
     // something was added to it, and the symptom would be a setting that works
     // when edited in the file and not when a preset sets it.

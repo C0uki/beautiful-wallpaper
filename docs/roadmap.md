@@ -336,7 +336,8 @@ Somewhere to put a file down while the place it is going to is not on screen.
 ### Done: the screen's chrome and the hot corners
 
 Fake rounded corners, a frame around the display, and the corners you throw
-the pointer at.
+the pointer at. The hot corners were taken out again in October 2026: nobody
+used them, and they kept a window of their own alive to catch a mouse.
 
 - **One window, not eight.** The original gives each corner and each frame
   edge its own `PanelWindow`, which is cheap under Quickshell. Here every

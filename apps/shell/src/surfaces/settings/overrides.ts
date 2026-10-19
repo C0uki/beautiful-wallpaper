@@ -51,19 +51,6 @@ const plain = (values: string[]): Choice[] =>
 const named = (pairs: [string, string][]): Choice[] =>
   pairs.map(([value, words]) => ({ value, label: () => tr(words) }));
 
-/** What a screen corner can open. */
-const CORNER_ACTIONS = named([
-  ["", "Do nothing"],
-  ["sidebarLeftOpen", "Left sidebar"],
-  ["sidebarRightOpen", "Right sidebar"],
-  ["overviewOpen", "Overview"],
-  ["wallpaperSelectorOpen", "Wallpaper picker"],
-  ["sessionOpen", "Session screen"],
-  ["shelfOpen", "Shelf"],
-  ["overlayOpen", "Overlay"],
-  ["settingsOpen", "Settings"],
-]);
-
 export const OVERRIDES: Record<string, Override> = {
   // The Mac's accent colours, after the wallpaper's own. Unset is Apple's
   // blue (`deriveTokens`); empty is what `services/theme.rs` reads as "take it
@@ -275,8 +262,6 @@ export const OVERRIDES: Record<string, Override> = {
       "gelbooru",
     ]),
   },
-  "sidebar.cornerOpen.topLeftAction": { choices: CORNER_ACTIONS },
-  "sidebar.cornerOpen.topRightAction": { choices: CORNER_ACTIONS },
   "sidebar.nightLight.temperature": {
     range: { min: 1200, max: 6500, step: 100 },
   },
@@ -301,7 +286,6 @@ const LABELS: Record<string, string> = {
   "background.widgets.grid": "Snap to a grid",
   "appearance.fonts.pixelSize": "Text size",
   "hacks.desktopMenu": "Take over the desktop's right-click menu",
-  "sidebar.cornerOpen.enable": "Open things from the screen corners",
   // Only the temperature changes; "USC units" named a system nobody calls it.
   "weather.useUscUnits": "Show temperatures in Fahrenheit",
   "time.weekStartsOnMonday": "Week starts on Monday",
@@ -382,14 +366,6 @@ const HINTS: Record<string, string> = {
   "sidebar.bannerImage": "Empty uses the wallpaper.",
   "sidebar.profile.displayName": "Empty uses your Windows account name.",
   "sidebar.profile.avatarPath": "Empty uses your Windows account picture.",
-  "sidebar.cornerOpen.valueScroll":
-    "Scroll on a left corner for brightness, on a right corner for volume.",
-  "sidebar.cornerOpen.clickless":
-    "Open by just reaching the corner. Quicker, and easy to set off by accident.",
-  "sidebar.cornerOpen.cornerRegionWidth": "Pixels along the top edge.",
-  "sidebar.cornerOpen.cornerRegionHeight": "Pixels down from the top edge.",
-  "sidebar.cornerOpen.visualize":
-    "Colour the corner areas, to see where they are.",
   "notifications.timeout":
     "Milliseconds a notification stays up. Urgent ones stay until dismissed.",
   "notifications.maxVisible":

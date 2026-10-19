@@ -636,25 +636,6 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 - **`sidebar.left.booru.provider`** — One of `safebooru`, `yandere`, `konachan`, `danbooru`, `gelbooru`. Safebooru by default: it is the one board that carries nothing but safe-rated work.
 - **`sidebar.left.booru.allowAdult`** — Lift the safe-rating filter. Off unless set deliberately, and it does nothing on a board that has only safe work to return.
 
-### `sidebar.cornerOpen`
-
-| Setting                                 | Value        | Default              |
-| --------------------------------------- | ------------ | -------------------- |
-| `sidebar.cornerOpen.enable`             | true / false | `true`               |
-| `sidebar.cornerOpen.valueScroll`        | true / false | `true`               |
-| `sidebar.cornerOpen.clickless`          | true / false | `false`              |
-| `sidebar.cornerOpen.cornerRegionWidth`  | whole number | `250`                |
-| `sidebar.cornerOpen.cornerRegionHeight` | whole number | `5`                  |
-| `sidebar.cornerOpen.visualize`          | true / false | `false`              |
-| `sidebar.cornerOpen.topLeftAction`      | text         | `"sidebarLeftOpen"`  |
-| `sidebar.cornerOpen.topRightAction`     | text         | `"sidebarRightOpen"` |
-
-- **`sidebar.cornerOpen.valueScroll`** — Scrolling on a left corner changes the brightness and on a right corner the volume.
-- **`sidebar.cornerOpen.clickless`** — Open on hover rather than on a click. Faster, and much easier to trigger by accident, which is why it is off.
-- **`sidebar.cornerOpen.cornerRegionWidth`** — A wide, thin strip rather than a square: what makes a corner reachable is being able to throw the pointer at the edge.
-- **`sidebar.cornerOpen.visualize`** — Paint the regions, for working out where they actually are.
-- **`sidebar.cornerOpen.topLeftAction`** — Which `GlobalStates` flag each corner flips. Empty means the corner does nothing and gets no region at all.
-
 ## `time`
 
 Clock and date formats, and which day a week starts on.

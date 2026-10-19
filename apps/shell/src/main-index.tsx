@@ -17,7 +17,6 @@ import { Session } from "./surfaces/session/Session";
 import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
 import { Shelf } from "./surfaces/shelf/Shelf";
 import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
-import { HotCorners } from "./surfaces/hotCorners/HotCorners";
 import { Settings } from "./surfaces/settings/Settings";
 import { Wizard } from "./surfaces/wizard/Wizard";
 import { Overlay } from "./surfaces/overlay/Overlay";
@@ -328,17 +327,6 @@ function Harness() {
         >
           first run
         </Button>
-        <Button
-          icon="highlight_alt"
-          onClick={() =>
-            void actions.setConfigValue(
-              "sidebar.cornerOpen.visualize",
-              !config.sidebar.cornerOpen.visualize,
-            )
-          }
-        >
-          {config.sidebar.cornerOpen.visualize ? "corners shown" : "corners"}
-        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -435,7 +423,6 @@ function Harness() {
       <Session />
       <DesktopMenu />
       <ScreenChrome />
-      <HotCorners />
       {/* On Windows these are two windows over everything; here they are drawn
           over the harness the same way. */}
       <Overlay />

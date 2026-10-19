@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
@@ -1366,79 +1366,8 @@ fn overlay_screen(app: &AppHandle) -> (i32, i32) {
 
 /// What the decorations should be drawing right now.
 #[tauri::command]
-pub fn get_screen_chrome(
-    state: State<'_, AppState>,
-    chrome: State<'_, ChromeState>,
-) -> bw_core::chrome::ScreenChrome {
-    bw_core::chrome::ScreenChrome::resolve(&state.config(), chrome.is_fullscreen())
-}
-
-/// The invisible strips, and what each one opens.
-#[tauri::command]
-pub fn get_hot_corners(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Vec<bw_core::chrome::HotCorner> {
-    bw_core::chrome::hot_corners(&state.config().sidebar.corner_open, screen_size(&app))
-}
-
-/// Flips whatever a corner is bound to.
-///
-/// The flag name is read here rather than in the surface: it comes from the
-/// config, and a name that does not match a flag has to be refused somewhere
-/// that can say so.
-#[tauri::command]
-pub fn run_hot_corner(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    corner: bw_core::chrome::Corner,
-) -> Result<(), String> {
-    let config = state.config();
-    let found = bw_core::chrome::hot_corners(&config.sidebar.corner_open, screen_size(&app))
-        .into_iter()
-        .find(|hot| hot.corner == corner)
-        .ok_or_else(|| format!("{corner:?} is not a hot corner"))?;
-
-    let states = state
-        .toggle_state(&found.action)
-        .ok_or_else(|| format!("there is no surface flag called `{}`", found.action))?;
-    crate::surfaces::apply_states(&app, &states);
-    let _ = app.emit(event::STATE_CHANGED, &states);
-    Ok(())
-}
-
-/// Scrolling on a corner: brightness on the left, volume on the right.
-#[tauri::command]
-pub fn scroll_hot_corner(
-    state: State<'_, AppState>,
-    volume: State<'_, VolumeHandle>,
-    brightness: State<'_, BrightnessHandle>,
-    corner: bw_core::chrome::Corner,
-    up: bool,
-) -> Result<(), String> {
-    if !state.config().sidebar.corner_open.value_scroll {
-        return Ok(());
-    }
-
-    match bw_core::chrome::scroll_target(corner) {
-        bw_core::chrome::ScrollTarget::Brightness => {
-            step_brightness(brightness, up);
-            Ok(())
-        }
-        bw_core::chrome::ScrollTarget::Volume => step_volume(state, volume, up),
-    }
-}
-
-/// The primary monitor in physical pixels, which is what a window region uses.
-fn screen_size(_app: &AppHandle) -> (i32, i32) {
-    _app.primary_monitor()
-        .ok()
-        .flatten()
-        .map(|monitor| {
-            let size = monitor.size();
-            (size.width as i32, size.height as i32)
-        })
-        .unwrap_or((1920, 1080))
+pub fn get_screen_chrome(state: State<'_, AppState>) -> bw_core::chrome::ScreenChrome {
+    bw_core::chrome::ScreenChrome::resolve(&state.config())
 }
 
 // --- The drop shelf --------------------------------------------------------

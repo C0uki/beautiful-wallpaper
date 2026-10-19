@@ -423,17 +423,6 @@ const SHOTS = [
       await page.locator(".bw-chrome-frame").first().waitFor();
     },
   },
-  // The hot corners are invisible by construction, which is why there is a
-  // setting to paint them — and why this shot is worth having.
-  {
-    name: "38-hot-corners",
-    url: "/index.html",
-    viewport: { width: 1280, height: 820 },
-    setup: async (page) => {
-      await page.getByRole("button", { name: "corners", exact: false }).click();
-      await page.locator(".bw-hot-corner.visible").first().waitFor();
-    },
-  },
   // The overlay: its taskbar, and the widgets on the canvas with their title
   // bars, pin and see-through buttons.
   {
@@ -470,9 +459,7 @@ const SHOTS = [
     setup: async (page) => {
       // Exact: another control's label has "settings" inside it, and
       // `getByRole` matches accessible names by substring.
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.locator(".bw-settings-row").first().waitFor();
     },
@@ -483,9 +470,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByPlaceholder("Search every setting").fill("wallpaper");
       await page.locator(".bw-settings-row").first().waitFor();
@@ -497,9 +482,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByRole("button", { name: "Presets", exact: true }).click();
       await page.locator(".bw-preset").first().waitFor();
@@ -511,9 +494,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByRole("button", { name: "Presets", exact: true }).click();
       await page.getByRole("button", { name: "Apply Midnight" }).click();

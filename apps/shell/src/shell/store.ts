@@ -54,8 +54,6 @@ import {
   type ShelfItem,
   type DropOutcome,
   type ScreenChrome,
-  type HotCorner,
-  type Corner,
   type OverlayLayout,
   type OverlayWidget,
   type Crosshair,
@@ -733,16 +731,6 @@ export const actions = {
   },
   screenChrome() {
     return backend().invoke<ScreenChrome>(Command.GetScreenChrome);
-  },
-  hotCorners() {
-    return backend().invoke<HotCorner[]>(Command.GetHotCorners);
-  },
-  /** Flips whatever the corner is bound to. The flag name never leaves Rust. */
-  runHotCorner(corner: Corner) {
-    return backend().invoke<void>(Command.RunHotCorner, { corner });
-  },
-  scrollHotCorner(corner: Corner, up: boolean) {
-    return backend().invoke<void>(Command.ScrollHotCorner, { corner, up });
   },
   overlayLayout() {
     return backend().invoke<OverlayLayout>(Command.GetOverlayLayout);

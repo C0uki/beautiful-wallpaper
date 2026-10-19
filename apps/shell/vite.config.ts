@@ -40,7 +40,6 @@ export default defineConfig({
         session: surface("session"),
         shelf: surface("shelf"),
         screenChrome: surface("screenChrome"),
-        hotCorners: surface("hotCorners"),
         overlay: surface("overlay"),
         overlayPinned: surface("overlayPinned"),
         settings: surface("settings"),

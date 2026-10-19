@@ -1,143 +1,16 @@
-//! Keeping the screen's decorations in step with the config and the desktop.
-//!
-//! Two things are applied here rather than in the surfaces. The hot corners'
-//! window region is a Win32 property of the window, not something a page can
-//! set; and whether that window should exist at all depends on the config,
-//! which can change while the shell is running.
+//! Keeping the screen's decorations in step with the config.
 
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::event;
-use crate::state::{AppState, ChromeState};
-
-/// Re-applies the hot corners' region, and shows or hides their window.
-///
-/// Safe to call again: the config watcher does exactly that, so editing the
-/// corner size takes effect without restarting the shell.
-pub fn apply(app: &AppHandle) {
-    let Some(state) = app.try_state::<AppState>() else {
-        return;
-    };
-    let config = state.config();
-    let fullscreen = app
-        .try_state::<ChromeState>()
-        .map(|chrome| chrome.is_fullscreen())
-        .unwrap_or(false);
-
-    let corners = bw_core::chrome::hot_corners(&config.sidebar.corner_open, screen_size(app));
-    let wanted = !corners.is_empty() && !fullscreen;
-
-    // Hiding is always safe and always first. Hidden rather than given an
-    // empty region: clearing a window's region hands the whole window back,
-    // and a full-screen window that is not click-through would swallow every
-    // click on the desktop.
-    if !wanted {
-        #[cfg(windows)]
-        if crate::surfaces::native() {
-            crate::platform::hotcorners::show(app, false);
-            return;
-        }
-        if let Err(error) =
-            crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, false)
-        {
-            tracing::warn!(%error, "could not hide the hot corners");
-        }
-        return;
-    }
-
-    // The same steps, on a plain window with nothing in it.
-    #[cfg(windows)]
-    if crate::surfaces::native() {
-        let visualize = config.sidebar.corner_open.visualize;
-        match crate::platform::hotcorners::shape(app, corners, visualize) {
-            Ok(hwnd) => {
-                crate::platform::hotcorners::show(app, true);
-                unsafe {
-                    crate::platform::win::set_hot_corners(hwnd);
-                    let _ =
-                        crate::platform::win::set_layer(hwnd, crate::platform::win::Layer::Overlay);
-                }
-            }
-            Err(error) => tracing::warn!(%error, "could not shape the hot corners"),
-        }
-        return;
-    }
-
-    // Showing is last, and only once the mask is on. Doing it the other way
-    // round leaves a window covering the screen for as long as it takes to
-    // shape it — and for good, if any step below bails out, because nothing
-    // calls this again until the config changes.
-    #[cfg(windows)]
-    {
-        let Some(window) = app.get_webview_window(crate::surfaces::HOT_CORNERS.label) else {
-            tracing::warn!("the hot corners have no window to shape yet");
-            return;
-        };
-        let Ok(handle) = window.hwnd() else {
-            tracing::warn!("the hot corners have no window handle yet");
-            return;
-        };
-        let hwnd = windows::Win32::Foundation::HWND(handle.0);
-
-        let rects: Vec<bw_core::capture::Rect> = corners.iter().map(|corner| corner.rect).collect();
-        if let Err(error) = crate::platform::region::set_window_region(hwnd, &rects) {
-            tracing::warn!(%error, "could not shape the hot corners");
-            // Better no hot corners than a full-screen window that eats every
-            // click because its region was never applied.
-            return;
-        }
-
-        // The region is the mask, so this window must *not* be click-through:
-        // everything outside the strips already falls through it.
-        if let Err(error) = window.set_ignore_cursor_events(false) {
-            tracing::warn!(%error, "could not make the hot corners catch the pointer");
-        }
-    }
-
-    if let Err(error) = crate::surfaces::set_visible(app, crate::surfaces::HOT_CORNERS.label, true)
-    {
-        tracing::warn!(%error, "could not show the hot corners");
-    }
-
-    // Back on top of the other topmost windows. The bar and the dock are kept
-    // under them, but only while they are there to be kept under: one raised
-    // while a full-screen program had these hidden would otherwise still be
-    // over the corners when they came back.
-    #[cfg(windows)]
-    if let Some(window) = app.get_webview_window(crate::surfaces::HOT_CORNERS.label) {
-        if let Ok(handle) = window.hwnd() {
-            unsafe {
-                let _ = crate::platform::win::set_layer(
-                    windows::Win32::Foundation::HWND(handle.0),
-                    crate::platform::win::Layer::Overlay,
-                );
-            }
-        }
-    }
-}
+use crate::state::AppState;
 
 /// Tells every surface what the decorations should look like now.
 pub fn emit(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    let fullscreen = app
-        .try_state::<ChromeState>()
-        .map(|chrome| chrome.is_fullscreen())
-        .unwrap_or(false);
 
-    let chrome = bw_core::chrome::ScreenChrome::resolve(&state.config(), fullscreen);
+    let chrome = bw_core::chrome::ScreenChrome::resolve(&state.config());
     let _ = app.emit(event::CHROME, &chrome);
-}
-
-/// The primary monitor in physical pixels, which is what a region is measured in.
-fn screen_size(app: &AppHandle) -> (i32, i32) {
-    app.primary_monitor()
-        .ok()
-        .flatten()
-        .map(|monitor| {
-            let size = monitor.size();
-            (size.width as i32, size.height as i32)
-        })
-        .unwrap_or((1920, 1080))
 }
