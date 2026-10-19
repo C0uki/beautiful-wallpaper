@@ -80,7 +80,7 @@ thread_local! {
     static BARS: RefCell<Vec<Slot>> = const { RefCell::new(Vec::new()) };
     static LAYOUT: RefCell<BarLayout> = RefCell::new(BarLayout::default());
     static PLACE: RefCell<Option<Place>> = const { RefCell::new(None) };
-    static ACT: RefCell<Option<Rc<dyn Fn(Action)>>> = const { RefCell::new(None) };
+    static ACT: RefCell<Option<Act>> = const { RefCell::new(None) };
     /// The last of each reading, for a bar made after it was sent.
     static LATEST: RefCell<HashMap<String, Value>> = RefCell::new(HashMap::new());
     /// The tray icons as the shell sent them, which a click hands back.
@@ -109,6 +109,9 @@ pub enum Action {
     /// A pinned icon dragged onto another's place, both by executable.
     DockMove(String, String),
 }
+
+/// What a press on a native surface is handed to.
+type Act = Rc<dyn Fn(Action)>;
 
 /// A rectangle in physical pixels: x, y, width, height.
 pub type Rect = (i32, i32, i32, i32);
