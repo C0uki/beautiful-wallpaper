@@ -1,7 +1,7 @@
 // Where the generated form is not good enough on its own.
 //
 // The schema knows a value is a string; it does not know the string is one of
-// four bar styles. It knows a value is a decimal; it does not know the decimal
+// a handful of names. It knows a value is a decimal; it does not know the decimal
 // is a fraction of the screen and wants a slider rather than a box to type a
 // number into. And its labels are mechanical — `from` reads the same for a
 // night-light schedule and a translation — with nothing to say what a setting
@@ -138,15 +138,6 @@ export const OVERRIDES: Record<string, Override> = {
       { value: "0", label: () => tr("Off") },
       { value: "1", label: () => tr("On") },
     ],
-  },
-  // `m3` is what existing files say for the default, now a Mac's menu bar.
-  "bar.style": {
-    choices: named([
-      ["m3", "Menu bar"],
-      ["hug", "Opaque strip"],
-      ["float", "Floating"],
-      ["islands", "Islands"],
-    ]),
   },
   "background.wallpaperAnimation": {
     choices: plain([...TRANSITION_NAMES, "random"]),
@@ -367,7 +358,6 @@ const HINTS: Record<string, string> = {
     "More than this wait in the notification centre without popping up.",
   "notifications.doNotDisturb":
     "Keep notifications in the centre without popping them up.",
-  "notifications.width": "Pixels.",
   "sidebar.nightLight.temperature":
     "Kelvin. 6500 is no change; lower is warmer.",
   "sidebar.nightLight.automatic": "Turn it on and off at the times below.",

@@ -497,25 +497,11 @@
     "kind": "toggle"
   },
   {
-    "path": "bar.bottom",
-    "section": "bar",
-    "label": "Bottom",
-    "group": "",
-    "kind": "toggle"
-  },
-  {
     "path": "bar.vertical",
     "section": "bar",
     "label": "Vertical",
     "group": "",
     "kind": "toggle"
-  },
-  {
-    "path": "bar.height",
-    "section": "bar",
-    "label": "Height",
-    "group": "",
-    "kind": "integer"
   },
   {
     "path": "bar.reserveSpace",
@@ -544,34 +530,6 @@
     "label": "Hover region height",
     "group": "",
     "kind": "integer"
-  },
-  {
-    "path": "bar.style",
-    "section": "bar",
-    "label": "Style",
-    "group": "",
-    "kind": "text"
-  },
-  {
-    "path": "bar.left",
-    "section": "bar",
-    "label": "Left",
-    "group": "",
-    "kind": "textList"
-  },
-  {
-    "path": "bar.center",
-    "section": "bar",
-    "label": "Center",
-    "group": "",
-    "kind": "textList"
-  },
-  {
-    "path": "bar.right",
-    "section": "bar",
-    "label": "Right",
-    "group": "",
-    "kind": "textList"
   },
   {
     "path": "bar.showFrame",
@@ -693,13 +651,6 @@
     "kind": "toggle"
   },
   {
-    "path": "dock.height",
-    "section": "dock",
-    "label": "Height",
-    "group": "",
-    "kind": "integer"
-  },
-  {
     "path": "dock.iconSize",
     "section": "dock",
     "label": "Icon size",
@@ -719,13 +670,6 @@
     "label": "Ignored",
     "group": "",
     "kind": "textList"
-  },
-  {
-    "path": "dock.showBackground",
-    "section": "dock",
-    "label": "Show background",
-    "group": "",
-    "kind": "toggle"
   },
   {
     "path": "dock.showPinButton",
@@ -922,13 +866,6 @@
     "label": "Do not disturb",
     "group": "",
     "kind": "toggle"
-  },
-  {
-    "path": "notifications.width",
-    "section": "notifications",
-    "label": "Width",
-    "group": "",
-    "kind": "integer"
   },
   {
     "path": "osd.enable",

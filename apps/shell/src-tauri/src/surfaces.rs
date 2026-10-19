@@ -834,43 +834,26 @@ fn overlay_geometry(
 ) -> (f64, f64, f64, f64) {
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
+    // Along the top, or down the left side when it is vertical.
     let bar = if config.bar.enable {
-        f64::from(config.bar.height)
+        f64::from(bw_native::HEIGHT)
     } else {
         0.0
     };
+    let (top, left) = if config.bar.vertical {
+        (0.0, bar)
+    } else {
+        (bar, 0.0)
+    };
     let margin = 8.0;
+    let tall = (screen.1 - top - margin * 2.0).max(1.0);
 
     if surface.label == SIDEBAR_LEFT.label {
-        let width = screen.0 * config.sidebar.left.width;
-        let vertical_bar = config.bar.enable && config.bar.vertical;
-        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
-            bar
-        } else {
-            0.0
-        };
-
-        let left_inset = if vertical_bar && !config.bar.bottom {
-            bar
-        } else {
-            0.0
-        };
-        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-
         return (
-            left_inset + margin,
+            left + margin,
             top + margin,
-            width,
-            (screen.1 - top - bottom - margin * 2.0).max(1.0),
+            screen.0 * config.sidebar.left.width,
+            tall,
         );
     }
 
@@ -878,80 +861,19 @@ fn overlay_geometry(
         // Against whichever edge was asked for, and clear of the bar rather
         // than sliding under it — the same reasoning as the sidebars.
         let width = screen.0 * config.shelf.width;
-        let vertical_bar = config.bar.enable && config.bar.vertical;
-        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
-            bar
-        } else {
-            0.0
-        };
-        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-
         let x = if config.shelf.edge == "left" {
-            let inset = if vertical_bar && !config.bar.bottom {
-                bar
-            } else {
-                0.0
-            };
-            inset + margin
+            left + margin
         } else {
-            let inset = if vertical_bar && config.bar.bottom {
-                bar
-            } else {
-                0.0
-            };
-            screen.0 - width - inset - margin
+            screen.0 - width - margin
         };
-
-        return (
-            x,
-            top + margin,
-            width,
-            (screen.1 - top - bottom - margin * 2.0).max(1.0),
-        );
+        return (x, top + margin, width, tall);
     }
 
     if surface.label == SIDEBAR_RIGHT.label {
         // Pinned to the right edge and as tall as the work area allows, kept
         // clear of the bar rather than sliding under it.
         let width = screen.0 * config.sidebar.width;
-        let vertical_bar = config.bar.enable && config.bar.vertical;
-        let horizontal_bar = if config.bar.enable && !config.bar.vertical {
-            bar
-        } else {
-            0.0
-        };
-
-        let right_inset = if vertical_bar && config.bar.bottom {
-            bar
-        } else {
-            0.0
-        };
-        let top = if horizontal_bar > 0.0 && !config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-        let bottom = if horizontal_bar > 0.0 && config.bar.bottom {
-            horizontal_bar
-        } else {
-            0.0
-        };
-
-        return (
-            screen.0 - width - right_inset - margin,
-            top + margin,
-            width,
-            (screen.1 - top - bottom - margin * 2.0).max(1.0),
-        );
+        return (screen.0 - width - margin, top + margin, width, tall);
     }
 
     (

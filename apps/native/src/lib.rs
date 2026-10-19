@@ -31,8 +31,8 @@ pub use dock::DockSettings;
 pub use toasts::ToastSettings;
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
-/// The webview bar's height at 100%.
-const HEIGHT: f32 = 30.0;
+/// The bar's height at 100%, in logical pixels.
+pub const HEIGHT: f32 = 30.0;
 
 /// Whether the thread was started, so [`update`] and [`osd`] cost nothing when
 /// it was not.

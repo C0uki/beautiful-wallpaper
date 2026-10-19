@@ -425,12 +425,7 @@ fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
         position: config.notifications.position.clone(),
         max_visible: config.notifications.max_visible,
         do_not_disturb: config.notifications.do_not_disturb || !config.notifications.enable,
-        bar_height: if config.bar.enable {
-            config.bar.height as f32
-        } else {
-            0.0
-        },
-        bar_bottom: config.bar.bottom,
+        bar: config.bar.enable && !config.bar.vertical,
         japanese: language.starts_with("ja"),
     }
 }

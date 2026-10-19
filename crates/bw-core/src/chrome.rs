@@ -54,32 +54,23 @@ impl Edge {
 
 /// Which edge the bar is against.
 pub fn bar_edge(bar: &Bar) -> Edge {
-    match (bar.vertical, bar.bottom) {
-        (false, false) => Edge::Top,
-        (false, true) => Edge::Bottom,
-        (true, false) => Edge::Left,
-        (true, true) => Edge::Right,
+    if bar.vertical {
+        Edge::Left
+    } else {
+        Edge::Top
     }
 }
 
-/// The edges the frame is drawn on.
-///
-/// All four, except in one case: a bar in the hugging style already reaches
-/// both ends of its edge, so a frame there would be a second line drawn on top
-/// of the first. Unless the bar's content is only in the middle — then its ends
-/// are empty and the frame has somewhere to go.
+/// The edges the frame is drawn on: all four, but the bar's own. The bar
+/// already runs the length of its edge, so a frame there would be a second
+/// line drawn on top of the first.
 pub fn frame_edges(bar: &Bar) -> Vec<Edge> {
     if !bar.show_frame {
         return Vec::new();
     }
-
-    let hugging = bar.enable && bar.style == "hug";
-    let centre_only = bar.left.is_empty() && bar.right.is_empty();
-    let bar_edge = bar_edge(bar);
-
     Edge::ALL
         .into_iter()
-        .filter(|edge| !hugging || *edge != bar_edge || centre_only)
+        .filter(|edge| !bar.enable || *edge != bar_edge(bar))
         .collect()
 }
 
@@ -94,50 +85,22 @@ mod tests {
     }
 
     #[test]
-    fn the_frame_takes_every_edge_when_the_bar_does_not_hug_one() {
+    fn the_frame_keeps_off_the_bar_s_own_edge() {
         let mut config = Config::default();
         config.bar.show_frame = true;
-        config.bar.style = "float".to_owned();
-        assert_eq!(frame_edges(&config.bar).len(), 4);
-    }
-
-    /// A hugging bar already draws a line along its whole edge; a frame there
-    /// would be a second line on top of the first.
-    #[test]
-    fn a_hugging_bar_keeps_the_frame_off_its_own_edge() {
-        let mut config = Config::default();
-        config.bar.show_frame = true;
-        config.bar.style = "hug".to_owned();
 
         let edges = frame_edges(&config.bar);
         assert!(!edges.contains(&Edge::Top), "the bar is at the top");
         assert_eq!(edges.len(), 3);
 
-        config.bar.bottom = true;
-        assert!(!frame_edges(&config.bar).contains(&Edge::Bottom));
-
         config.bar.vertical = true;
-        config.bar.bottom = false;
         assert!(!frame_edges(&config.bar).contains(&Edge::Left));
     }
 
-    /// Unless the bar's ends are empty, in which case there is room for it.
     #[test]
-    fn a_centre_only_bar_leaves_room_for_the_frame() {
+    fn with_the_bar_switched_off_the_frame_takes_every_edge() {
         let mut config = Config::default();
         config.bar.show_frame = true;
-        config.bar.style = "hug".to_owned();
-        config.bar.left = Vec::new();
-        config.bar.right = Vec::new();
-
-        assert_eq!(frame_edges(&config.bar).len(), 4);
-    }
-
-    #[test]
-    fn a_bar_that_is_switched_off_never_hugs_anything() {
-        let mut config = Config::default();
-        config.bar.show_frame = true;
-        config.bar.style = "hug".to_owned();
         config.bar.enable = false;
 
         assert_eq!(frame_edges(&config.bar).len(), 4);

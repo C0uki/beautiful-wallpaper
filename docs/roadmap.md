@@ -27,7 +27,9 @@ variants, hover popups, and ten widgets: workspaces (GlazeWM), active window,
 clock, weather, tray, battery, network throughput, resources, media and the
 utility buttons, plus a spectrum visualiser. The layout comes from
 `bar.left/center/right`, as upstream, and the settings screen edits it by
-dragging widgets between the three slots.
+dragging widgets between the three slots. Since replaced by a native bar with
+one fixed layout, along the top or down the left; the styles, the bottom edge,
+the height and the slots went with the webview one.
 It can hide itself until the pointer reaches its edge (`bar.autoHide`), run one
 bar per monitor (`bar.perMonitor`), or be switched off (`bar.enable`).
 
@@ -444,7 +446,7 @@ Every config key, reachable without opening a text editor.
   change has a control the moment it exists, with the right type and the right
   default.
 - **What the schema cannot say is curated on top**: which page a section
-  belongs on, that a string is really a choice between four bar styles, that a
+  belongs on, that a string is really a choice between named values, that a
   decimal is a fraction of the screen and wants a slider. Anything not curated
   still gets a control, so the table is an improvement on the default rather
   than a list that has to be kept complete — and a test holds every section in

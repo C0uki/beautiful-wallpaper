@@ -64,11 +64,10 @@ and the six IPC targets that still mean the same thing.
 - **Notification toasts**, grouped by application and swipe-dismissable, over a
   persisted history.
 - **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
-  keep clear of it. Four styles, horizontal or vertical, with workspaces,
-  active window, clock, weather, tray, battery, network, resources, media,
-  a visualiser and utility buttons — laid out by `bar.left/center/right`, by
-  dragging in the settings screen or in the file. It can hide itself until
-  the pointer reaches its edge, run one bar per monitor, or be switched off.
+  keep clear of it. Along the top or down the left, with workspaces, active
+  window, clock, weather, tray, battery, network, resources, media and utility
+  buttons. It can hide itself until the pointer reaches its edge, run one bar
+  per monitor, or be switched off.
 - **The tray**, hosted by the shell itself so it works on the Windows 11
   taskbar: each icon as its real image, with its tooltip, and clicks packed the
   way the application asked for.
@@ -101,7 +100,7 @@ and the six IPC targets that still mean the same thing.
   itself** (`windows.autoUpdate`).
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
   shell follows. Every key is in [docs/config.md](docs/config.md).
-- **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
+- **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.vertical true` — for
   hotkeys and scripts.
 - **English and Japanese**, chosen from Windows' language unless set, down to
   every row of the generated settings screen.

@@ -68,8 +68,8 @@ config_struct! {
         /// The wallpaper, how it arrives on screen, and the widgets drawn over
         /// it.
         pub background: Background = Background::default(),
-        /// The strip along one edge of the screen: where it sits, how it looks,
-        /// and what it carries.
+        /// The strip along one edge of the screen: where it sits and when it
+        /// hides.
         pub bar: Bar = Bar::default(),
         /// Screenshots and what can be done with one — the region picker, OCR
         /// and the screen translator.
@@ -272,11 +272,8 @@ impl WidgetPlacement {
 config_struct! {
     pub struct Bar {
         pub enable: bool = true,
-        /// Anchor the bar to the bottom edge instead of the top.
-        pub bottom: bool = false,
+        /// Down the left edge instead of along the top.
         pub vertical: bool = false,
-        /// A Mac's menu bar is 24 points; 30 leaves room for a pointer.
-        pub height: u32 = 30,
         /// Reserve screen space through `SHAppBarMessage` so maximised windows
         /// keep clear of the bar.
         ///
@@ -289,26 +286,12 @@ config_struct! {
         /// Put a bar on every monitor rather than only the primary one.
         ///
         /// Each gets its own window along the same edge of its own screen, and
-        /// reserves that edge on that monitor. The bars draw the same thing:
-        /// nothing in `left`/`center`/`right` is per-monitor yet.
+        /// reserves that edge on that monitor. The bars draw the same thing.
         pub per_monitor: bool = false,
         /// How much of the bar stays on screen while it is hidden. This is the
         /// strip the pointer has to reach, so zero would make the bar
         /// unreachable.
         pub hover_region_height: u32 = 3,
-        /// `"hug"` | `"float"` | `"islands"` | `"m3"`
-        pub style: String = s("m3"),
-        pub left: Vec<String> = vec![s("sidebarLeft"), s("media")],
-        pub center: Vec<String> = vec![s("workspaces"), s("activeWindow")],
-        pub right: Vec<String> = vec![
-            s("tray"),
-            s("resources"),
-            s("network"),
-            s("battery"),
-            s("utilButtons"),
-            s("sidebarRight"),
-            s("clock"),
-        ],
         /// Draw a thin border around the whole screen.
         pub show_frame: bool = false,
         pub frame_thickness: u32 = 4,
@@ -322,7 +305,6 @@ config_struct! {
     /// The dock: this shell's replacement for the taskbar it can hide.
     pub struct Dock {
         pub enable: bool = false,
-        pub height: u32 = 60,
         pub icon_size: u32 = 44,
         /// Full paths of the executables kept on the dock whether or not they
         /// are running. The original stores desktop-entry ids; Windows has no
@@ -338,7 +320,6 @@ config_struct! {
         /// takes globs instead rather than pulling a regex engine into the
         /// portable crate — and is named for what it actually accepts.
         pub ignored: Vec<String> = Vec::new(),
-        pub show_background: bool = true,
         pub show_pin_button: bool = true,
         pub show_media: bool = true,
         /// Slide out of the way until the pointer reaches the screen edge.
@@ -556,7 +537,6 @@ config_struct! {
         pub max_visible: u32 = 4,
         /// Suppresses toasts without discarding the notifications themselves.
         pub do_not_disturb: bool = false,
-        pub width: u32 = 380,
     }
 }
 
