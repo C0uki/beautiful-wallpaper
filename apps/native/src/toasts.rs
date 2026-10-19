@@ -57,6 +57,8 @@ struct Shown {
     /// Where it belongs, and where the pointer was when a drag began.
     home: (i32, i32),
     drag_from: Option<i32>,
+    /// Whether its window has had its corners rounded.
+    settled: bool,
 }
 
 #[derive(Default)]
@@ -160,16 +162,12 @@ fn render() {
         wanted
     });
 
-    let mut made = Vec::new();
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         // One window per banner, kept and reused.
         while state.shown.len() < wanted.len() {
             match make_window() {
-                Ok(shown) => {
-                    made.push(state.shown.len());
-                    state.shown.push(shown);
-                }
+                Ok(shown) => state.shown.push(shown),
                 Err(error) => {
                     tracing::warn!(%error, "could not make a notification banner");
                     break;
@@ -203,22 +201,39 @@ fn render() {
 
     // Once the windows exist and have their heights, which is after the loop
     // has had a turn.
-    slint::Timer::single_shot(Duration::ZERO, move || {
-        STATE.with(|state| {
-            for index in &made {
-                if let Some(hwnd) = state
-                    .borrow()
-                    .shown
-                    .get(*index)
-                    .and_then(|shown| window_of(shown.window.window()))
-                {
-                    settle(hwnd, None);
-                    round_corners(hwnd);
-                }
-            }
-        });
+    slint::Timer::single_shot(Duration::ZERO, || {
+        settle_new();
         place();
     });
+}
+
+/// Rounds the corners of, and keeps out of the foreground, every banner whose
+/// window has come to exist since. One that has not yet — a window is only
+/// made once the loop gets to it, which can be a turn or two after `show` —
+/// is looked at again shortly, rather than left square for good.
+fn settle_new() {
+    let waiting = STATE.with(|state| {
+        let mut waiting = false;
+        for shown in state
+            .borrow_mut()
+            .shown
+            .iter_mut()
+            .filter(|shown| !shown.settled)
+        {
+            match window_of(shown.window.window()) {
+                Some(hwnd) => {
+                    settle(hwnd, None);
+                    round_corners(hwnd);
+                    shown.settled = true;
+                }
+                None => waiting = true,
+            }
+        }
+        waiting
+    });
+    if waiting {
+        slint::Timer::single_shot(Duration::from_millis(50), settle_new);
+    }
 }
 
 fn make_window() -> Result<Shown, slint::PlatformError> {
@@ -276,6 +291,7 @@ fn make_window() -> Result<Shown, slint::PlatformError> {
         timer: None,
         home: (0, 0),
         drag_from: None,
+        settled: false,
     })
 }
 
