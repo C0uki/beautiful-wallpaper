@@ -19,6 +19,40 @@ use crate::state::{
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
 
+/// The last value of each reading sent, by event.
+static LATEST: parking_lot::Mutex<std::collections::BTreeMap<&'static str, Value>> =
+    parking_lot::Mutex::new(std::collections::BTreeMap::new());
+
+/// Sends a reading to the surfaces, unless it is the one they already have,
+/// and keeps it for [`latest_readings`].
+///
+/// The readings were sent on a timer whether or not they had changed, to all
+/// of the surfaces at once: the weather every two seconds, the tray every
+/// five, the media and the active window every second — each one parsed and
+/// drawn again by every page, on a machine doing nothing. Sending a page the
+/// last value when it loads, rather than sending everything again in case one
+/// had, is what lets the timers stop talking when there is nothing to say.
+pub fn emit_reading<T: serde::Serialize>(app: &AppHandle, event: &'static str, payload: T) {
+    let Ok(value) = serde_json::to_value(payload) else {
+        return;
+    };
+    {
+        let mut latest = LATEST.lock();
+        if latest.get(event) == Some(&value) {
+            return;
+        }
+        latest.insert(event, value.clone());
+    }
+    let _ = app.emit(event, value);
+}
+
+/// The last value of every reading, by event name, for a page that has just
+/// loaded.
+#[tauri::command]
+pub fn latest_readings() -> std::collections::BTreeMap<&'static str, Value> {
+    LATEST.lock().clone()
+}
+
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
 pub mod event {
     pub const CONFIG_CHANGED: &str = "bw://config-changed";

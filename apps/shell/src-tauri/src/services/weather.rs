@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 
 use bw_core::weather::WeatherState;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::commands::event;
 use crate::state::AppState;
@@ -72,26 +72,13 @@ pub fn start(app: &AppHandle) {
                     // timeout to answer, and the bar stayed empty that long.
                     report = cached(&asking, weather.use_usc_units, &lang);
                     if let Some(report) = &report {
-                        let _ = app.emit(event::WEATHER, report);
+                        crate::commands::emit_reading(&app, event::WEATHER, report);
                     }
                 }
                 tried = asking.clone();
-                // What is known goes on being sent while wttr.in is asked. A
-                // fetch can take its whole timeout, and at startup the
-                // surfaces are still loading when the kept report is first
-                // sent: they heard nothing until the fetch was done.
-                let fetching = fetch(&client, &weather.city, weather.use_usc_units, &lang);
-                tokio::pin!(fetching);
-                let fetched = loop {
-                    tokio::select! {
-                        fetched = &mut fetching => break fetched,
-                        () = tokio::time::sleep(Duration::from_secs(2)) => {
-                            if let Some(report) = &report {
-                                let _ = app.emit(event::WEATHER, report);
-                            }
-                        }
-                    }
-                };
+                // A page that loads while this is under way asks for the kept
+                // report itself, through `latest_readings`.
+                let fetched = fetch(&client, &weather.city, weather.use_usc_units, &lang).await;
                 match fetched {
                     Ok((fetched, body)) => {
                         report = Some(fetched);
@@ -111,10 +98,10 @@ pub fn start(app: &AppHandle) {
                 }
             }
             if let (true, Some(report)) = (weather.enable, &report) {
-                let _ = app.emit(event::WEATHER, report);
+                crate::commands::emit_reading(&app, event::WEATHER, report);
             }
-            // Two seconds, as while fetching: at ten, a bar that had just
-            // loaded sat without the weather for most of them.
+            // Only sent when it is new, so this is just how soon a changed
+            // city is noticed.
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
