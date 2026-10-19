@@ -442,6 +442,36 @@ pub fn emit_notifications(app: &AppHandle) {
     let _ = app.emit(event::NOTIFICATIONS, list);
 }
 
+/// The dock's settings, for the native dock when it is the one drawing it.
+pub fn emit_dock_settings(app: &AppHandle) {
+    if !crate::surfaces::native() {
+        return;
+    }
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    let dock = state.config().dock.clone();
+    bw_native::dock(bw_native::DockSettings {
+        enable: dock.enable,
+        icon_size: dock.icon_size,
+        show_media: dock.show_media,
+        show_pin_button: dock.show_pin_button,
+        auto_hide: dock.auto_hide,
+        hover_region_height: dock.hover_region_height,
+        pinned_on_startup: dock.pinned_on_startup,
+    });
+}
+
+/// Lists the dock's applications again and sends them, as the window watcher
+/// does: after a pin, a move, or a window that turned out to be gone.
+pub fn rebuild_dock(app: &AppHandle) {
+    let (Some(dock), Some(state)) = (app.try_state::<DockHandle>(), app.try_state::<AppState>())
+    else {
+        return;
+    };
+    emit_reading(app, event::DOCK, dock.items(&state.config()));
+}
+
 /// What the native banners need from the config.
 fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
     let language = match config.language.ui.as_str() {

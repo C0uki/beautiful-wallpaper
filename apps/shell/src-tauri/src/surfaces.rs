@@ -454,7 +454,7 @@ struct Screen {
 }
 
 /// Whether the always-on surfaces are native rather than webviews: the bar, the
-/// volume readout and the notification banners so far.
+/// volume readout, the notification banners and the dock.
 ///
 /// ponytail: an environment variable while they are tried out — `BW_NATIVE=1`
 /// — and only the top bar on the primary screen; a setting, and the other
@@ -505,7 +505,8 @@ pub fn reserve_native_bar(
 ///
 /// One window, except for a bar asked to appear on every monitor.
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
-    if [BAR.label, OSD.label, NOTIFICATIONS.label].contains(&surface.label) && native() {
+    if [BAR.label, OSD.label, NOTIFICATIONS.label, DOCK.label].contains(&surface.label) && native()
+    {
         return Ok(());
     }
     let config = app.state::<AppState>().config();
