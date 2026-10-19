@@ -15,6 +15,7 @@
 //! given to [`spawn`].
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -32,8 +33,10 @@ pub use dock::DockSettings;
 pub use toasts::ToastSettings;
 include!(concat!(env!("OUT_DIR"), "/icons.rs"));
 
-/// The bar's height at 100%, in logical pixels.
+/// The bar's height at 100%, in logical pixels, and its width when it is
+/// down the left side.
 pub const HEIGHT: f32 = 30.0;
+pub const WIDTH: f32 = 40.0;
 
 /// Whether the thread was started, so [`update`] and [`osd`] cost nothing when
 /// it was not.
@@ -47,6 +50,9 @@ static PENDING_TOASTS: std::sync::Mutex<Option<(Value, ToastSettings)>> =
 /// Whether the bar is wanted on screen: `bar.enable`. Kept rather than sent,
 /// so the bar made after it was said knows.
 static BAR_SHOWN: AtomicBool = AtomicBool::new(true);
+
+/// Where the bars go, kept for the thread to pick up the same way.
+static PENDING_LAYOUT: std::sync::Mutex<Option<BarLayout>> = std::sync::Mutex::new(None);
 
 /// The dock's settings, kept the same way.
 static PENDING_DOCK: std::sync::Mutex<Option<DockSettings>> = std::sync::Mutex::new(None);
@@ -69,8 +75,14 @@ pub struct BarSettings {
 }
 
 thread_local! {
-    /// The bar, on its own thread, for what [`update`] sends there.
-    static BAR: RefCell<Option<slint::Weak<Bar>>> = const { RefCell::new(None) };
+    /// One bar a monitor, on their own thread. Never destroyed: one with no
+    /// monitor left to sit on is hidden, for when there is one again.
+    static BARS: RefCell<Vec<Slot>> = const { RefCell::new(Vec::new()) };
+    static LAYOUT: RefCell<BarLayout> = RefCell::new(BarLayout::default());
+    static PLACE: RefCell<Option<Place>> = const { RefCell::new(None) };
+    static ACT: RefCell<Option<Act>> = const { RefCell::new(None) };
+    /// The last of each reading, for a bar made after it was sent.
+    static LATEST: RefCell<HashMap<String, Value>> = RefCell::new(HashMap::new());
     /// The tray icons as the shell sent them, which a click hands back.
     static TRAY: RefCell<Vec<Value>> = const { RefCell::new(Vec::new()) };
     /// The readout, made the first time it is shown, and what hides it.
@@ -98,15 +110,50 @@ pub enum Action {
     DockMove(String, String),
 }
 
-/// The bar's place on the screen.
-pub type Place = Box<dyn FnOnce(isize, i32) -> Option<(i32, i32, i32, i32)> + Send>;
+/// What a press on a native surface is handed to.
+type Act = Rc<dyn Fn(Action)>;
+
+/// A rectangle in physical pixels: x, y, width, height.
+pub type Rect = (i32, i32, i32, i32);
+
+/// Reserves a bar's edge. Called with the bar's window, the monitor it is on,
+/// whether it is down the left side, and how thick it is in physical pixels,
+/// each time it is placed; answers the rectangle Windows granted, or nothing
+/// for a bar that sits on its edge without reserving it.
+pub type Place = Box<dyn Fn(isize, Rect, bool, i32) -> Option<Rect> + Send>;
 
 /// What the bar needs from the shell.
 pub struct BarHooks {
-    /// Called once the window exists, with its handle and the height it wants
-    /// in physical pixels; reserves the edge and answers the rectangle the bar
-    /// is to occupy.
     pub place: Place,
+}
+
+/// Where the bars go, and how they behave.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BarLayout {
+    /// The monitors to put one on, in physical pixels.
+    pub monitors: Vec<Rect>,
+    /// Down the left edge rather than along the top.
+    pub vertical: bool,
+    /// Off the screen until the pointer reaches the edge.
+    pub auto_hide: bool,
+    /// Physical pixels from the edge that bring a hidden bar back.
+    pub hover: i32,
+}
+
+/// One bar, and where it is.
+struct Slot {
+    bar: Bar,
+    /// The monitor it is on; none for one put away.
+    monitor: Option<Rect>,
+    /// Where it sits when it is out: the edge Windows granted, or the strip
+    /// along it.
+    rect: Rect,
+    /// Whether its edge has been asked for since it was last laid out.
+    placed: bool,
+    /// Whether it is on screen.
+    out: bool,
+    /// When the pointer left an auto-hiding bar.
+    left: Option<Instant>,
 }
 
 /// The last of each reading the shell has sent.
@@ -139,26 +186,41 @@ pub fn update(event: &str, value: &Value) {
     let event = event.to_owned();
     let value = value.clone();
     let _ = slint::invoke_from_event_loop(move || {
-        BAR.with(|bar| {
-            if let Some(bar) = bar.borrow().as_ref().and_then(|bar| bar.upgrade()) {
-                apply(&bar, &event, &value);
+        BARS.with(|bars| {
+            for slot in bars.borrow().iter() {
+                apply(&slot.bar, &event, &value);
             }
         });
         dock::apply(&event, &value);
+        LATEST.with(|latest| latest.borrow_mut().insert(event, value));
     });
 }
 
-/// Shows or hides the bar. Any thread.
+/// Shows or hides the bars. Any thread.
 pub fn bar_shown(shown: bool) {
     BAR_SHOWN.store(shown, Ordering::Relaxed);
     if RUNNING.load(Ordering::Relaxed) {
         let _ = slint::invoke_from_event_loop(move || {
-            BAR.with(|bar| {
-                if let Some(bar) = bar.borrow().as_ref().and_then(|bar| bar.upgrade()) {
-                    let _ = if shown { bar.show() } else { bar.hide() };
+            let auto_hide = LAYOUT.with(|layout| layout.borrow().auto_hide);
+            BARS.with(|bars| {
+                for slot in bars.borrow_mut().iter_mut() {
+                    let out = shown && !auto_hide && slot.monitor.is_some();
+                    reveal(slot, out);
                 }
             });
         });
+    }
+}
+
+/// Puts the bars where `layout` says, and has each one's edge asked for
+/// again: after a monitor change, an Explorer restart, or a setting. Any
+/// thread.
+pub fn bars(layout: BarLayout) {
+    if let Ok(mut pending) = PENDING_LAYOUT.lock() {
+        *pending = Some(layout);
+    }
+    if RUNNING.load(Ordering::Relaxed) {
+        let _ = slint::invoke_from_event_loop(lay_out_bars);
     }
 }
 
@@ -175,9 +237,9 @@ pub fn light(light: bool) {
     LIGHT.store(light, Ordering::Relaxed);
     if RUNNING.load(Ordering::Relaxed) {
         let _ = slint::invoke_from_event_loop(move || {
-            BAR.with(|bar| {
-                if let Some(bar) = bar.borrow().as_ref().and_then(|bar| bar.upgrade()) {
-                    bar.global::<Palette>().set_light(light);
+            BARS.with(|bars| {
+                for slot in bars.borrow().iter() {
+                    slot.bar.global::<Palette>().set_light(light);
                 }
             });
             OSD.with(|osd| {
@@ -275,84 +337,253 @@ fn run(
     dock::set_act(act.clone());
     show_pending_toasts();
 
-    let latest = latest();
-    for (event, value) in &latest {
-        dock::apply(event, value);
+    for (event, value) in latest() {
+        dock::apply(&event, &value);
+        LATEST.with(|latest| latest.borrow_mut().insert(event, value));
     }
     configure_pending_dock();
 
-    // Kept alive for as long as the loop runs.
-    let _bar = match hooks {
-        Some(hooks) => Some(start_bar(hooks, &latest, act)?),
-        None => None,
-    };
+    ACT.with(|slot| *slot.borrow_mut() = Some(act));
+    // Kept alive for as long as the loop runs: the clock and the bars' edges,
+    // and the pointer for an auto-hiding bar.
+    let _ticks = hooks.map(|hooks| {
+        PLACE.with(|slot| *slot.borrow_mut() = Some(hooks.place));
+        lay_out_bars();
+        let tick = slint::Timer::default();
+        tick.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(250),
+            tick_bars,
+        );
+        let watch = slint::Timer::default();
+        watch.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(100),
+            watch_pointer,
+        );
+        (tick, watch)
+    });
     // Hiding the readout must not end the loop, as the last window closing
     // would.
     slint::run_event_loop_until_quit()
 }
 
-fn start_bar(
-    hooks: BarHooks,
-    latest: &[(String, Value)],
-    act: Rc<dyn Fn(Action)>,
-) -> Result<(Bar, slint::Timer), slint::PlatformError> {
-    let started = Instant::now();
+/// Makes one bar, with what is known so far in it.
+fn make_bar() -> Result<Bar, slint::PlatformError> {
     let bar = Bar::new()?;
     bar.global::<Palette>().set_light(is_light());
     set_icons(&bar);
 
-    let (width, height) = screen_strip();
-    bar.window()
-        .set_position(slint::PhysicalPosition::new(0, 0));
-    bar.window()
-        .set_size(slint::PhysicalSize::new(width, height as u32));
-
-    let acting = act.clone();
-    bar.on_clicked(move |what| {
+    bar.on_clicked(|what| {
         let what = what.to_string();
-        acting(match what.as_str() {
+        act(match what.as_str() {
             "playPause" | "next" => Action::Media(what),
             _ => Action::Open(what),
         });
     });
-    bar.on_tray_clicked(move |index, secondary| {
+    bar.on_tray_clicked(|index, secondary| {
         let icon = TRAY.with(|tray| tray.borrow().get(index as usize).cloned());
         if let Some(icon) = icon {
             act(Action::Tray(icon, secondary));
         }
     });
 
-    BAR.with(|slot| *slot.borrow_mut() = Some(bar.as_weak()));
-    for (event, value) in latest {
-        apply(&bar, event, value);
-    }
-
-    let tick = slint::Timer::default();
-    let weak = bar.as_weak();
-    let mut place = Some(hooks.place);
-    tick.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(250),
-        move || {
-            let Some(bar) = weak.upgrade() else { return };
-            // The window exists only once the event loop runs.
-            if let Some(hwnd) = place.as_ref().and_then(|_| window_of(bar.window())) {
-                let place = place.take().expect("checked above");
-                settle(hwnd, place(hwnd, height));
-                tracing::info!(
-                    ms = started.elapsed().as_millis() as u64,
-                    "the native bar is on screen"
-                );
-            }
-            show_clock(&bar);
-        },
-    );
+    LATEST.with(|latest| {
+        for (event, value) in latest.borrow().iter() {
+            apply(&bar, event, value);
+        }
+    });
     show_clock(&bar);
+    Ok(bar)
+}
 
-    if BAR_SHOWN.load(Ordering::Relaxed) {
-        bar.show()?;
+fn act(action: Action) {
+    if let Some(act) = ACT.with(|slot| slot.borrow().clone()) {
+        act(action);
     }
-    Ok((bar, tick))
+}
+
+/// A bar's thickness in physical pixels.
+// ponytail: the primary monitor's scale for every bar, so a second monitor at
+// another scale gets a bar sized for the first. Per-monitor DPI if that
+// matters.
+fn thickness(vertical: bool) -> i32 {
+    let logical = if vertical { WIDTH } else { HEIGHT };
+    #[cfg(windows)]
+    unsafe {
+        let scale = windows::Win32::UI::HiDpi::GetDpiForSystem() as f32 / 96.0;
+        (logical * scale).round() as i32
+    }
+    #[cfg(not(windows))]
+    {
+        logical as i32
+    }
+}
+
+/// The strip along a monitor's top edge, or down its left.
+fn strip((x, y, width, height): Rect, vertical: bool) -> Rect {
+    let thick = thickness(vertical);
+    if vertical {
+        (x, y, thick, height)
+    } else {
+        (x, y, width, thick)
+    }
+}
+
+/// Makes a bar for each monitor in the layout last sent, and puts away the
+/// rest. Their edges are asked for on the next tick, once their windows exist.
+fn lay_out_bars() {
+    let Some(layout) = PENDING_LAYOUT
+        .lock()
+        .ok()
+        .and_then(|mut pending| pending.take())
+    else {
+        return;
+    };
+    if PLACE.with(|place| place.borrow().is_none()) {
+        return;
+    }
+    let shown = BAR_SHOWN.load(Ordering::Relaxed);
+    // Made outside the borrow: a new window may run the loop a little.
+    let have = BARS.with(|bars| bars.borrow().len());
+    let mut made = Vec::new();
+    for _ in have..layout.monitors.len() {
+        match make_bar() {
+            Ok(bar) => made.push(Slot {
+                bar,
+                monitor: None,
+                rect: (0, 0, 0, 0),
+                placed: false,
+                out: false,
+                left: None,
+            }),
+            Err(error) => tracing::warn!(%error, "could not make a bar"),
+        }
+    }
+    BARS.with(|bars| {
+        let mut bars = bars.borrow_mut();
+        bars.extend(made);
+        for (index, slot) in bars.iter_mut().enumerate() {
+            slot.monitor = layout.monitors.get(index).copied();
+            slot.placed = false;
+            let Some(monitor) = slot.monitor else {
+                reveal(slot, false);
+                continue;
+            };
+            slot.bar.set_vertical(layout.vertical);
+            slot.rect = strip(monitor, layout.vertical);
+            move_to(&slot.bar, slot.rect);
+            reveal(slot, shown && !layout.auto_hide);
+        }
+    });
+    LAYOUT.with(|kept| *kept.borrow_mut() = layout);
+    tick_bars();
+}
+
+fn move_to(bar: &Bar, (x, y, width, height): Rect) {
+    let window = bar.window();
+    window.set_position(slint::PhysicalPosition::new(x, y));
+    window.set_size(slint::PhysicalSize::new(
+        width.max(1) as u32,
+        height.max(1) as u32,
+    ));
+}
+
+fn reveal(slot: &mut Slot, out: bool) {
+    slot.out = out;
+    slot.left = None;
+    let _ = if out {
+        slot.bar.show()
+    } else {
+        slot.bar.hide()
+    };
+}
+
+/// Asks for the edge of each bar not yet placed whose window now exists, and
+/// keeps the clocks.
+fn tick_bars() {
+    let vertical = LAYOUT.with(|layout| layout.borrow().vertical);
+    let thick = thickness(vertical);
+    // The windows first, and the shell asked outside the borrow: reserving an
+    // edge has Windows move the window, which comes back through the loop.
+    let waiting: Vec<(usize, isize, Rect)> = BARS.with(|bars| {
+        bars.borrow()
+            .iter()
+            .enumerate()
+            .filter(|(_, slot)| !slot.placed)
+            .filter_map(|(index, slot)| Some((index, window_of(slot.bar.window())?, slot.monitor?)))
+            .collect()
+    });
+    for (index, hwnd, monitor) in waiting {
+        let granted = PLACE.with(|place| {
+            place
+                .borrow()
+                .as_ref()
+                .and_then(|place| place(hwnd, monitor, vertical, thick))
+        });
+        BARS.with(|bars| {
+            if let Some(slot) = bars.borrow_mut().get_mut(index) {
+                if let Some(granted) = granted {
+                    slot.rect = granted;
+                }
+                settle(hwnd, Some(slot.rect));
+                slot.placed = true;
+            }
+        });
+        tracing::info!(index, "a native bar is on screen");
+    }
+    BARS.with(|bars| {
+        for slot in bars.borrow().iter().filter(|slot| slot.monitor.is_some()) {
+            show_clock(&slot.bar);
+        }
+    });
+}
+
+/// While the bars hide themselves: the pointer at a bar's edge brings it out,
+/// and the pointer away from it for a moment puts it back.
+fn watch_pointer() {
+    let (auto_hide, vertical, hover) = LAYOUT.with(|layout| {
+        let layout = layout.borrow();
+        (layout.auto_hide, layout.vertical, layout.hover.max(1))
+    });
+    if !auto_hide || !BAR_SHOWN.load(Ordering::Relaxed) {
+        return;
+    }
+    let pointer = dock::cursor();
+    let mut revealed = false;
+    BARS.with(|bars| {
+        for slot in bars.borrow_mut().iter_mut() {
+            let Some((left, top, width, height)) = slot.monitor else {
+                continue;
+            };
+            if !slot.out {
+                let band = if vertical {
+                    (left, top, hover, height)
+                } else {
+                    (left, top, width, hover)
+                };
+                if inside(pointer, band) {
+                    reveal(slot, true);
+                    revealed = true;
+                }
+            } else if inside(pointer, slot.rect) {
+                slot.left = None;
+            } else if slot.left.get_or_insert_with(Instant::now).elapsed()
+                >= Duration::from_millis(400)
+            {
+                reveal(slot, false);
+            }
+        }
+    });
+    // One out for the first time is placed now, rather than a tick later
+    // behind whatever is under it.
+    if revealed {
+        tick_bars();
+    }
+}
+
+fn inside((x, y): (i32, i32), (left, top, width, height): Rect) -> bool {
+    x >= left && x < left + width && y >= top && y < top + height
 }
 
 fn show_osd(
@@ -467,9 +698,20 @@ fn show_clock(bar: &Bar) {
             time_format: "HH:mm".to_owned(),
             japanese: true,
         });
-    let (time, date) = clock(&chrono::Local::now(), &settings);
+    let now = chrono::Local::now();
+    let (time, date) = clock(&now, &settings);
+    // Down the side: the hours over the minutes, and the day of the month
+    // under them.
+    let digits: String = time
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == ':')
+        .collect();
+    let stacked = format!("{}\n{}", digits.replace(':', "\n"), now.day());
     if bar.get_time() != time.as_str() {
         bar.set_time(time.into());
+    }
+    if bar.get_vertical_clock() != stacked.as_str() {
+        bar.set_vertical_clock(stacked.into());
     }
     if bar.get_date() != date.as_str() {
         bar.set_date(date.into());
@@ -703,22 +945,6 @@ fn round_corners(hwnd: isize) {
     let _ = hwnd;
 }
 
-/// The top strip of the primary screen, in physical pixels.
-fn screen_strip() -> (u32, i32) {
-    #[cfg(windows)]
-    unsafe {
-        use windows::Win32::UI::HiDpi::GetDpiForSystem;
-        use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN};
-        let scale = GetDpiForSystem() as f32 / 96.0;
-        (
-            GetSystemMetrics(SM_CXSCREEN) as u32,
-            (HEIGHT * scale).round() as i32,
-        )
-    }
-    #[cfg(not(windows))]
-    (1920, HEIGHT as i32)
-}
-
 fn window_of(window: &slint::Window) -> Option<isize> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     match window.window_handle().window_handle().ok()?.as_raw() {
@@ -798,6 +1024,20 @@ mod tests {
         assert_eq!(read("hh:mm AP", false).0, "02:05 PM");
         assert_eq!(read("hh:mm AP", true).0, "午後02:05");
         assert_eq!(read("something else", false).0, "14:05");
+    }
+
+    #[test]
+    fn a_bar_runs_along_the_top_or_down_the_left_of_its_own_monitor() {
+        use super::{inside, strip, thickness};
+        let second = (1920, -200, 2560, 1440);
+        assert_eq!(strip(second, false), (1920, -200, 2560, thickness(false)));
+        assert_eq!(strip(second, true), (1920, -200, thickness(true), 1440));
+        assert!(inside((1920, -200), second));
+        assert!(!inside((1919, 0), second), "the monitor to its left");
+        assert!(
+            !inside((1920 + 2560, 0), second),
+            "its right edge is outside"
+        );
     }
 
     #[test]

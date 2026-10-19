@@ -249,7 +249,8 @@ fn reveal(shown: bool) {
 }
 
 /// While hidden: the pointer on the bottom edge, under where the dock would
-/// be, brings it back.
+/// be or within 24 pixels of either end — the shadow the webview dock's
+/// window took in — brings it back.
 fn look_for_pointer() {
     let (hidden, band, edge) = STATE.with(|state| {
         let state = state.borrow();
@@ -259,11 +260,16 @@ fn look_for_pointer() {
         let (width, _) = wanted(window);
         let (screen_width, screen_height) = screen_size();
         let x = (screen_width - width) / 2;
+        let reach = (24.0 * window.window().scale_factor()) as i32;
         let strip = state
             .settings
             .as_ref()
             .map_or(3, |settings| settings.hover_region_height.max(1) as i32);
-        (!state.revealed, (x, x + width), screen_height - strip)
+        (
+            !state.revealed,
+            (x - reach, x + width + reach),
+            screen_height - strip,
+        )
     });
     if !hidden {
         return;
@@ -274,7 +280,7 @@ fn look_for_pointer() {
     }
 }
 
-fn cursor() -> (i32, i32) {
+pub(crate) fn cursor() -> (i32, i32) {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::Foundation::POINT;

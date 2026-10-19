@@ -1,5 +1,5 @@
 // The bar, drawn natively: the same strip the webview bar draws, in the order
-// the default config puts it in.
+// the default config puts it in — along the top, or down the left side.
 
 import { Palette } from "palette.slint";
 
@@ -74,6 +74,44 @@ component Item inherits Rectangle {
     }
 }
 
+// One of the vertical bar's buttons: the icon, with a short reading under it.
+component Cell inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <length> icon-size: 16px;
+    callback clicked;
+
+    height: root.text == "" ? 26px : 36px;
+    border-radius: 6px;
+    background: area.has-hover ? Palette.hover : transparent;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+        if root.icon.width > 0: HorizontalLayout {
+            alignment: center;
+            Image {
+                source: root.icon;
+                colorize: Palette.foreground;
+                width: root.icon-size;
+                height: root.icon-size;
+            }
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: Palette.foreground;
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+    }
+
+    area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 export component Bar inherits Window {
     in property <string> active-title;
     in property <string> cpu;
@@ -85,6 +123,10 @@ export component Bar inherits Window {
     in property <bool> charging;
     in property <string> date;
     in property <string> time;
+    // Down the left edge, where only icons and the clock, a line at a time,
+    // fit.
+    in property <bool> vertical;
+    in property <string> vertical-clock;
     // What the centre says over the desktop, in the shell's language.
     in property <string> desktop-label;
     in property <image> weather-icon;
@@ -103,163 +145,296 @@ export component Bar inherits Window {
     default-font-family: "Segoe UI Variable Text";
     default-font-size: 13px;
 
-    HorizontalLayout {
-        x: 6px;
-        width: self.preferred-width;
-        spacing: 2px;
-        Item {
-            icon: Icons.left-panel;
-            clicked => {
-                root.clicked("sidebarLeft");
+    if !root.vertical: Rectangle {
+        HorizontalLayout {
+            x: 6px;
+            width: self.preferred-width;
+            spacing: 2px;
+            Item {
+                icon: Icons.left-panel;
+                clicked => {
+                    root.clicked("sidebarLeft");
+                }
+            }
+            if root.media-title != "": HorizontalLayout {
+                Item {
+                    icon: root.media-playing ? Icons.pause : Icons.play;
+                    clicked => {
+                        root.clicked("playPause");
+                    }
+                }
+                Item {
+                    text: root.media-title;
+                    max-text: 220px;
+                }
+                Item {
+                    icon: Icons.next;
+                    clicked => {
+                        root.clicked("next");
+                    }
+                }
+            }
+            if root.weather != "": Item {
+                icon: root.weather-icon;
+                icon-size: 17px;
+                text: root.weather;
             }
         }
-        if root.media-title != "": HorizontalLayout {
+
+        // Centred on the screen, not on what the two sides leave over, so the
+        // clock does not drift as the title grows.
+        HorizontalLayout {
+            width: min(self.preferred-width, root.width * 60%);
+            x: (root.width - self.width) / 2;
+            spacing: 4px;
+            for workspace in root.workspaces: Rectangle {
+                y: (parent.height - self.height) / 2;
+                height: 22px;
+                min-width: workspace.focused ? 30px : 22px;
+                border-radius: 11px;
+                background: workspace.focused ? Palette.accent : workspace.populated ? Palette.filled : transparent;
+                border-width: workspace.focused || workspace.populated ? 0px : 1px;
+                border-color: Palette.outline;
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: workspace.name;
+                        color: workspace.focused ? white : Palette.quiet;
+                        font-size: 11px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
             Item {
+                icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
+                text: root.active-title != "" ? root.active-title : root.desktop-label;
+                tint: root.active-title != "" ? Palette.foreground : Palette.quiet;
+            }
+        }
+
+        HorizontalLayout {
+            width: self.preferred-width;
+            x: root.width - self.width - 6px;
+            spacing: 2px;
+            for icon[index] in root.tray: Rectangle {
+                width: 26px;
+                height: 24px;
+                y: (parent.height - self.height) / 2;
+                border-radius: 6px;
+                background: tray-area.has-hover ? Palette.hover : transparent;
+                if icon.icon.width > 0: Image {
+                    source: icon.icon;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    height: 16px;
+                }
+                if icon.icon.width == 0: Rectangle {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: Palette.quiet;
+                }
+                tray-area := TouchArea {
+                    clicked => {
+                        root.tray-clicked(index, false);
+                    }
+                    pointer-event(event) => {
+                        if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
+                            root.tray-clicked(index, true);
+                        }
+                    }
+                }
+            }
+            Item {
+                icon: Icons.speed;
+                text: root.cpu;
+            }
+            Item {
+                icon: Icons.memory;
+                text: root.memory;
+            }
+            Item {
+                icon: Icons.storage;
+                text: root.disk;
+            }
+            Item {
+                icon: Icons.down;
+                icon-size: 14px;
+                text: root.down;
+            }
+            Item {
+                icon: Icons.up;
+                icon-size: 14px;
+                text: root.up;
+            }
+            if root.battery != "": Item {
+                icon: root.charging ? Icons.battery-charging : Icons.battery;
+                text: root.battery;
+            }
+            Item {
+                icon: Icons.photos;
+                clicked => {
+                    root.clicked("wallpaperSelector");
+                }
+            }
+            Item {
+                icon: Icons.shuffle;
+                clicked => {
+                    root.clicked("randomWallpaper");
+                }
+            }
+            Item {
+                icon: Icons.settings;
+                clicked => {
+                    root.clicked("settings");
+                }
+            }
+            Item {
+                icon: Icons.right-panel;
+                clicked => {
+                    root.clicked("sidebarRight");
+                }
+            }
+            Item {
+                text: root.date + "  " + root.time;
+            }
+        }
+    }
+
+    if root.vertical: Rectangle {
+        VerticalLayout {
+            y: 6px;
+            height: self.preferred-height;
+            padding-left: 2px;
+            padding-right: 2px;
+            spacing: 2px;
+            Cell {
+                icon: Icons.left-panel;
+                clicked => {
+                    root.clicked("sidebarLeft");
+                }
+            }
+            if root.media-title != "": Cell {
                 icon: root.media-playing ? Icons.pause : Icons.play;
                 clicked => {
                     root.clicked("playPause");
                 }
             }
-            Item {
-                text: root.media-title;
-                max-text: 220px;
+            if root.weather != "": Cell {
+                icon: root.weather-icon;
+                icon-size: 17px;
+                text: root.weather;
             }
-            Item {
-                icon: Icons.next;
-                clicked => {
-                    root.clicked("next");
-                }
-            }
-        }
-        if root.weather != "": Item {
-            icon: root.weather-icon;
-            icon-size: 17px;
-            text: root.weather;
-        }
-    }
-
-    // Centred on the screen, not on what the two sides leave over, so the
-    // clock does not drift as the title grows.
-    HorizontalLayout {
-        width: min(self.preferred-width, root.width * 60%);
-        x: (root.width - self.width) / 2;
-        spacing: 4px;
-        for workspace in root.workspaces: Rectangle {
-            y: (parent.height - self.height) / 2;
-            height: 22px;
-            min-width: workspace.focused ? 30px : 22px;
-            border-radius: 11px;
-            background: workspace.focused ? Palette.accent : workspace.populated ? Palette.filled : transparent;
-            border-width: workspace.focused || workspace.populated ? 0px : 1px;
-            border-color: Palette.outline;
-            HorizontalLayout {
-                padding-left: 6px;
-                padding-right: 6px;
-                Text {
-                    text: workspace.name;
-                    color: workspace.focused ? white : Palette.quiet;
-                    font-size: 11px;
-                    font-weight: 700;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
-        }
-        Item {
-            icon: root.active-title != "" ? Icons.desktop : Icons.wallpaper;
-            text: root.active-title != "" ? root.active-title : root.desktop-label;
-            tint: root.active-title != "" ? Palette.foreground : Palette.quiet;
-        }
-    }
-
-    HorizontalLayout {
-        width: self.preferred-width;
-        x: root.width - self.width - 6px;
-        spacing: 2px;
-        for icon[index] in root.tray: Rectangle {
-            width: 26px;
-            height: 24px;
-            y: (parent.height - self.height) / 2;
-            border-radius: 6px;
-            background: tray-area.has-hover ? Palette.hover : transparent;
-            if icon.icon.width > 0: Image {
-                source: icon.icon;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                width: 16px;
-                height: 16px;
-            }
-            if icon.icon.width == 0: Rectangle {
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                width: 6px;
-                height: 6px;
-                border-radius: 3px;
-                background: Palette.quiet;
-            }
-            tray-area := TouchArea {
-                clicked => {
-                    root.tray-clicked(index, false);
-                }
-                pointer-event(event) => {
-                    if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
-                        root.tray-clicked(index, true);
+            for workspace in root.workspaces: HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 22px;
+                    height: workspace.focused ? 30px : 22px;
+                    border-radius: 11px;
+                    background: workspace.focused ? Palette.accent : workspace.populated ? Palette.filled : transparent;
+                    border-width: workspace.focused || workspace.populated ? 0px : 1px;
+                    border-color: Palette.outline;
+                    Text {
+                        text: workspace.name;
+                        color: workspace.focused ? white : Palette.quiet;
+                        font-size: 11px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
                     }
                 }
             }
         }
-        Item {
-            icon: Icons.speed;
-            text: root.cpu;
-        }
-        Item {
-            icon: Icons.memory;
-            text: root.memory;
-        }
-        Item {
-            icon: Icons.storage;
-            text: root.disk;
-        }
-        Item {
-            icon: Icons.down;
-            icon-size: 14px;
-            text: root.down;
-        }
-        Item {
-            icon: Icons.up;
-            icon-size: 14px;
-            text: root.up;
-        }
-        if root.battery != "": Item {
-            icon: root.charging ? Icons.battery-charging : Icons.battery;
-            text: root.battery;
-        }
-        Item {
-            icon: Icons.photos;
-            clicked => {
-                root.clicked("wallpaperSelector");
+
+        VerticalLayout {
+            y: root.height - self.height - 6px;
+            height: self.preferred-height;
+            padding-left: 2px;
+            padding-right: 2px;
+            spacing: 2px;
+            for icon[index] in root.tray: HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 26px;
+                    height: 24px;
+                    border-radius: 6px;
+                    background: vertical-tray-area.has-hover ? Palette.hover : transparent;
+                    if icon.icon.width > 0: Image {
+                        source: icon.icon;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: 16px;
+                        height: 16px;
+                    }
+                    if icon.icon.width == 0: Rectangle {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: Palette.quiet;
+                    }
+                    vertical-tray-area := TouchArea {
+                        clicked => {
+                            root.tray-clicked(index, false);
+                        }
+                        pointer-event(event) => {
+                            if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
+                                root.tray-clicked(index, true);
+                            }
+                        }
+                    }
+                }
             }
-        }
-        Item {
-            icon: Icons.shuffle;
-            clicked => {
-                root.clicked("randomWallpaper");
+            Cell {
+                icon: Icons.speed;
+                text: root.cpu;
             }
-        }
-        Item {
-            icon: Icons.settings;
-            clicked => {
-                root.clicked("settings");
+            Cell {
+                icon: Icons.memory;
+                text: root.memory;
             }
-        }
-        Item {
-            icon: Icons.right-panel;
-            clicked => {
-                root.clicked("sidebarRight");
+            if root.battery != "": Cell {
+                icon: root.charging ? Icons.battery-charging : Icons.battery;
+                text: root.battery;
             }
-        }
-        Item {
-            text: root.date + "  " + root.time;
+            Cell {
+                icon: Icons.photos;
+                clicked => {
+                    root.clicked("wallpaperSelector");
+                }
+            }
+            Cell {
+                icon: Icons.shuffle;
+                clicked => {
+                    root.clicked("randomWallpaper");
+                }
+            }
+            Cell {
+                icon: Icons.settings;
+                clicked => {
+                    root.clicked("settings");
+                }
+            }
+            Cell {
+                icon: Icons.right-panel;
+                clicked => {
+                    root.clicked("sidebarRight");
+                }
+            }
+            Text {
+                text: root.vertical-clock;
+                color: Palette.foreground;
+                font-size: 12px;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
         }
     }
 }

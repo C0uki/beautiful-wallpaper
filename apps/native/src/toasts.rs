@@ -24,8 +24,10 @@ pub struct ToastSettings {
     pub position: String,
     pub max_visible: u32,
     pub do_not_disturb: bool,
-    /// Whether the bar is along the top, so the banners keep clear of it.
+    /// Whether the bar is along the top, or down the left side, so the
+    /// banners keep clear of it.
     pub bar: bool,
+    pub bar_left: bool,
     /// Whether the shell's own notices are shown in Japanese.
     pub japanese: bool,
 }
@@ -416,6 +418,11 @@ fn place() {
             };
             let x = if settings.position.ends_with("left") {
                 margin
+                    + if settings.bar_left {
+                        (crate::WIDTH * scale) as i32
+                    } else {
+                        0
+                    }
             } else if settings.position.ends_with("center") {
                 (screen_width - width) / 2
             } else {

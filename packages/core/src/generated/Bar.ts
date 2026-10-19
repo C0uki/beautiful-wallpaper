@@ -27,9 +27,8 @@ export type Bar = {
    */
   perMonitor: boolean;
   /**
-   * How much of the bar stays on screen while it is hidden. This is the
-   * strip the pointer has to reach, so zero would make the bar
-   * unreachable.
+   * The strip along the edge, in pixels, that the pointer has to reach
+   * to bring a hidden bar back. Zero counts as one.
    */
   hoverRegionHeight: number;
   /**

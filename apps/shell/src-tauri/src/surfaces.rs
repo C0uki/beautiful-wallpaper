@@ -412,25 +412,27 @@ struct Screen {
     size: (f64, f64),
 }
 
-/// Reserves the top edge of the primary screen for the native bar's window,
-/// and answers the rectangle Windows granted, in physical pixels.
+/// Reserves a native bar's edge of its monitor — the top, or the left when it
+/// is vertical — and answers the rectangle Windows granted, in physical
+/// pixels.
 #[cfg(windows)]
-pub fn reserve_native_bar(
+fn reserve_native_bar(
     app: &AppHandle,
     hwnd: isize,
-    height: i32,
-) -> Option<(i32, i32, i32, i32)> {
+    (x, y, width, height): bw_native::Rect,
+    vertical: bool,
+    thickness: i32,
+) -> Option<bw_native::Rect> {
     use crate::platform::win::{self, Edge};
     use windows::Win32::Foundation::HWND;
 
-    let monitors = win::monitors();
-    let monitor = monitors
-        .iter()
-        .find(|monitor| monitor.primary)
-        .or_else(|| monitors.first())?;
-    let bar = unsafe { win::AppBar::register(HWND(hwnd as _), Edge::Top, height, monitor) }?;
+    let monitor = win::monitors().into_iter().find(|monitor| {
+        (monitor.x, monitor.y, monitor.width, monitor.height) == (x, y, width, height)
+    })?;
+    let edge = if vertical { Edge::Left } else { Edge::Top };
+    let bar = unsafe { win::AppBar::register(HWND(hwnd as _), edge, thickness, &monitor) }?;
     let granted = bar.granted;
-    // Held where the webview bar's is, so the exit gives it back the same way.
+    // Held where the webview bar's was, so the exit gives it back the same way.
     app.state::<Reservations>().bars.lock().push(bar);
     Some((
         granted.left,
@@ -441,11 +443,13 @@ pub fn reserve_native_bar(
 }
 
 #[cfg(not(windows))]
-pub fn reserve_native_bar(
+fn reserve_native_bar(
     _app: &AppHandle,
     _hwnd: isize,
-    _height: i32,
-) -> Option<(i32, i32, i32, i32)> {
+    _monitor: bw_native::Rect,
+    _vertical: bool,
+    _thickness: i32,
+) -> Option<bw_native::Rect> {
     None
 }
 
@@ -565,24 +569,22 @@ fn geometry(
     }
 }
 
-/// The native bar's window and the height it wants, in physical pixels, once
-/// it exists: `bw-native` makes it, and its edge is reserved from here.
-#[cfg(windows)]
-static NATIVE_BAR: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
-#[cfg(windows)]
-static NATIVE_BAR_HEIGHT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
-
-/// Takes the native bar's window as `bw-native` makes it, on that window's own
-/// thread: hears Explorer coming back and the monitors changing through it, and
-/// reserves its edge. Answers the rectangle the bar is to occupy.
-pub fn adopt_native_bar(app: &AppHandle, hwnd: isize, height: i32) -> Option<(i32, i32, i32, i32)> {
+/// Takes a native bar's window each time `bw-native` places it, on that
+/// window's own thread: hears Explorer coming back and the monitors changing
+/// through it, and reserves its edge unless it hides itself. Answers the
+/// rectangle the bar is to occupy.
+pub fn adopt_native_bar(
+    app: &AppHandle,
+    hwnd: isize,
+    monitor: bw_native::Rect,
+    vertical: bool,
+    thickness: i32,
+) -> Option<bw_native::Rect> {
+    // Subclassed from here because a window can only be subclassed from the
+    // thread that owns it, which is this one. Again for a window already
+    // watched changes nothing.
     #[cfg(windows)]
     {
-        use std::sync::atomic::Ordering::Relaxed;
-        NATIVE_BAR.store(hwnd, Relaxed);
-        NATIVE_BAR_HEIGHT.store(height, Relaxed);
-        // Subclassed from here because a window can only be subclassed from
-        // the thread that owns it, which is this one.
         let app = app.clone();
         unsafe {
             crate::platform::win::watch_edge_window(
@@ -595,7 +597,25 @@ pub fn adopt_native_bar(app: &AppHandle, hwnd: isize, height: i32) -> Option<(i3
     if !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
         return None;
     }
-    reserve_native_bar(app, hwnd, height)
+    reserve_native_bar(app, hwnd, monitor, vertical, thickness)
+}
+
+/// Where the config puts the bars: on the primary monitor, or on every one.
+pub fn bar_layout(config: &bw_core::Config) -> bw_native::BarLayout {
+    #[cfg(windows)]
+    let monitors = crate::platform::win::monitors()
+        .into_iter()
+        .filter(|monitor| config.bar.per_monitor || monitor.primary)
+        .map(|monitor| (monitor.x, monitor.y, monitor.width, monitor.height))
+        .collect();
+    #[cfg(not(windows))]
+    let monitors = vec![(0, 0, 1920, 1080)];
+    bw_native::BarLayout {
+        monitors,
+        vertical: config.bar.vertical,
+        auto_hide: config.bar.auto_hide,
+        hover: config.bar.hover_region_height as i32,
+    }
 }
 
 /// Puts everything back after Explorer has restarted, or the monitors have
@@ -642,44 +662,15 @@ pub fn desktop_changed(app: &AppHandle) {
     });
 }
 
-/// Puts the bar where the config now says: shown or not, and with its edge
-/// reserved or not. The edge is given back first and taken again, so a bar
-/// that was switched off, or a work area Explorer forgot, is put right.
+/// Puts the bars where the config now says: shown or not, on which monitors,
+/// along which edge, and with their edges reserved or not. The edges are given
+/// back first and taken again as `bw-native` places each bar, so a bar that
+/// was switched off, or a work area Explorer forgot, is put right.
 pub fn place_bars(app: &AppHandle) {
     let config = app.state::<AppState>().config();
     release_reservations(app);
     bw_native::bar_shown(config.bar.enable);
-
-    #[cfg(windows)]
-    {
-        use std::sync::atomic::Ordering::Relaxed;
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_TOPMOST, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE,
-        };
-
-        let hwnd = NATIVE_BAR.load(Relaxed);
-        if hwnd == 0 || !config.bar.enable || !config.bar.reserve_space || config.bar.auto_hide {
-            return;
-        }
-        if let Some((x, y, width, height)) =
-            reserve_native_bar(app, hwnd, NATIVE_BAR_HEIGHT.load(Relaxed))
-        {
-            // Asynchronously: the window belongs to the native thread, and
-            // this may be any other.
-            unsafe {
-                let _ = SetWindowPos(
-                    HWND(hwnd as _),
-                    HWND_TOPMOST,
-                    x,
-                    y,
-                    width,
-                    height,
-                    SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS,
-                );
-            }
-        }
-    }
+    bw_native::bars(bar_layout(&config));
 }
 
 /// The wallpaper surface's window label: `background`, until Explorer takes
@@ -835,15 +826,10 @@ fn overlay_geometry(
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
     // Along the top, or down the left side when it is vertical.
-    let bar = if config.bar.enable {
-        f64::from(bw_native::HEIGHT)
-    } else {
-        0.0
-    };
-    let (top, left) = if config.bar.vertical {
-        (0.0, bar)
-    } else {
-        (bar, 0.0)
+    let (top, left) = match (config.bar.enable, config.bar.vertical) {
+        (false, _) => (0.0, 0.0),
+        (true, false) => (f64::from(bw_native::HEIGHT), 0.0),
+        (true, true) => (0.0, f64::from(bw_native::WIDTH)),
     };
     let margin = 8.0;
     let tall = (screen.1 - top - margin * 2.0).max(1.0);

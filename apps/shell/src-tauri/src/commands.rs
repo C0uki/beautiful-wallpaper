@@ -440,6 +440,7 @@ fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
         max_visible: config.notifications.max_visible,
         do_not_disturb: config.notifications.do_not_disturb || !config.notifications.enable,
         bar: config.bar.enable && !config.bar.vertical,
+        bar_left: config.bar.enable && config.bar.vertical,
         japanese: japanese(config),
     }
 }

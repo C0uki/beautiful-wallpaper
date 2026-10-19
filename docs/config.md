@@ -289,7 +289,7 @@ The strip along one edge of the screen: where it sits and when it hides.
 - **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
 - **`bar.autoHide`** — Slide off the screen edge until the pointer reaches it.
 - **`bar.perMonitor`** — Put a bar on every monitor rather than only the primary one. Each gets its own window along the same edge of its own screen, and reserves that edge on that monitor. The bars draw the same thing.
-- **`bar.hoverRegionHeight`** — How much of the bar stays on screen while it is hidden. This is the strip the pointer has to reach, so zero would make the bar unreachable.
+- **`bar.hoverRegionHeight`** — The strip along the edge, in pixels, that the pointer has to reach to bring a hidden bar back. Zero counts as one.
 - **`bar.showFrame`** — Draw a thin border around the whole screen.
 - **`bar.frameColor`** — A palette role name — `primary`, `surface`, `outline` and so on — or any CSS colour. The default is the original's.
 

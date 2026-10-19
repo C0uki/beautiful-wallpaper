@@ -250,12 +250,16 @@ fn main() {
             {
                 let reserving = handle.clone();
                 let clicking = handle.clone();
-                bw_native::bar_shown(state.config().bar.enable);
-                commands::emit_bar_settings(&state.config());
+                let config = state.config();
+                bw_native::bar_shown(config.bar.enable);
+                bw_native::bars(surfaces::bar_layout(&config));
+                commands::emit_bar_settings(&config);
                 bw_native::spawn(
                     Some(bw_native::BarHooks {
-                        place: Box::new(move |hwnd, height| {
-                            surfaces::adopt_native_bar(&reserving, hwnd, height)
+                        place: Box::new(move |hwnd, monitor, vertical, thickness| {
+                            surfaces::adopt_native_bar(
+                                &reserving, hwnd, monitor, vertical, thickness,
+                            )
                         }),
                     }),
                     Box::new(|| {
