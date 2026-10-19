@@ -734,7 +734,7 @@ pub fn restore_background(app: &AppHandle) {
         // the icons of the one that came. A dead one was let go of already.
         if let Some(window) = handle.get_webview_window(&background_label()) {
             let config = handle.state::<AppState>().config();
-            apply_layer(&handle, &window, Layer::Background, &config, "");
+            apply_layer(&handle, &window, Layer::Background, &config);
             return;
         }
         if let Err(error) = ensure(&handle, &BACKGROUND) {
