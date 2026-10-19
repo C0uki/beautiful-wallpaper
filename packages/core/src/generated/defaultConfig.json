@@ -273,7 +273,6 @@
   },
   "time": {
     "format": "HH:mm",
-    "dateFormat": "ddd, dd/MM",
     "weekStartsOnMonday": true
   },
   "wallpaperSelector": {

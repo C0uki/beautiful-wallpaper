@@ -44,6 +44,7 @@ pub fn regenerate(state: &AppState) -> Result<GeneratedTheme, String> {
     .map_err(|error| error.to_string())?;
 
     persist(&generated);
+    bw_native::light(generated.mode == Mode::Light);
 
     if config.appearance.wallpaper_theming.sync_system_accent {
         sync_system(&generated);

@@ -1,19 +1,22 @@
 // The colours the native surfaces share.
 
 export global Palette {
-    // The webview bar's `hug` style in the dark appearance, which is Apple's
-    // fixed greys rather than anything taken from the wallpaper.
-    out property <color> background: #282828;
-    out property <color> foreground: #e0e0e0;
-    out property <color> quiet: #e0e0e0a0;
-    out property <color> hover: #ffffff1a;
-    out property <color> accent: #0a84ff;
-    out property <color> filled: #ffffff26;
-    out property <color> outline: #ffffff33;
-    // The readout's block and its track.
-    out property <color> popover: #2a2a2c;
-    out property <color> track: #48484a;
+    // Set from Rust, as the shell's theme goes light or dark.
+    in property <bool> light;
+    // The webview bar's `hug` style, which is Apple's fixed greys rather than
+    // anything taken from the wallpaper.
+    out property <color> background: light ? #ececec : #282828;
+    out property <color> foreground: light ? #1d1d1f : #e0e0e0;
+    out property <color> quiet: light ? #1d1d1fa0 : #e0e0e0a0;
+    out property <color> hover: light ? #0000000f : #ffffff1a;
+    out property <color> accent: light ? #007aff : #0a84ff;
+    out property <color> filled: light ? #00000014 : #ffffff26;
+    out property <color> outline: light ? #00000026 : #ffffff33;
+    // The readout's block, its track and its level.
+    out property <color> popover: light ? #ffffff : #2a2a2c;
+    out property <color> track: light ? #d1d1d6 : #48484a;
+    out property <color> level: light ? #1d1d1f : white;
     out property <color> muted: #8e8e93;
     // A critical notification's tile.
-    out property <color> danger: #ff453a;
+    out property <color> danger: light ? #ff3b30 : #ff453a;
 }

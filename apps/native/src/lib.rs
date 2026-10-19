@@ -9,8 +9,9 @@
 //! on Windows Slint's winit backend allows that, and its windows never touch the
 //! shell's. They read nothing themselves but the clock. The shell hands them
 //! the readings it sends the webview surfaces, through [`update`], asks for the
-//! readout through [`osd`], the banners through [`toasts`] and the dock's
-//! settings through [`dock`], and hears what was pressed through the callback
+//! readout through [`osd`], the banners through [`toasts`], the dock's
+//! settings through [`dock`], the clock's through [`bar`] and whether the theme
+//! is light through [`light`], and hears what was pressed through the callback
 //! given to [`spawn`].
 
 use std::cell::RefCell;
@@ -49,6 +50,23 @@ static BAR_SHOWN: AtomicBool = AtomicBool::new(true);
 
 /// The dock's settings, kept the same way.
 static PENDING_DOCK: std::sync::Mutex<Option<DockSettings>> = std::sync::Mutex::new(None);
+
+/// How the bar writes the time and the date, read by its clock as it ticks.
+static BAR_SETTINGS: std::sync::Mutex<Option<BarSettings>> = std::sync::Mutex::new(None);
+
+/// Whether the shell's theme is light, for every window made after it was
+/// said as well as those already up.
+static LIGHT: AtomicBool = AtomicBool::new(false);
+
+/// How the bar writes the time and the date.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BarSettings {
+    /// `HH:mm`, `HH:mm:ss` or `hh:mm AP`, as `time.format` has it.
+    pub time_format: String,
+    /// Whether the shell is in Japanese: the date reads `10月19日(月)` rather
+    /// than `Mon 19 Oct`.
+    pub japanese: bool,
+}
 
 thread_local! {
     /// The bar, on its own thread, for what [`update`] sends there.
@@ -142,6 +160,39 @@ pub fn bar_shown(shown: bool) {
             });
         });
     }
+}
+
+/// How the bar writes the time and the date. Any thread; the clock picks it
+/// up on its next tick.
+pub fn bar(settings: BarSettings) {
+    if let Ok(mut kept) = BAR_SETTINGS.lock() {
+        *kept = Some(settings);
+    }
+}
+
+/// Whether the shell's theme is light. Any thread.
+pub fn light(light: bool) {
+    LIGHT.store(light, Ordering::Relaxed);
+    if RUNNING.load(Ordering::Relaxed) {
+        let _ = slint::invoke_from_event_loop(move || {
+            BAR.with(|bar| {
+                if let Some(bar) = bar.borrow().as_ref().and_then(|bar| bar.upgrade()) {
+                    bar.global::<Palette>().set_light(light);
+                }
+            });
+            OSD.with(|osd| {
+                if let Some(osd) = osd.borrow().as_ref() {
+                    osd.global::<Palette>().set_light(light);
+                }
+            });
+            toasts::repaint(light);
+            dock::repaint(light);
+        });
+    }
+}
+
+fn is_light() -> bool {
+    LIGHT.load(Ordering::Relaxed)
 }
 
 /// The dock's settings, as they are now: made, changed, or put away. Any
@@ -247,6 +298,7 @@ fn start_bar(
 ) -> Result<(Bar, slint::Timer), slint::PlatformError> {
     let started = Instant::now();
     let bar = Bar::new()?;
+    bar.global::<Palette>().set_light(is_light());
     set_icons(&bar);
 
     let (width, height) = screen_strip();
@@ -313,6 +365,7 @@ fn show_osd(
     let first = OSD.with(|slot| slot.borrow().is_none());
     if first {
         let made = Osd::new()?;
+        made.global::<Palette>().set_light(is_light());
         OSD.with(|slot| *slot.borrow_mut() = Some(made));
     }
     OSD.with(|slot| -> Result<(), slint::PlatformError> {
@@ -406,16 +459,67 @@ fn set_icons(bar: &Bar) {
 }
 
 fn show_clock(bar: &Bar) {
-    let now = chrono::Local::now();
-    let time = format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second());
-    if bar.get_time() != time {
+    let settings = BAR_SETTINGS
+        .lock()
+        .ok()
+        .and_then(|kept| kept.clone())
+        .unwrap_or(BarSettings {
+            time_format: "HH:mm".to_owned(),
+            japanese: true,
+        });
+    let (time, date) = clock(&chrono::Local::now(), &settings);
+    if bar.get_time() != time.as_str() {
         bar.set_time(time.into());
-        // ponytail: Japanese only; the locale's own format once the bar
-        // follows the shell's language.
-        const DAYS: [&str; 7] = ["月", "火", "水", "木", "金", "土", "日"];
-        let day = DAYS[now.weekday().num_days_from_monday() as usize];
-        bar.set_date(format!("{}月{}日({day})", now.month(), now.day()).into());
     }
+    if bar.get_date() != date.as_str() {
+        bar.set_date(date.into());
+    }
+    let desktop = if settings.japanese {
+        "デスクトップ"
+    } else {
+        "Desktop"
+    };
+    if bar.get_desktop_label() != desktop {
+        bar.set_desktop_label(desktop.into());
+    }
+}
+
+/// The time and the date as the webview bar wrote them: the three formats the
+/// settings offer, anything else read as `HH:mm`, and the date as a Mac's menu
+/// bar has it in each language.
+fn clock(now: &(impl Datelike + Timelike), settings: &BarSettings) -> (String, String) {
+    let (hour, minute) = (now.hour(), now.minute());
+    let time = match settings.time_format.as_str() {
+        "HH:mm:ss" => format!("{hour:02}:{minute:02}:{:02}", now.second()),
+        "hh:mm AP" => {
+            let (pm, twelve) = now.hour12();
+            let twelve = format!("{twelve:02}:{minute:02}");
+            match (settings.japanese, pm) {
+                (true, true) => format!("午後{twelve}"),
+                (true, false) => format!("午前{twelve}"),
+                (false, true) => format!("{twelve} PM"),
+                (false, false) => format!("{twelve} AM"),
+            }
+        }
+        _ => format!("{hour:02}:{minute:02}"),
+    };
+    let weekday = now.weekday().num_days_from_monday() as usize;
+    let date = if settings.japanese {
+        const DAYS: [&str; 7] = ["月", "火", "水", "木", "金", "土", "日"];
+        format!("{}月{}日({})", now.month(), now.day(), DAYS[weekday])
+    } else {
+        const DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const MONTHS: [&str; 12] = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        format!(
+            "{} {} {}",
+            DAYS[weekday],
+            now.day(),
+            MONTHS[now.month0() as usize]
+        )
+    };
+    (time, date)
 }
 
 /// Shows one reading. The names are the shell's `event` constants.
@@ -668,6 +772,32 @@ mod tests {
         assert_eq!(super::rate(5.5 * 1024.0), "5.5K");
         assert_eq!(super::rate(18.0 * 1024.0), "18K");
         assert_eq!(super::rate(1.3 * 1024.0 * 1024.0), "1.3M");
+    }
+
+    #[test]
+    fn the_clock_reads_as_the_webview_bar_wrote_it() {
+        use super::{clock, BarSettings};
+        let at = chrono::NaiveDate::from_ymd_opt(2026, 10, 19)
+            .unwrap()
+            .and_hms_opt(14, 5, 9)
+            .unwrap();
+        let read = |format: &str, japanese| {
+            clock(
+                &at,
+                &BarSettings {
+                    time_format: format.to_owned(),
+                    japanese,
+                },
+            )
+        };
+        assert_eq!(read("HH:mm", true), ("14:05".into(), "10月19日(月)".into()));
+        assert_eq!(
+            read("HH:mm:ss", false),
+            ("14:05:09".into(), "Mon 19 Oct".into())
+        );
+        assert_eq!(read("hh:mm AP", false).0, "02:05 PM");
+        assert_eq!(read("hh:mm AP", true).0, "午後02:05");
+        assert_eq!(read("something else", false).0, "14:05");
     }
 
     #[test]

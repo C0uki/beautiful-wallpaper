@@ -139,6 +139,13 @@ export const OVERRIDES: Record<string, Override> = {
       { value: "1", label: () => tr("On") },
     ],
   },
+  "time.format": {
+    choices: named([
+      ["HH:mm", "24-hour"],
+      ["HH:mm:ss", "24-hour, with seconds"],
+      ["hh:mm AP", "12-hour"],
+    ]),
+  },
   "background.wallpaperAnimation": {
     choices: plain([...TRANSITION_NAMES, "random"]),
   },
@@ -281,10 +288,7 @@ const LABELS: Record<string, string> = {
  *  say what it does. English, translated when drawn. */
 const HINTS: Record<string, string> = {
   "language.ui": "Automatic follows the language Windows is set to.",
-  "time.format":
-    "HH for hours, mm for minutes, ss for seconds. HH:mm shows 14:05.",
-  "time.dateFormat":
-    "ddd for the day's name, dd for the day, MM for the month.",
+  "time.format": "The date beside the clock follows the language.",
   "weather.city": "Empty finds where you are from your internet connection.",
   "weather.refreshInterval": "Seconds between updates.",
   "windows.startWithWindows": "Start the shell when you sign in.",

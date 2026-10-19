@@ -113,6 +113,7 @@ const RETIRED: &[&str] = &[
     "dock.height",
     "dock.showBackground",
     "notifications.width",
+    "time.dateFormat",
 ];
 
 fn collect_unknown(document: &Value, known: &Value, path: &str, into: &mut Vec<String>) {

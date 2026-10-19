@@ -74,6 +74,15 @@ thread_local! {
     static STATE: RefCell<State> = RefCell::new(State::default());
 }
 
+/// Recolours the banners already made, as the theme goes light or dark.
+pub(crate) fn repaint(light: bool) {
+    STATE.with(|state| {
+        for shown in &state.borrow().shown {
+            shown.window.global::<crate::Palette>().set_light(light);
+        }
+    });
+}
+
 /// Hands the banners the closing of one, on the native thread.
 pub(crate) fn set_act(act: Rc<dyn Fn(Action)>) {
     STATE.with(|state| state.borrow_mut().act = Some(act));
@@ -236,6 +245,9 @@ fn settle_new() {
 
 fn make_window() -> Result<Shown, slint::PlatformError> {
     let window = Toast::new()?;
+    window
+        .global::<crate::Palette>()
+        .set_light(crate::is_light());
     let weak = window.as_weak();
     window.on_close(move || {
         if let Some(window) = weak.upgrade() {

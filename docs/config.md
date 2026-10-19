@@ -627,13 +627,14 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 
 ## `time`
 
-Clock and date formats, and which day a week starts on.
+How the clock reads, and which day a week starts on.
 
-| Setting                   | Value        | Default        |
-| ------------------------- | ------------ | -------------- |
-| `time.format`             | text         | `"HH:mm"`      |
-| `time.dateFormat`         | text         | `"ddd, dd/MM"` |
-| `time.weekStartsOnMonday` | true / false | `true`         |
+| Setting                   | Value        | Default   |
+| ------------------------- | ------------ | --------- |
+| `time.format`             | text         | `"HH:mm"` |
+| `time.weekStartsOnMonday` | true / false | `true`    |
+
+- **`time.format`** — `HH:mm`, `HH:mm:ss` or `hh:mm AP`. The date beside it follows the shell's language.
 
 ## `wallpaperSelector`
 

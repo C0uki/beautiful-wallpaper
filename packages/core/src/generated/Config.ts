@@ -125,7 +125,7 @@ export type Config = {
    */
   sidebar: Sidebar;
   /**
-   * Clock and date formats, and which day a week starts on.
+   * How the clock reads, and which day a week starts on.
    */
   time: Time;
   /**
