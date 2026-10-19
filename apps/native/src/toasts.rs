@@ -24,10 +24,8 @@ pub struct ToastSettings {
     pub position: String,
     pub max_visible: u32,
     pub do_not_disturb: bool,
-    /// The bar's height in logical pixels, and whether it is along the bottom,
-    /// so the banners keep clear of it. Zero when there is no bar.
-    pub bar_height: f32,
-    pub bar_bottom: bool,
+    /// Whether the bar is along the top, so the banners keep clear of it.
+    pub bar: bool,
     /// Whether the shell's own notices are shown in Japanese.
     pub japanese: bool,
 }
@@ -399,7 +397,11 @@ fn place() {
             let size = shown.window.window().size();
             let (width, height) = (size.width as i32, size.height as i32);
             let margin = (8.0 * scale) as i32;
-            let bar = (settings.bar_height * scale) as i32;
+            let bar = if settings.bar {
+                (crate::HEIGHT * scale) as i32
+            } else {
+                0
+            };
             let x = if settings.position.ends_with("left") {
                 margin
             } else if settings.position.ends_with("center") {
@@ -408,23 +410,9 @@ fn place() {
                 screen_width - width - margin
             };
             let y = match (bottom, edge) {
-                (false, None) => {
-                    if settings.bar_bottom {
-                        margin
-                    } else {
-                        bar + margin
-                    }
-                }
+                (false, None) => bar + margin,
                 (false, Some(below)) => below + margin,
-                (true, None) => {
-                    screen_height
-                        - height
-                        - if settings.bar_bottom {
-                            bar + margin
-                        } else {
-                            margin
-                        }
-                }
+                (true, None) => screen_height - height - margin,
                 (true, Some(above)) => above - margin - height,
             };
             edge = Some(if bottom { y } else { y + height });

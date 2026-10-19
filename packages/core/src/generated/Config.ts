@@ -50,8 +50,8 @@ export type Config = {
    */
   background: Background;
   /**
-   * The strip along one edge of the screen: where it sits, how it looks,
-   * and what it carries.
+   * The strip along one edge of the screen: where it sits and when it
+   * hides.
    */
   bar: Bar;
   /**

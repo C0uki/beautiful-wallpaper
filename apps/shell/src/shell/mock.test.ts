@@ -14,16 +14,16 @@ describe("the mock backend", () => {
     const backend = mockBackend();
     const before = await backend.invoke<Config>(Command.GetConfig);
     const after = await backend.invoke<Config>(Command.SetConfigValue, {
-      path: "bar.style",
-      value: "islands",
+      path: "bar.frameColor",
+      value: "white",
     });
 
-    expect(after.bar.style).toBe("islands");
+    expect(after.bar.frameColor).toBe("white");
     // Identity matters as much as the value: the store selects object slices,
     // and a mutated-in-place config would never look changed to React.
     expect(after).not.toBe(before);
     expect(after.bar).not.toBe(before.bar);
-    expect(before.bar.style).toBe("m3");
+    expect(before.bar.frameColor).toBe("black");
   });
 
   it("emits the new config to listeners", async () => {
@@ -34,13 +34,13 @@ describe("the mock backend", () => {
     );
 
     await backend.invoke(Command.SetConfigValue, {
-      path: "bar.height",
+      path: "bar.frameThickness",
       value: 52,
     });
 
     // The first delivery is the current state on subscribe; the edit follows.
     await new Promise((resolve) => queueMicrotask(() => resolve(undefined)));
-    expect(seen.at(-1)?.bar.height).toBe(52);
+    expect(seen.at(-1)?.bar.frameThickness).toBe(52);
   });
 
   it("applying a wallpaper re-themes and reports the new path", async () => {
@@ -371,8 +371,8 @@ describe("the mock backend", () => {
   it("saving a preset takes the config as it is now", async () => {
     const backend = mockBackend();
     await backend.invoke(Command.SetConfigValue, {
-      path: "bar.style",
-      value: "islands",
+      path: "bar.frameColor",
+      value: "white",
     });
     const saved = await backend.invoke<PresetSummary[]>(Command.SavePreset, {
       name: "Mine",
@@ -420,16 +420,16 @@ describe("the mock backend", () => {
 
     const after = await backend.invoke<Config>(Command.ApplyPreset, {
       name: "Midnight",
-      paths: ["bar.style"],
+      paths: ["bar.frameColor"],
     });
-    expect(after.bar.style).toBe("float");
-    expect(after.bar.height, "an unticked change is not written").toBe(
-      before.bar.height,
+    expect(after.bar.frameColor).toBe("white");
+    expect(after.bar.frameThickness, "an unticked change is not written").toBe(
+      before.bar.frameThickness,
     );
 
     expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(true);
     const back = await backend.invoke<Config>(Command.UndoPreset);
-    expect(back.bar.style).toBe(before.bar.style);
+    expect(back.bar.frameColor).toBe(before.bar.frameColor);
     // Taken rather than kept: pressing undo twice must not redo.
     expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(false);
   });

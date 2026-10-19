@@ -308,7 +308,7 @@ mod tests {
                 .kind
         };
 
-        assert_eq!(kind("bar.height"), FieldKind::Integer);
+        assert_eq!(kind("bar.frameThickness"), FieldKind::Integer);
         assert_eq!(kind("appearance.roundingScale"), FieldKind::Decimal);
         assert_eq!(kind("sidebar.width"), FieldKind::Decimal);
     }
@@ -324,7 +324,7 @@ mod tests {
                 .kind
         };
 
-        assert_eq!(kind("bar.left"), FieldKind::TextList);
+        assert_eq!(kind("wallpaperSelector.extensions"), FieldKind::TextList);
         assert_eq!(kind("dock.pinnedApps"), FieldKind::TextList);
     }
 

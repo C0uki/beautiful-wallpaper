@@ -3,14 +3,9 @@
 export type Bar = {
   enable: boolean;
   /**
-   * Anchor the bar to the bottom edge instead of the top.
+   * Down the left edge instead of along the top.
    */
-  bottom: boolean;
   vertical: boolean;
-  /**
-   * A Mac's menu bar is 24 points; 30 leaves room for a pointer.
-   */
-  height: number;
   /**
    * Reserve screen space through `SHAppBarMessage` so maximised windows
    * keep clear of the bar.
@@ -28,8 +23,7 @@ export type Bar = {
    * Put a bar on every monitor rather than only the primary one.
    *
    * Each gets its own window along the same edge of its own screen, and
-   * reserves that edge on that monitor. The bars draw the same thing:
-   * nothing in `left`/`center`/`right` is per-monitor yet.
+   * reserves that edge on that monitor. The bars draw the same thing.
    */
   perMonitor: boolean;
   /**
@@ -38,13 +32,6 @@ export type Bar = {
    * unreachable.
    */
   hoverRegionHeight: number;
-  /**
-   * `"hug"` | `"float"` | `"islands"` | `"m3"`
-   */
-  style: string;
-  left: Array<string>;
-  center: Array<string>;
-  right: Array<string>;
   /**
    * Draw a thin border around the whole screen.
    */

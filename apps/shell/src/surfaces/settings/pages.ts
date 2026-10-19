@@ -93,7 +93,7 @@ export const PAGES: SettingsPage[] = [
     tint: "#5856d6",
     group: "shell",
     title: () => tr("Bar"),
-    summary: () => tr("Where the bar sits, how it looks, and what it carries"),
+    summary: () => tr("Where the bar sits and when it hides"),
     paths: ["bar"],
   },
   {

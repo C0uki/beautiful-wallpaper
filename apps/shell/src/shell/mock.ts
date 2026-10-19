@@ -242,20 +242,12 @@ export function mockBackend(): Backend {
    * full-screen. */
   const screenChrome = (): ScreenChrome => {
     const bar = config.bar;
-    const hugging = bar.enable && bar.style === "hug";
-    const centreOnly = !bar.left.length && !bar.right.length;
-    const barEdge: Edge = bar.vertical
-      ? bar.bottom
-        ? "right"
-        : "left"
-      : bar.bottom
-        ? "bottom"
-        : "top";
+    const barEdge: Edge = bar.vertical ? "left" : "top";
 
     return {
       frameEdges: bar.showFrame
         ? (["top", "bottom", "left", "right"] as Edge[]).filter(
-            (edge) => !hugging || edge !== barEdge || centreOnly,
+            (edge) => !bar.enable || edge !== barEdge,
           )
         : [],
       frameThickness: bar.frameThickness,
@@ -325,7 +317,7 @@ export function mockBackend(): Backend {
     {
       summary: {
         name: "Midnight",
-        description: "dark, floating bar, no frame",
+        description: "dark, with a white frame",
         created: "2026-08-11T22:14:00+09:00",
         wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[1]!.name}`,
         problem: null,
@@ -333,10 +325,9 @@ export function mockBackend(): Backend {
       config: presetConfig((draft) => {
         draft.appearance.roundingScale = 1.4;
         draft.appearance.transparency.extra = 0.15;
-        draft.bar.style = "float";
-        draft.bar.height = 44;
         draft.bar.showFrame = true;
-        draft.bar.left = ["media", "clock"];
+        draft.bar.frameColor = "white";
+        draft.bar.frameThickness = 8;
         draft.dock.enable = true;
         draft.sidebar.width = 0.3;
         draft.notifications.timeout = 4000;
@@ -347,15 +338,14 @@ export function mockBackend(): Backend {
     {
       summary: {
         name: "Daylight",
-        description: "light, bar at the bottom",
+        description: "light, bar down the left",
         created: "2026-07-03T09:02:00+09:00",
         wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`,
         problem: null,
       },
       config: presetConfig((draft) => {
         draft.appearance.palette.mode = "light";
-        draft.bar.bottom = true;
-        draft.bar.height = 36;
+        draft.bar.vertical = true;
         draft.dock.enable = true;
         draft.background.wallpaperPath = `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`;
       }),
