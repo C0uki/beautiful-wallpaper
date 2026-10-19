@@ -6,9 +6,9 @@
 //! window itself, and everything outside the region is neither drawn nor
 //! hit-tested — a click there lands on whatever is underneath.
 //!
-//! That is what makes the hot corners possible without four separate windows.
-//! One window covers the screen; its region is the union of the corner strips;
-//! the rest of the desktop carries on as if the window were not there.
+//! One window covers the screen; its region is the union of the patches that
+//! take the pointer; the rest of the desktop carries on as if the window were
+//! not there.
 //!
 //! The ownership rule is the trap. **On success the system takes the region
 //! handle**, and deleting it afterwards frees memory the window manager is

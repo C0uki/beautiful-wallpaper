@@ -34,13 +34,12 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
     GetMessageW, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsWindowVisible, IsZoomed, PostThreadMessageW,
-    RegisterWindowMessageW, SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW,
-    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST,
-    HWND_TOPMOST, MSG, SIZE_MAXIMIZED, SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE,
-    WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT,
-    WM_SIZE, WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    GetWindowThreadProcessId, IsZoomed, PostThreadMessageW, RegisterWindowMessageW,
+    SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
+    SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
+    WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -202,28 +201,15 @@ unsafe extern "system" fn keep_tool_window(
 
 const EDGE_WINDOW: usize = 0x6277_6577; // "bwew"
 
-/// The hot corners' window, once it exists.
-static HOT_CORNERS: AtomicIsize = AtomicIsize::new(0);
-
 /// What to do when Explorer comes back: see [`watch_edge_window`].
 static TASKBAR_CREATED: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> =
     std::sync::OnceLock::new();
-
-/// Names the hot corners' window, for [`watch_edge_window`] to keep others under.
-pub fn set_hot_corners(hwnd: HWND) {
-    HOT_CORNERS.store(hwnd.0 as isize, Ordering::Relaxed);
-}
 
 /// Looks after a window that runs along an edge of the screen: the bar or the
 /// dock.
 ///
 /// Two things happen to those that nothing else would notice:
 ///
-///   * a click raises them — WebView2 brings its window to the front even when
-///     it cannot be activated — over the hot corners, whose strips they cover.
-///     A bar clicked once left the top corners dead until the shell
-///     restarted. Every change of their place in the z-order is redirected to
-///     just under the hot corners, which is the one point all of them pass.
 ///   * Explorer restarting forgets every app bar, so the edge the bar held was
 ///     given back while the bar went on sitting in it. Explorer announces
 ///     itself with `TaskbarCreated`, sent to every top-level window, and
@@ -232,9 +218,6 @@ pub fn set_hot_corners(hwnd: HWND) {
 ///     surfaces were placed against. Windows says so with `WM_DISPLAYCHANGE`,
 ///     also sent to every top-level window, and the same callback runs: it is
 ///     the same work, putting everything back where the screens now are.
-///   * Windows maximizing one, which it does by itself to the hot corners'
-///     window — watched here too — and which leaves their strips off the
-///     screen. The same callback runs.
 ///
 /// # Safety
 /// `hwnd` must be a live top-level window owned by this process.
@@ -320,25 +303,7 @@ unsafe extern "system" fn edge_window(
         return DefSubclassProc(hwnd, msg, wparam, lparam);
     }
 
-    if msg == WM_WINDOWPOSCHANGING {
-        let position = lparam.0 as *mut WINDOWPOS;
-        let corners = HWND(HOT_CORNERS.load(Ordering::Relaxed) as _);
-        if !position.is_null()
-            && (*position).flags.0 & SWP_NOZORDER.0 == 0
-            && !corners.0.is_null()
-            && corners != hwnd
-            && IsWindowVisible(corners).as_bool()
-        {
-            (*position).hwndInsertAfter = corners;
-        }
-    }
-
-    // Windows maximizes a window the size of the screen by itself — the hot
-    // corners were found that way after a monitor came back — and a maximized
-    // window hangs 8px off every edge, which took the corners' strips off the
-    // top of the screen. Putting it back is the same pass.
-    let maximized = msg == WM_SIZE && wparam.0 == SIZE_MAXIMIZED as usize;
-    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE || maximized {
+    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE {
         if let Some(callback) = TASKBAR_CREATED.get() {
             callback();
         }

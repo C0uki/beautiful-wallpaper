@@ -19,8 +19,4 @@ export type ScreenChrome = {
    * A palette role name or a CSS colour, passed through untouched.
    */
   frameColor: string;
-  /**
-   * Whether the corners should be listening for the pointer.
-   */
-  hotCornersActive: boolean;
 };

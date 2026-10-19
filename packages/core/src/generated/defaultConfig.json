@@ -286,16 +286,6 @@
         "allowAdult": false,
         "perPage": 30
       }
-    },
-    "cornerOpen": {
-      "enable": true,
-      "valueScroll": true,
-      "clickless": false,
-      "cornerRegionWidth": 250,
-      "cornerRegionHeight": 5,
-      "visualize": false,
-      "topLeftAction": "sidebarLeftOpen",
-      "topRightAction": "sidebarRightOpen"
     }
   },
   "time": {

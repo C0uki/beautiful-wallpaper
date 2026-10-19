@@ -87,7 +87,7 @@ and the six IPC targets that still mean the same thing.
   down, or quit just the shell — **the desktop menu, the drop shelf and a
   floating overlay** with a crosshair.
 - **The screen's own decorations**: rounded corners and a frame drawn over the
-  display, and hot corners that open a panel or run an action.
+  display.
 - **A settings screen** whose form is generated from the config schema, so a new
   setting has a control the moment it exists.
 - **Presets** — whole configurations saved by name, and a first-run screen that

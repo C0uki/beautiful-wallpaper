@@ -121,9 +121,7 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     let menu_changed = config.hacks.desktop_menu != previous.hacks.desktop_menu
         || config.desktop_menu.enable != previous.desktop_menu.enable;
     let overlay_changed = config.overlay != previous.overlay;
-    let chrome_changed = config.sidebar.corner_open != previous.sidebar.corner_open
-        || config.appearance != previous.appearance
-        || config.bar != previous.bar;
+    let chrome_changed = config.appearance != previous.appearance || config.bar != previous.bar;
     let windows_changed = config.windows != previous.windows;
     // The taskbar setting decides how much of the edge is left for the bar.
     let bar_moved = config.bar != previous.bar || windows_changed;
@@ -154,10 +152,7 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         crate::services::deskmenu::apply(app);
     }
 
-    // The hot corners' region is a property of their window, so a resized
-    // strip needs re-cutting rather than just a repaint.
     if chrome_changed {
-        crate::services::chrome::apply(app);
         crate::services::chrome::emit(app);
     }
 

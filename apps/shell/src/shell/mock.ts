@@ -8,7 +8,6 @@ import {
   Command,
   Event,
   defaultStates,
-  isStateFlag,
   type BatteryState,
   type Config,
   type Entry,
@@ -50,7 +49,6 @@ import {
   type KeyStatus,
   type DropOutcome,
   type ScreenChrome,
-  type HotCorner,
   type Edge,
   type OverlayLayout,
   type OverlayWidget,
@@ -263,7 +261,6 @@ export function mockBackend(): Backend {
         : [],
       frameThickness: bar.frameThickness,
       frameColor: bar.frameColor,
-      hotCornersActive: config.sidebar.cornerOpen.enable,
     };
   };
 
@@ -1305,59 +1302,6 @@ export function mockBackend(): Backend {
 
         case Command.GetScreenChrome:
           return screenChrome() as T;
-
-        case Command.GetHotCorners: {
-          const corner = config.sidebar.cornerOpen;
-          if (!corner.enable) return [] as HotCorner[] as T;
-          const screen = {
-            width: window.innerWidth,
-            height: window.innerHeight,
-          };
-          const width = Math.min(corner.cornerRegionWidth, screen.width >> 1);
-          const height = Math.min(
-            corner.cornerRegionHeight,
-            screen.height >> 1,
-          );
-
-          const made: HotCorner[] = [
-            {
-              corner: "topLeft" as const,
-              x: 0,
-              y: 0,
-              action: corner.topLeftAction,
-            },
-            {
-              corner: "topRight" as const,
-              x: screen.width - width,
-              y: 0,
-              action: corner.topRightAction,
-            },
-          ]
-            .filter((made) => made.action.trim().length > 0)
-            .map((made) => ({
-              corner: made.corner,
-              rect: { x: made.x, y: made.y, width, height },
-              action: made.action,
-            }));
-          return made as T;
-        }
-
-        case Command.RunHotCorner: {
-          const corner = String(args["corner"] ?? "");
-          const open = config.sidebar.cornerOpen;
-          const flag =
-            corner === "topLeft" ? open.topLeftAction : open.topRightAction;
-          if (isStateFlag(flag)) {
-            states[flag] = !states[flag];
-            emit(Event.StateChanged, states);
-          }
-          return undefined as T;
-        }
-
-        case Command.ScrollHotCorner:
-          // Brightness and volume are both faked here already; a corner
-          // scroll is the same call by another route.
-          return undefined as T;
 
         // The rules that matter are in `bw-core::overlay` under tests; this
         // mirrors their shape so the harness can draw the canvas.

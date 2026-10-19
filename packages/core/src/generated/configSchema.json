@@ -1365,62 +1365,6 @@
     "kind": "integer"
   },
   {
-    "path": "sidebar.cornerOpen.enable",
-    "section": "sidebar",
-    "label": "Enable",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.valueScroll",
-    "section": "sidebar",
-    "label": "Value scroll",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.clickless",
-    "section": "sidebar",
-    "label": "Clickless",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.cornerRegionWidth",
-    "section": "sidebar",
-    "label": "Corner region width",
-    "group": "Corner open",
-    "kind": "integer"
-  },
-  {
-    "path": "sidebar.cornerOpen.cornerRegionHeight",
-    "section": "sidebar",
-    "label": "Corner region height",
-    "group": "Corner open",
-    "kind": "integer"
-  },
-  {
-    "path": "sidebar.cornerOpen.visualize",
-    "section": "sidebar",
-    "label": "Visualize",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.topLeftAction",
-    "section": "sidebar",
-    "label": "Top left action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
-    "path": "sidebar.cornerOpen.topRightAction",
-    "section": "sidebar",
-    "label": "Top right action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
     "path": "time.format",
     "section": "time",
     "label": "Format",

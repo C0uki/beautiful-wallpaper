@@ -13,7 +13,7 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
@@ -182,9 +182,6 @@ fn main() {
             commands::reveal_shelf_item,
             commands::drag_from_shelf,
             commands::get_screen_chrome,
-            commands::get_hot_corners,
-            commands::run_hot_corner,
-            commands::scroll_hot_corner,
             commands::get_overlay_layout,
             commands::get_crosshair,
             commands::toggle_overlay_widget,
@@ -240,7 +237,6 @@ fn main() {
             app.manage(CaptureHandle::default());
             app.manage(DesktopMenuHandle::default());
             app.manage(ShelfStore::default());
-            app.manage(ChromeState::default());
             app.manage(PresetUndo::default());
             app.manage(KeyReport::default());
             app.manage(services::integration::Integration::default());
@@ -417,10 +413,6 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
     // keep their order — each still runs behind the surfaces it reaches for,
     // and behind each other — but the loop gets to breathe between them.
 
-    // The hot corners need their window before they can be cut down to size.
-    let each = handle.clone();
-    later(&handle, move || services::chrome::apply(&each));
-
     // So the first click has somewhere to go.
     let each = handle.clone();
     later(&handle, move || services::deskmenu::apply(&each));
@@ -499,18 +491,7 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
             let active = bw_shell::providers::active_window();
-            let fullscreen = active.fullscreen;
             commands::emit_reading(&app, event::ACTIVE_WINDOW, active);
-
-            // Whether anything is full-screen comes free with the foreground
-            // window, and only matters when it changes: the decorations would
-            // otherwise be told the same thing every second for hours.
-            if let Some(chrome) = app.try_state::<ChromeState>() {
-                if chrome.set_fullscreen(fullscreen) {
-                    services::chrome::emit(&app);
-                    services::chrome::apply(&app);
-                }
-            }
 
             // Rides this timer rather than one of its own: it reads the same
             // kind of window state, and a desktop that has stopped taking
