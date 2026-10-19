@@ -171,6 +171,16 @@ fn redraw() {
     slint::Timer::single_shot(Duration::ZERO, place);
 }
 
+/// The dock's size in physical pixels: what its content wants, not what its
+/// window last was — a hidden window keeps the size it had until it is shown.
+fn wanted(window: &Dock) -> (i32, i32) {
+    let scale = window.window().scale_factor();
+    (
+        (window.get_wanted_width() * scale).ceil() as i32,
+        (window.get_wanted_height() * scale).ceil() as i32,
+    )
+}
+
 /// Centred along the bottom, 8 pixels up.
 fn place() {
     STATE.with(|state| {
@@ -178,9 +188,13 @@ fn place() {
         let Some(window) = &state.window else { return };
         let (screen_width, screen_height) = screen_size();
         let scale = window.window().scale_factor();
-        let size = window.window().size();
-        let x = (screen_width - size.width as i32) / 2;
-        let y = screen_height - size.height as i32 - (8.0 * scale) as i32;
+        let (width, height) = wanted(window);
+        let x = (screen_width - width) / 2;
+        let y = screen_height - height - (8.0 * scale) as i32;
+        window.window().set_size(slint::PhysicalSize::new(
+            width.max(1) as u32,
+            height.max(1) as u32,
+        ));
         window
             .window()
             .set_position(slint::PhysicalPosition::new(x, y));
@@ -233,18 +247,14 @@ fn look_for_pointer() {
         let Some(window) = &state.window else {
             return (false, (0, 0), 0);
         };
-        let size = window.window().size();
+        let (width, _) = wanted(window);
         let (screen_width, screen_height) = screen_size();
-        let x = (screen_width - size.width as i32) / 2;
+        let x = (screen_width - width) / 2;
         let strip = state
             .settings
             .as_ref()
             .map_or(3, |settings| settings.hover_region_height.max(1) as i32);
-        (
-            !state.revealed,
-            (x, x + size.width as i32),
-            screen_height - strip,
-        )
+        (!state.revealed, (x, x + width), screen_height - strip)
     });
     if !hidden {
         return;
