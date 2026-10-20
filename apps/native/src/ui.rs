@@ -558,7 +558,7 @@ slint::slint! {
         in property <string> body;
         // "+2 more", or empty.
         in property <string> more;
-        callback close();
+        callback dismiss();
         // The pointer went down, moved while down, or came up: the window is
         // dragged by where the pointer is on the screen, which Rust reads, since
         // a position inside the window moves with it.
@@ -665,7 +665,7 @@ slint::slint! {
             }
             close-area := TouchArea {
                 clicked => {
-                    root.close();
+                    root.dismiss();
                 }
             }
         }
