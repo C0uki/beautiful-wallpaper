@@ -1,7 +1,7 @@
 import type { GeneratedTheme } from "@bw/core";
 import { describe, expect, it } from "vitest";
 import { autoBackgroundTransparency, camelCase, deriveTokens } from "./derive";
-import { cssVariables, cssVariablesText } from "./css";
+import { cssVariables } from "./css";
 
 function theme(overrides: Partial<GeneratedTheme> = {}): GeneratedTheme {
   return {
@@ -175,12 +175,5 @@ describe("cssVariables", () => {
     expect(variables["--ease-spatial-default"]).toContain("cubic-bezier");
     expect(variables["--duration-wallpaper"]).toBe("1200ms");
     expect(variables["--rounding-normal"]).toBe("16px");
-  });
-
-  it("renders as a stylesheet", () => {
-    const text = cssVariablesText(deriveTokens(theme()));
-    expect(text.startsWith(":root {")).toBe(true);
-    expect(text).toContain("--m3-primary: #d0bcff;");
-    expect(text.trimEnd().endsWith("}")).toBe(true);
   });
 });

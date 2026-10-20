@@ -16,9 +16,6 @@ export default defineConfig({
       "@bw/core": fileURLToPath(
         new URL("../../packages/core/src/index.ts", import.meta.url),
       ),
-      "@bw/tokens": fileURLToPath(
-        new URL("../../packages/tokens/src/index.ts", import.meta.url),
-      ),
     },
   },
   server: { port: 5173, strictPort: true },

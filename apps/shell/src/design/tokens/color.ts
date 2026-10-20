@@ -99,38 +99,6 @@ export function applyAlpha(color: string, alpha: number): string {
   return formatColor({ ...parseColor(color), a: clamp(alpha) });
 }
 
-/** Relative luminance, per WCAG. */
-export function luminance(color: string): number {
-  const { r, g, b } = parseColor(color);
-  const linear = (channel: number) =>
-    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
-}
-
-export function isDark(color: string): boolean {
-  return luminance(color) < 0.5;
-}
-
-/** Contrast ratio between two opaque colours, 1..21. */
-export function contrastRatio(a: string, b: string): number {
-  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [
-    number,
-    number,
-  ];
-  return (high + 0.05) / (low + 0.05);
-}
-
-/** Picks whichever of `light`/`dark` reads better on `background`. */
-export function readableOn(
-  background: string,
-  light: string,
-  dark: string,
-): string {
-  return contrastRatio(background, light) >= contrastRatio(background, dark)
-    ? light
-    : dark;
-}
-
 /** HSL lightness, matching QML's `color.hslLightness`. */
 export function hslLightness(color: string): number {
   const { r, g, b } = parseColor(color);
@@ -177,18 +145,5 @@ export function solveOverlayColor(
     g: solve(want.g, under.g),
     b: solve(want.b, under.b),
     a: alpha,
-  });
-}
-
-/** Composites `over` onto `under`, the operation `solveOverlayColor` inverts. */
-export function composite(under: string, over: string): string {
-  const below = parseColor(under);
-  const above = parseColor(over);
-  const alpha = clamp(above.a);
-  return formatColor({
-    r: above.r * alpha + below.r * (1 - alpha),
-    g: above.g * alpha + below.g * (1 - alpha),
-    b: above.b * alpha + below.b * (1 - alpha),
-    a: 1,
   });
 }

@@ -203,7 +203,6 @@ crates/bw-core/          config schema, Material 3 pipeline, wallpaper indexing
 apps/shell/src-tauri/    the Windows half: layering, providers, IPC, commands
 apps/shell/src/          the surfaces (React), the widget kit, the mock backend
 packages/core/           the Rust↔TS contract, generated from the Rust types
-packages/tokens/         the derived token layer — Appearance.qml, in TypeScript
 ```
 
 Run `pnpm gen:types` after changing anything in `crates/bw-core`: the TypeScript

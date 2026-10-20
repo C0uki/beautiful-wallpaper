@@ -83,14 +83,3 @@ export function applyCssVariables(
   target.dataset["mode"] = tokens.mode;
   target.style.colorScheme = tokens.mode;
 }
-
-/** The same variables as a stylesheet, for server-side or static rendering. */
-export function cssVariablesText(
-  tokens: DerivedTokens,
-  selector = ":root",
-): string {
-  const body = Object.entries(cssVariables(tokens))
-    .map(([name, value]) => `  ${name}: ${value};`)
-    .join("\n");
-  return `${selector} {\n${body}\n}\n`;
-}

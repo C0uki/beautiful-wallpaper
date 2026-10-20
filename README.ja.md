@@ -200,7 +200,6 @@ crates/bw-core/          設定スキーマ、Material 3 パイプライン、�
 apps/shell/src-tauri/    Windows 側: レイヤリング、プロバイダ、IPC、コマンド
 apps/shell/src/          各サーフェス (React)、ウィジェットキット、モック
 packages/core/           Rust↔TS の契約。Rust の型から生成
-packages/tokens/         派生トークン層 — Appearance.qml の TypeScript 版
 ```
 
 `crates/bw-core` を変更したら `pnpm gen:types` を実行してください。TypeScript の

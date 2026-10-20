@@ -5,7 +5,7 @@
 // in turn.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { shape } from "@bw/tokens";
+import { shape } from "../../design/tokens";
 
 export interface HoverPopupProps {
   content: ReactNode;

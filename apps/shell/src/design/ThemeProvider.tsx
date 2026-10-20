@@ -7,7 +7,7 @@ import {
   applyCssVariables,
   deriveTokens,
   type DerivedTokens,
-} from "@bw/tokens";
+} from "./tokens";
 import {
   Fragment,
   createContext,
