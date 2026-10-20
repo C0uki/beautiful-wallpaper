@@ -36,6 +36,7 @@ beautiful-wallpaper — a macOS-style desktop shell for Windows
   bw preset remove <name>                delete one
   bw taskbar show|hide                   the stock Windows taskbar
   bw autostart on|off|status             start the shell at login
+  bw installer installed|uninstalling    what the installer runs
   bw quit                                stop the running shell
   bw --help                              this message
 ";
@@ -64,6 +65,32 @@ pub fn run(arguments: &[String]) -> Option<i32> {
             Ok(()) => 0,
             Err(error) => {
                 eprintln!("{error}");
+                1
+            }
+        },
+        // Run by `installer.nsh`, around putting the files in place and taking
+        // them away: what a shell sets up and cleans up that an application
+        // does not.
+        Some("installer") => match arguments.get(1).map(String::as_str) {
+            #[cfg(windows)]
+            Some("installed") => match crate::platform::installer::installed() {
+                Ok(()) => 0,
+                Err(error) => {
+                    eprintln!("{error}");
+                    1
+                }
+            },
+            #[cfg(windows)]
+            Some("uninstalling") => {
+                let quiet = arguments.iter().any(|argument| argument == "--quiet");
+                crate::platform::installer::uninstalling(quiet);
+                0
+            }
+            other => {
+                eprintln!(
+                    "`{}` is not installed or uninstalling",
+                    other.unwrap_or_default()
+                );
                 1
             }
         },
