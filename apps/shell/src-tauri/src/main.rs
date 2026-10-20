@@ -635,6 +635,31 @@ fn native_pressed(app: &AppHandle, action: bw_native::Action) {
                 commands::rebuild_dock(app);
             }
         }
+        bw_native::Action::DockDrop(dock_app, files) => {
+            // Only ever a program that is really there, whatever the dock
+            // says, and off this thread: starting one can take a moment.
+            let program = dock_app["executable"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            let path = std::path::Path::new(&program);
+            let runnable = path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"));
+            if !runnable {
+                tracing::warn!(%program, "files were dropped on something that is not a program");
+                return;
+            }
+            #[cfg(windows)]
+            std::thread::spawn(move || {
+                if let Err(error) = bw_shell::platform::launch::open_with(&program, &files) {
+                    tracing::warn!(%error, "could not open the files dropped on the dock");
+                }
+            });
+            #[cfg(not(windows))]
+            let _ = files;
+        }
     }
 }
 
