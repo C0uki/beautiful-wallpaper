@@ -23,6 +23,8 @@ pub mod dragout;
 #[cfg(windows)]
 pub mod identity;
 #[cfg(windows)]
+pub mod installer;
+#[cfg(windows)]
 pub mod launch;
 #[cfg(windows)]
 pub mod loopback;

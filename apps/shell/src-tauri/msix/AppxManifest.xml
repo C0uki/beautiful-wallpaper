@@ -12,7 +12,7 @@
   Two values here are not this repository's to fill in:
 
   * `Publisher` must match the subject of the certificate the package is signed
-    with, exactly, or Windows refuses the package. `build.ps1` rewrites it from
+    with, exactly, or Windows refuses the package. `build.ts` rewrites it from
     the certificate it is given.
   * `Version` must be four parts, and its revision must be 0 for a package
     Windows will accept from a file.

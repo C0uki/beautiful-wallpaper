@@ -52,11 +52,11 @@ const results = await page.evaluate(async (module) => {
   if (!gl) return { error: "no WebGL" };
 
   // Two pictures that differ everywhere, with detail for a shader to move.
-  const picture = (hue, word) => {
+  const picture = (hue: number, word: string) => {
     const c = document.createElement("canvas");
     c.width = 400;
     c.height = 300;
-    const g = c.getContext("2d");
+    const g = c.getContext("2d")!;
     const fill = g.createLinearGradient(0, 0, 400, 300);
     fill.addColorStop(0, `hsl(${hue},80%,30%)`);
     fill.addColorStop(1, `hsl(${hue + 40},80%,70%)`);
@@ -83,31 +83,31 @@ const results = await page.evaluate(async (module) => {
     gl.STATIC_DRAW,
   );
 
-  const build = (fragment) => {
-    const stage = (type, text) => {
-      const shader = gl.createShader(type);
+  const build = (fragment: string) => {
+    const stage = (type: number, text: string) => {
+      const shader = gl.createShader(type)!;
       gl.shaderSource(shader, text);
       gl.compileShader(shader);
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-        throw new Error(gl.getShaderInfoLog(shader));
+        throw new Error(gl.getShaderInfoLog(shader) ?? "");
       return shader;
     };
-    const program = gl.createProgram();
+    const program = gl.createProgram()!;
     gl.attachShader(program, stage(gl.VERTEX_SHADER, VERTEX_SHADER));
     gl.attachShader(program, stage(gl.FRAGMENT_SHADER, fragment));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-      throw new Error(gl.getProgramInfoLog(program));
+      throw new Error(gl.getProgramInfoLog(program) ?? "");
     return program;
   };
 
-  const draw = (program, progress, seed) => {
+  const draw = (program: WebGLProgram, progress: number, seed: number) => {
     gl.viewport(0, 0, W, H);
     gl.useProgram(program);
     const position = gl.getAttribLocation(program, "aPosition");
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-    const at = (name) => gl.getUniformLocation(program, name);
+    const at = (name: string) => gl.getUniformLocation(program, name);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, from);
     gl.uniform1i(at("uFrom"), 0);
@@ -126,18 +126,18 @@ const results = await page.evaluate(async (module) => {
   };
 
   // Pixels more than a rounding error away from the reference, or not opaque.
-  const wrong = (pixels, reference) => {
+  const wrong = (pixels: Uint8Array, reference: Uint8Array) => {
     let count = 0;
     for (let i = 0; i < pixels.length; i += 4) {
       const off =
-        Math.abs(pixels[i] - reference[i]) > 2 ||
-        Math.abs(pixels[i + 1] - reference[i + 1]) > 2 ||
-        Math.abs(pixels[i + 2] - reference[i + 2]) > 2;
+        Math.abs(pixels[i]! - reference[i]!) > 2 ||
+        Math.abs(pixels[i + 1]! - reference[i + 1]!) > 2 ||
+        Math.abs(pixels[i + 2]! - reference[i + 2]!) > 2;
       if (off || pixels[i + 3] !== 255) count++;
     }
     return count;
   };
-  const translucent = (pixels) => {
+  const translucent = (pixels: Uint8Array) => {
     let count = 0;
     for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 255) count++;
     return count;
@@ -146,13 +146,13 @@ const results = await page.evaluate(async (module) => {
   // The plain crossfade is the reference: at its ends it is the two
   // pictures and nothing else.
   const fade = build(fragmentShaderFor("fade"));
-  const problems = [];
+  const problems: string[] = [];
   for (const name of TRANSITION_NAMES) {
     let program;
     try {
       program = build(fragmentShaderFor(name));
     } catch (error) {
-      problems.push(`${name}: does not compile: ${error.message}`);
+      problems.push(`${name}: does not compile: ${(error as Error).message}`);
       continue;
     }
     // A few seeds, since several shaders place things by them.
@@ -175,7 +175,7 @@ await browser.close();
 if (results.error) {
   console.error(results.error);
   process.exitCode = 1;
-} else if (results.problems.length) {
+} else if (results.problems?.length) {
   console.error("Transitions that break their promise:");
   for (const problem of results.problems) console.error(`  ${problem}`);
   process.exitCode = 1;

@@ -251,7 +251,7 @@ fn make_window() -> Result<Shown, slint::PlatformError> {
         .global::<crate::Palette>()
         .set_light(crate::is_light());
     let weak = window.as_weak();
-    window.on_close(move || {
+    window.on_dismiss(move || {
         if let Some(window) = weak.upgrade() {
             dismiss(&window);
         }

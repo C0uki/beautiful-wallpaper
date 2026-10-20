@@ -627,7 +627,7 @@ registered with the folder the shell is already installed in.
   one.** Windows refuses an unsigned package and one signed by a certificate it
   does not trust, and trusting a root certificate is a much larger permission
   than "run this package" — it can vouch for anything. So the repository ships
-  no certificate, `build.ps1` takes one you already have, and `docs/msix.md`
+  no certificate, `build.ts` takes one you already have, and `docs/msix.md`
   says plainly what installing one means. The setting stays off by default.
 - **Every way this can fail gets its own sentence.** Four states rather than a
   boolean: no package identity yet, a Windows too old to have the listener,
