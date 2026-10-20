@@ -15,7 +15,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, type Browser, type Page } from "@playwright/test";
 
 // Some environments ship a Chromium that does not match the build Playwright
 // expects. Point at it explicitly rather than downloading a second copy.
@@ -107,7 +107,7 @@ async function startPreview() {
 }
 
 /** Waits for the surface to have painted its theme and its wallpaper. */
-async function settle(page) {
+async function settle(page: Page) {
   await page.waitForFunction(() => {
     const value = getComputedStyle(document.documentElement).getPropertyValue(
       "--m3-primary",
@@ -118,7 +118,14 @@ async function settle(page) {
   await page.waitForTimeout(1600);
 }
 
-const SHOTS = [
+interface Shot {
+  name: string;
+  url: string;
+  viewport?: { width: number; height: number };
+  setup?: (page: Page) => Promise<unknown>;
+}
+
+const SHOTS: Shot[] = [
   {
     name: "01-desktop",
     url: "/index.html",
@@ -494,7 +501,7 @@ const SHOTS = [
 ];
 
 /** Right-clicks the desktop pane at a point and waits for the menu. */
-async function openDesktopMenu(page, x, y) {
+async function openDesktopMenu(page: Page, x: number, y: number) {
   // Moved before clicking: the mock reads the pointer the way the shell reads
   // `GetCursorPos`, which means it has to have seen it move.
   await page.mouse.move(x, y);
@@ -503,20 +510,20 @@ async function openDesktopMenu(page, x, y) {
 }
 
 /** Draws a selection around the mock screen's text and lets go. */
-async function dragRegion(page) {
+async function dragRegion(page: Page) {
   await page.mouse.move(140, 225);
   await page.mouse.down();
   await page.mouse.move(770, 320, { steps: 8 });
   await page.mouse.up();
 }
 
-async function selectView(page, label) {
+async function selectView(page: Page, label: string) {
   // The harness picks its view with a segmented control: radios.
   await page.getByRole("radio", { name: label }).click();
 }
 
 /** A small JPEG of the same view, sized to be committed alongside the READMEs. */
-async function captureForDocs(browser, shot) {
+async function captureForDocs(browser: Browser, shot: Shot) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,
@@ -544,7 +551,7 @@ async function main() {
 
   const server = await startPreview();
   const browser = await chromium.launch(launchOptions);
-  const failures = [];
+  const failures: string[] = [];
 
   try {
     for (const shot of SHOTS) {
@@ -555,7 +562,7 @@ async function main() {
       });
       const page = await context.newPage();
 
-      const consoleErrors = [];
+      const consoleErrors: string[] = [];
       page.on("console", (message) => {
         if (message.type() === "error") consoleErrors.push(message.text());
       });

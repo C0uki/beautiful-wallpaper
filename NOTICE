@@ -17,7 +17,7 @@ apps/shell/src/widgets/icons.gen.ts
 The shell's icons are Lucide's, at version 1.46.0
 (https://github.com/lucide-icons/lucide). Only the icons listed in
 apps/shell/scripts/icons.json are included, and of each only what is inside
-its <svg> element; see apps/shell/scripts/gen_icons.mjs, which `pnpm gen:icons`
+its <svg> element; see apps/shell/scripts/gen_icons.ts, which `pnpm gen:icons`
 runs. No other change was made. Lucide's licence, which covers the icons
 derived from Feather under the MIT licence as well, follows in full.
 

@@ -42,10 +42,10 @@ setting off — the shell's own notifications work either way.
 
 ## Building it
 
-From `apps/shell/src-tauri/msix`, with the Windows SDK available:
+From `apps/shell/src-tauri/msix`, with the Windows SDK and Node 22 available:
 
 ```powershell
-.\build.ps1 -Certificate .\mine.pfx -Password (Read-Host -AsSecureString)
+node build.ts --certificate .\mine.pfx --password <the .pfx password>
 ```
 
 The script writes the certificate's subject into the manifest's `Publisher`
