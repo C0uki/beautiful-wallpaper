@@ -30,14 +30,16 @@ uniform vec2 uResolution;
 uniform float uSeed;
 
 // Both images are drawn with "cover" framing, so a 4:3 wallpaper on a 16:9
-// screen crops rather than stretches.
+// screen crops rather than stretches. The scale is the part of the image that
+// shows, so it multiplies: dividing by it squeezed the image along one axis
+// and smeared its edge row across the rest of the screen.
 vec2 coverUv(vec2 uv, vec2 imageSize) {
   float screenAspect = uResolution.x / uResolution.y;
   float imageAspect = imageSize.x / max(imageSize.y, 1.0);
   vec2 scale = screenAspect > imageAspect
     ? vec2(1.0, imageAspect / screenAspect)
     : vec2(screenAspect / imageAspect, 1.0);
-  return (uv - 0.5) / scale + 0.5;
+  return (uv - 0.5) * scale + 0.5;
 }
 
 uniform vec2 uFromSize;

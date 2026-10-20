@@ -46,7 +46,7 @@
     "wallpaperAnimation": "circle",
     "transitionDuration": 1200,
     "parallax": {
-      "enable": true,
+      "enable": false,
       "zoom": 1.07,
       "workspacePan": 0.6
     },

@@ -314,7 +314,9 @@ export function WallpaperCanvas({
     };
   }, [src, durationMs, requestRender]);
 
-  const transform = `scale(${zoom}) translate(${panX}%, ${panY}%)`;
+  // Translated, then enlarged about the middle: the other way round the pan
+  // was enlarged too, and at the far edge it showed a sliver past the picture.
+  const transform = `translate(${panX}%, ${panY}%) scale(${zoom})`;
 
   if (webglFailed) {
     return (

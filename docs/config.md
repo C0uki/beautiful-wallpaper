@@ -161,7 +161,7 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
 | Setting                            | Value        | Default |
 | ---------------------------------- | ------------ | ------- |
-| `background.parallax.enable`       | true / false | `true`  |
+| `background.parallax.enable`       | true / false | `false` |
 | `background.parallax.zoom`         | number       | `1.07`  |
 | `background.parallax.workspacePan` | number       | `0.6`   |
 
