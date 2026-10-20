@@ -3,11 +3,7 @@
 // Components bind to variables rather than to React state, so a wallpaper change
 // repaints the whole shell without re-rendering the tree.
 
-import {
-  applyCssVariables,
-  deriveTokens,
-  type DerivedTokens,
-} from "@bw/tokens";
+import { applyCssVariables, deriveTokens, type DerivedTokens } from "./tokens";
 import {
   Fragment,
   createContext,

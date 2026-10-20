@@ -1,18 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAlpha,
-  composite,
   contrastRatio,
   formatColor,
   hslLightness,
   hslSaturation,
-  isDark,
   mix,
   parseColor,
-  readableOn,
   solveOverlayColor,
   transparentize,
 } from "./color";
+
+// Alpha-composites `over` onto an opaque `under`: what solveOverlayColor inverts.
+const composite = (under: string, over: string) => {
+  const below = parseColor(under);
+  const above = parseColor(over);
+  const blend = (a: number, b: number) => a * above.a + b * (1 - above.a);
+  return formatColor({
+    r: blend(above.r, below.r),
+    g: blend(above.g, below.g),
+    b: blend(above.b, below.b),
+    a: 1,
+  });
+};
 
 describe("parsing and formatting", () => {
   it("reads every hex form", () => {
@@ -85,28 +95,6 @@ describe("alpha helpers", () => {
   });
 });
 
-describe("luminance", () => {
-  it("orders colours the way the eye does", () => {
-    expect(isDark("#000000")).toBe(true);
-    expect(isDark("#ffffff")).toBe(false);
-    // Pure blue is dark despite being fully saturated; pure green is not.
-    expect(isDark("#0000ff")).toBe(true);
-    expect(isDark("#00ff00")).toBe(false);
-  });
-
-  it("computes WCAG contrast ratios", () => {
-    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
-    expect(contrastRatio("#ffffff", "#ffffff")).toBeCloseTo(1, 5);
-    // Order does not matter.
-    expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 5);
-  });
-
-  it("picks the more readable of two candidates", () => {
-    expect(readableOn("#101010", "#ffffff", "#000000")).toBe("#ffffff");
-    expect(readableOn("#f5f5f5", "#ffffff", "#000000")).toBe("#000000");
-  });
-});
-
 describe("HSL accessors", () => {
   it("matches QML's hslLightness and hslSaturation", () => {
     expect(hslLightness("#000000")).toBe(0);
@@ -114,6 +102,15 @@ describe("HSL accessors", () => {
     expect(hslLightness("#ff0000")).toBeCloseTo(0.5, 5);
     expect(hslSaturation("#ff0000")).toBeCloseTo(1, 5);
     expect(hslSaturation("#808080")).toBe(0);
+  });
+});
+
+describe("contrastRatio", () => {
+  it("computes WCAG contrast ratios", () => {
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#ffffff", "#ffffff")).toBeCloseTo(1, 5);
+    // Order does not matter.
+    expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 5);
   });
 });
 
@@ -158,19 +155,5 @@ describe("solveOverlayColor", () => {
 
   it("degrades gracefully at zero opacity", () => {
     expect(parseColor(solveOverlayColor("#000000", "#ff0000", 0)).a).toBe(0);
-  });
-});
-
-describe("composite", () => {
-  it("ignores a fully transparent overlay", () => {
-    expect(composite("#123456", "rgba(255, 255, 255, 0)")).toBe("#123456");
-  });
-
-  it("replaces the base with a fully opaque overlay", () => {
-    expect(composite("#123456", "#ff0000")).toBe("#ff0000");
-  });
-
-  it("blends at half opacity", () => {
-    expect(composite("#000000", "rgba(255, 255, 255, 0.5)")).toBe("#808080");
   });
 });

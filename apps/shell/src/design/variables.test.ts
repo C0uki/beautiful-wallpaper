@@ -8,7 +8,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cssVariables, deriveTokens } from "@bw/tokens";
+import { cssVariables, deriveTokens } from "./tokens";
 import { sampleTheme } from "../shell/mock";
 
 const SRC = join(import.meta.dirname, "..");
