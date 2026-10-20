@@ -95,7 +95,6 @@ describe("alpha helpers", () => {
   });
 });
 
-
 describe("HSL accessors", () => {
   it("matches QML's hslLightness and hslSaturation", () => {
     expect(hslLightness("#000000")).toBe(0);
