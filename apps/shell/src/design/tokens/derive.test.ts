@@ -103,8 +103,51 @@ describe("deriveTokens", () => {
   it("orders the layers from the page background upwards", () => {
     const tokens = deriveTokens(theme(), { transparencyEnabled: false });
     const bases = tokens.layer.map((layer) => layer.base);
-    expect(bases[0]).toBe("#141218");
-    expect(bases[4]).toBe("#36343b");
+    // macOS's window background, up to the last fill step.
+    expect(bases[0]).toBe("#1e1e1e");
+    expect(bases[4]).toBe("#464646");
+  });
+
+  it("takes the chosen accent, else the wallpaper's primary", () => {
+    expect(deriveTokens(theme(), { accent: "#007aff" }).primary.base).toBe(
+      "#007aff",
+    );
+    // White on Apple's blue, as on a Mac's default button.
+    expect(deriveTokens(theme(), { accent: "#007aff" }).primary.on).toBe(
+      "#ffffff",
+    );
+    // A yellow accent cannot carry white text.
+    expect(deriveTokens(theme(), { accent: "#ffc600" }).primary.on).toBe(
+      "#000000",
+    );
+    // Unset is Apple's blue; empty means "from the wallpaper".
+    expect(deriveTokens(theme()).primary.base).toBe("#0a84ff");
+    expect(deriveTokens(theme(), { accent: null }).primary.base).toBe(
+      "#0a84ff",
+    );
+    expect(deriveTokens(theme(), { accent: "" }).primary.base).toBe("#d0bcff");
+  });
+
+  it("pressing a coloured control darkens it rather than lightening it", () => {
+    const { primary } = deriveTokens(theme(), { accent: "#007aff" });
+    for (const state of [primary.hover, primary.active]) {
+      expect(state).not.toBe(primary.base);
+    }
+    // Darker: each channel at or below the base's.
+    const sum = (hex: string) =>
+      [1, 3, 5].reduce(
+        (total, at) => total + parseInt(hex.slice(at, at + 2), 16),
+        0,
+      );
+    expect(sum(primary.active)).toBeLessThan(sum(primary.hover));
+    expect(sum(primary.hover)).toBeLessThan(sum(primary.base));
+  });
+
+  it("reads dark on light and light on dark", () => {
+    expect(deriveTokens(theme()).onSurface).toContain("255, 255, 255");
+    expect(deriveTokens(theme({ mode: "light" })).onSurface).toContain(
+      "0, 0, 0",
+    );
   });
 
   it("uses the wallpaper vibrancy for background transparency", () => {
@@ -129,10 +172,12 @@ describe("deriveTokens", () => {
   });
 
   it("falls back for roles a scheme leaves out", () => {
-    const sparse = deriveTokens(theme({ colors: { primary: "#ff0000" } }));
+    const sparse = deriveTokens(theme({ colors: { primary: "#ff0000" } }), {
+      accent: "",
+    });
     expect(sparse.primary.base).toBe("#ff0000");
     // Missing roles must still produce a usable colour rather than `undefined`.
-    expect(sparse.onSurface).toMatch(/^#/);
+    expect(sparse.onSurface).toMatch(/^(#|rgba\()/);
     expect(sparse.layer[3]!.base).toMatch(/^(#|rgba\()/);
     expect(sparse.terminal).toHaveLength(16);
   });
@@ -174,6 +219,6 @@ describe("cssVariables", () => {
     const variables = cssVariables(deriveTokens(theme()));
     expect(variables["--ease-spatial-default"]).toContain("cubic-bezier");
     expect(variables["--duration-wallpaper"]).toBe("1200ms");
-    expect(variables["--rounding-normal"]).toBe("16px");
+    expect(variables["--rounding-normal"]).toBe("10px");
   });
 });

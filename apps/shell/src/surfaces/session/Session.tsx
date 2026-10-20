@@ -187,14 +187,14 @@ export function Session() {
                   {endsTheSession(action) ? (
                     <HoldButton
                       className={className}
-                      icon={<Symbol name={symbol(action)} size={34} />}
+                      icon={<Symbol name={symbol(action)} size={30} />}
                       fillDirection="up"
                       holdTime={1200}
                       radius={16}
                       backgroundColor="var(--layer1)"
                       textColor="var(--on-surface)"
-                      fillColor="var(--m3-error-container)"
-                      fillTextColor="var(--m3-on-error-container)"
+                      fillColor="var(--error)"
+                      fillTextColor="var(--error-on)"
                       glow={false}
                       onHold={() => void take(action)}
                     >
@@ -206,7 +206,7 @@ export function Session() {
                       className={className}
                       onClick={() => void take(action)}
                     >
-                      <Symbol name={symbol(action)} size={34} />
+                      <Symbol name={symbol(action)} size={30} />
                       <span>{label(action)}</span>
                     </button>
                   )}

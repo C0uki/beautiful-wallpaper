@@ -1,8 +1,29 @@
 [
   {
+    "path": "ai.provider",
+    "section": "ai",
+    "label": "Provider",
+    "group": "",
+    "kind": "text"
+  },
+  {
     "path": "ai.model",
     "section": "ai",
     "label": "Model",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "ai.geminiModel",
+    "section": "ai",
+    "label": "Gemini model",
+    "group": "",
+    "kind": "text"
+  },
+  {
+    "path": "ai.openaiModel",
+    "section": "ai",
+    "label": "OpenAI model",
     "group": "",
     "kind": "text"
   },
@@ -476,25 +497,11 @@
     "kind": "toggle"
   },
   {
-    "path": "bar.bottom",
-    "section": "bar",
-    "label": "Bottom",
-    "group": "",
-    "kind": "toggle"
-  },
-  {
     "path": "bar.vertical",
     "section": "bar",
     "label": "Vertical",
     "group": "",
     "kind": "toggle"
-  },
-  {
-    "path": "bar.height",
-    "section": "bar",
-    "label": "Height",
-    "group": "",
-    "kind": "integer"
   },
   {
     "path": "bar.reserveSpace",
@@ -523,34 +530,6 @@
     "label": "Hover region height",
     "group": "",
     "kind": "integer"
-  },
-  {
-    "path": "bar.style",
-    "section": "bar",
-    "label": "Style",
-    "group": "",
-    "kind": "text"
-  },
-  {
-    "path": "bar.left",
-    "section": "bar",
-    "label": "Left",
-    "group": "",
-    "kind": "textList"
-  },
-  {
-    "path": "bar.center",
-    "section": "bar",
-    "label": "Center",
-    "group": "",
-    "kind": "textList"
-  },
-  {
-    "path": "bar.right",
-    "section": "bar",
-    "label": "Right",
-    "group": "",
-    "kind": "textList"
   },
   {
     "path": "bar.showFrame",
@@ -672,13 +651,6 @@
     "kind": "toggle"
   },
   {
-    "path": "dock.height",
-    "section": "dock",
-    "label": "Height",
-    "group": "",
-    "kind": "integer"
-  },
-  {
     "path": "dock.iconSize",
     "section": "dock",
     "label": "Icon size",
@@ -698,13 +670,6 @@
     "label": "Ignored",
     "group": "",
     "kind": "textList"
-  },
-  {
-    "path": "dock.showBackground",
-    "section": "dock",
-    "label": "Show background",
-    "group": "",
-    "kind": "toggle"
   },
   {
     "path": "dock.showPinButton",
@@ -901,13 +866,6 @@
     "label": "Do not disturb",
     "group": "",
     "kind": "toggle"
-  },
-  {
-    "path": "notifications.width",
-    "section": "notifications",
-    "label": "Width",
-    "group": "",
-    "kind": "integer"
   },
   {
     "path": "osd.enable",
@@ -1344,72 +1302,9 @@
     "kind": "integer"
   },
   {
-    "path": "sidebar.cornerOpen.enable",
-    "section": "sidebar",
-    "label": "Enable",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.valueScroll",
-    "section": "sidebar",
-    "label": "Value scroll",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.clickless",
-    "section": "sidebar",
-    "label": "Clickless",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.cornerRegionWidth",
-    "section": "sidebar",
-    "label": "Corner region width",
-    "group": "Corner open",
-    "kind": "integer"
-  },
-  {
-    "path": "sidebar.cornerOpen.cornerRegionHeight",
-    "section": "sidebar",
-    "label": "Corner region height",
-    "group": "Corner open",
-    "kind": "integer"
-  },
-  {
-    "path": "sidebar.cornerOpen.visualize",
-    "section": "sidebar",
-    "label": "Visualize",
-    "group": "Corner open",
-    "kind": "toggle"
-  },
-  {
-    "path": "sidebar.cornerOpen.topLeftAction",
-    "section": "sidebar",
-    "label": "Top left action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
-    "path": "sidebar.cornerOpen.topRightAction",
-    "section": "sidebar",
-    "label": "Top right action",
-    "group": "Corner open",
-    "kind": "text"
-  },
-  {
     "path": "time.format",
     "section": "time",
     "label": "Format",
-    "group": "",
-    "kind": "text"
-  },
-  {
-    "path": "time.dateFormat",
-    "section": "time",
-    "label": "Date format",
     "group": "",
     "kind": "text"
   },

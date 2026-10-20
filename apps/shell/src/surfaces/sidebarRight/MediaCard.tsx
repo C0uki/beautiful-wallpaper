@@ -7,6 +7,7 @@ import { IconButton, Symbol } from "../../widgets";
 import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
+import { backend } from "../../shell/backend";
 
 export function MediaCard() {
   const media = useShell((state) => state.media);
@@ -24,7 +25,7 @@ export function MediaCard() {
     <div className="bw-card bw-media-card">
       <div className="bw-media-art">
         {media.artwork ? (
-          <img src={media.artwork} alt="" />
+          <img src={backend().assetUrl(media.artwork)} alt="" />
         ) : (
           <Symbol name="music_note" size={28} />
         )}

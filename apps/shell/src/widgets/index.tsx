@@ -1,16 +1,14 @@
-// Material 3 primitives shared by every surface.
+// The controls every surface shares, drawn as macOS draws them.
 //
-// The set mirrors the widgets end4-pC reaches for most often: a card, the three
-// button variants, an icon button with a ripple, a progress bar and ring, a
+// A card, the three buttons (the accent-filled default, the bezel push
+// button and the borderless one), an icon button, a progress ring, a
 // segmented control, a search field, a slider, a list row and a scroll area,
-// plus the tab strip, switch, in-surface dialog and empty-state placeholder the
-// sidebar needs.
+// plus the tab strip, switch, check box, sheet and empty-state placeholder.
+// Pressing darkens a control rather than spreading a ripple across it, as
+// on a Mac.
 
 import {
-  useCallback,
   useEffect,
-  useRef,
-  useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type HTMLAttributes,
@@ -20,50 +18,10 @@ import { Symbol } from "./Symbol";
 import RubberSegment from "./reactbits/RubberSegment";
 import SpringCheck from "./reactbits/SpringCheck";
 import SquishSwitch from "./reactbits/SquishSwitch";
-import WakeSlider from "./reactbits/WakeSlider";
 import "./widgets.css";
 
 export { Symbol };
 export type { SymbolProps } from "./Symbol";
-
-/** Expanding-circle feedback on press, as Material specifies. */
-export function useRipple() {
-  const [ripples, setRipples] = useState<
-    Array<{ id: number; style: CSSProperties }>
-  >([]);
-  const nextId = useRef(0);
-
-  const spawn = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    const target = event.currentTarget;
-    const box = target.getBoundingClientRect();
-    // Large enough to cover the element from wherever it was clicked.
-    const size = Math.hypot(box.width, box.height) * 2;
-    const id = nextId.current++;
-
-    setRipples((current) => [
-      ...current,
-      {
-        id,
-        style: {
-          left: event.clientX - box.left - size / 2,
-          top: event.clientY - box.top - size / 2,
-          width: size,
-          height: size,
-        },
-      },
-    ]);
-
-    window.setTimeout(() => {
-      setRipples((current) => current.filter((ripple) => ripple.id !== id));
-    }, 450);
-  }, []);
-
-  const layer = ripples.map((ripple) => (
-    <span key={ripple.id} className="bw-ripple" style={ripple.style} />
-  ));
-
-  return { spawn, layer };
-}
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
@@ -101,10 +59,8 @@ export function Button({
   icon,
   active = false,
   children,
-  onClick,
   ...rest
 }: ButtonProps) {
-  const { spawn, layer } = useRipple();
   return (
     <button
       {...rest}
@@ -112,14 +68,9 @@ export function Button({
       className="bw-button"
       data-variant={variant}
       data-active={active}
-      onClick={(event) => {
-        spawn(event);
-        onClick?.(event);
-      }}
     >
-      {icon ? <Symbol name={icon} size={18} filled={active} /> : null}
+      {icon ? <Symbol name={icon} size={16} filled={active} /> : null}
       {children}
-      {layer}
     </button>
   );
 }
@@ -136,10 +87,8 @@ export function IconButton({
   size = 40,
   active = false,
   label,
-  onClick,
   ...rest
 }: IconButtonProps) {
-  const { spawn, layer } = useRipple();
   return (
     <button
       {...rest}
@@ -150,13 +99,8 @@ export function IconButton({
       className="bw-icon-button"
       data-active={active}
       style={{ width: size, height: size, position: "relative", ...rest.style }}
-      onClick={(event) => {
-        spawn(event);
-        onClick?.(event);
-      }}
     >
-      <Symbol name={icon} size={Math.round(size * 0.55)} filled={active} />
-      {layer}
+      <Symbol name={icon} size={Math.round(size * 0.5)} filled={active} />
     </button>
   );
 }
@@ -213,8 +157,9 @@ export function Segmented<T extends string>({
   value,
   onChange,
 }: SegmentedProps<T>) {
-  // React Bits' Rubber Segment, in the wallpaper's colours: the thumb
-  // stretches towards where it is going and can be dragged.
+  // React Bits' Rubber Segment, as a Mac's segmented control: a grey track
+  // and a raised, lighter thumb under the chosen label — not the accent.
+  // The thumb still follows a drag.
   return (
     <RubberSegment
       items={options.map((option) => ({
@@ -227,11 +172,11 @@ export function Segmented<T extends string>({
       value={value}
       onChange={(next) => onChange(next as T)}
       size="sm"
-      radius={999}
-      trackColor="var(--layer1)"
-      thumbColor="var(--primary)"
+      radius={7}
+      trackColor="var(--layer2)"
+      thumbColor="var(--bw-raised)"
       textColor="var(--on-surface)"
-      activeTextColor="var(--primary-on)"
+      activeTextColor="var(--on-surface)"
     />
   );
 }
@@ -294,24 +239,25 @@ export function Slider({
   disabled = false,
   onChange,
 }: SliderProps) {
-  // React Bits' Wake Slider: a row of bars that swells where it is pulled.
+  // The browser's own range input, drawn as a Mac's slider: a thin track
+  // filled with the accent up to a round white knob. Native, so the arrow
+  // keys, Page Up and Home already work.
+  const clamped = Math.min(Math.max(value, min), max);
+  const fill = max > min ? ((clamped - min) / (max - min)) * 100 : 0;
   return (
     <div className="bw-slider" data-disabled={disabled}>
-      {icon ? <Symbol name={icon} size={18} /> : null}
-      <WakeSlider
-        className="bw-slider-wake"
-        value={Math.min(Math.max(value, min), max)}
+      {icon ? <Symbol name={icon} size={16} /> : null}
+      <input
+        type="range"
+        className="bw-range"
+        value={clamped}
         min={min}
         max={max}
         step={step}
         disabled={disabled}
-        ariaLabel={label}
-        onChange={onChange}
-        height={28}
-        restHeight={8}
-        gap={3}
-        fillColor="var(--primary)"
-        trackColor="var(--layer3)"
+        aria-label={label}
+        style={{ "--fill": `${fill}%` } as CSSProperties}
+        onChange={(event) => onChange(Number(event.target.value))}
       />
     </div>
   );
@@ -335,7 +281,6 @@ export function ListRow({
   selected,
   onClick,
 }: ListRowProps) {
-  const ripple = useRipple();
   const interactive = Boolean(onClick);
 
   return (
@@ -345,7 +290,6 @@ export function ListRow({
       data-interactive={interactive}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
-      onPointerDown={interactive ? ripple.spawn : undefined}
       onClick={onClick}
       onKeyDown={
         interactive
@@ -358,13 +302,12 @@ export function ListRow({
           : undefined
       }
     >
-      {icon ? <Symbol name={icon} size={20} /> : null}
+      {icon ? <Symbol name={icon} size={18} /> : null}
       <div className="bw-list-row-text">
         <span className="bw-list-row-title">{title}</span>
         {detail ? <span className="bw-list-row-detail">{detail}</span> : null}
       </div>
       {trailing}
-      {interactive ? ripple.layer : null}
     </div>
   );
 }
@@ -382,7 +325,7 @@ export function ScrollArea({
   );
 }
 
-/** A tab strip, with the indicator sliding between labels. */
+/** A tab strip, drawn as a Mac draws one: a segmented control. */
 export interface TabsProps {
   tabs: Array<{ id: string; label: string; icon?: string }>;
   active: string;
@@ -402,7 +345,7 @@ export function Tabs({ tabs, active, onSelect }: TabsProps) {
           data-active={tab.id === active}
           onClick={() => onSelect(tab.id)}
         >
-          {tab.icon ? <Symbol name={tab.icon} size={20} /> : null}
+          {tab.icon ? <Symbol name={tab.icon} size={16} /> : null}
           <span>{tab.label}</span>
         </button>
       ))}
@@ -410,7 +353,7 @@ export function Tabs({ tabs, active, onSelect }: TabsProps) {
   );
 }
 
-/** A Material switch. Used where a toggle is a setting rather than an action. */
+/** A switch, for a toggle that is a setting rather than an action. */
 export interface SwitchProps {
   checked: boolean;
   label: string;
@@ -419,27 +362,31 @@ export interface SwitchProps {
 }
 
 export function Switch({ checked, label, disabled, onChange }: SwitchProps) {
-  // React Bits' Squish Switch: the thumb stretches as it travels, and can be
-  // dragged across as well as clicked.
+  // React Bits' Squish Switch at a Mac's size and colours: a white knob on a
+  // grey track that turns the accent when on. Without the squish — a Mac's
+  // knob slides rather than stretches — but it can still be dragged across.
   return (
     <SquishSwitch
       checked={checked}
       onChange={onChange}
       disabled={disabled ?? false}
       ariaLabel={label}
-      width={48}
-      height={28}
-      radius={14}
-      trackColor="var(--layer3)"
+      width={38}
+      height={22}
+      radius={11}
+      stretch={0}
+      hoverScale={1}
+      trackColor="var(--layer4)"
       trackOnColor="var(--primary)"
-      thumbColor="var(--outline)"
-      thumbOnColor="var(--primary-on)"
+      thumbColor="#ffffff"
+      thumbOnColor="#ffffff"
     />
   );
 }
 
-/** A tick box whose tick springs in. React Bits' Spring Check, with `label`
- *  struck through once it is ticked. */
+/** A Mac's check box: a small rounded square, filled with the accent and a
+ *  white tick when on. React Bits' Spring Check, with `label` struck through
+ *  once it is ticked. */
 export interface CheckProps {
   checked: boolean;
   label?: ReactNode;
@@ -455,9 +402,10 @@ export function Check({ checked, label, ariaLabel, onChange }: CheckProps) {
       onChange={onChange}
       label={label ?? ""}
       {...(ariaLabel ? { ariaLabel } : {})}
-      boxSize={18}
-      boxRadius={5}
-      fontSize={14}
+      boxSize={16}
+      boxRadius={4}
+      bounce={0}
+      fontSize={13}
       color="var(--on-surface)"
       fillColor="var(--primary)"
       checkColor="var(--primary-on)"
@@ -466,7 +414,9 @@ export function Check({ checked, label, ariaLabel, onChange }: CheckProps) {
 }
 
 /**
- * A dialog drawn inside its own surface rather than in a new window.
+ * A sheet: a dialog drawn inside its own surface rather than in a new
+ * window, sliding down from the top of the panel as a Mac's sheet slides
+ * from its window's title bar.
  *
  * The original opens these as Quickshell popups over the sidebar. A separate
  * Win32 window per dialog would need its own capability entry, its own

@@ -27,15 +27,11 @@ import { availableLocales, tr } from "../../i18n";
 import { resumeAt, STEPS } from "./steps";
 import "./wizard.css";
 
-/** The four places a bar can go, as the two booleans that put it there. */
+/** The two places a bar can go. */
 const PLACES = [
-  { id: "top", icon: "arrow_upward", bottom: false, vertical: false },
-  { id: "bottom", icon: "arrow_downward", bottom: true, vertical: false },
-  { id: "left", icon: "arrow_back", bottom: false, vertical: true },
-  { id: "right", icon: "arrow_forward", bottom: true, vertical: true },
+  { id: "top", icon: "arrow_upward", vertical: false },
+  { id: "left", icon: "arrow_back", vertical: true },
 ] as const;
-
-const STYLES = ["m3", "hug", "float", "islands"] as const;
 
 export function Wizard() {
   const ready = useShell((state) => state.ready);
@@ -286,31 +282,13 @@ export function Wizard() {
                         type="button"
                         aria-label={place.id}
                         className={
-                          config.bar.bottom === place.bottom &&
                           config.bar.vertical === place.vertical
                             ? "selected"
                             : ""
                         }
-                        onClick={() => {
-                          void set("bar.bottom", place.bottom);
-                          void set("bar.vertical", place.vertical);
-                        }}
+                        onClick={() => void set("bar.vertical", place.vertical)}
                       >
                         <Symbol name={place.icon} size={22} />
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-                <Field label={tr("Shape")}>
-                  <div className="bw-wizard-choices">
-                    {STYLES.map((style) => (
-                      <button
-                        key={style}
-                        type="button"
-                        className={config.bar.style === style ? "selected" : ""}
-                        onClick={() => void set("bar.style", style)}
-                      >
-                        <span>{style}</span>
                       </button>
                     ))}
                   </div>
@@ -340,22 +318,7 @@ export function Wizard() {
             ) : null}
 
             {current.id === "windows" ? (
-              <WindowManagerStep
-                manager={manager}
-                bar={config.bar}
-                onDrop={() => {
-                  // Taking the widget out rather than leaving an empty space
-                  // that looks like a bar that failed to draw.
-                  for (const slot of ["left", "center", "right"] as const) {
-                    const kept = config.bar[slot].filter(
-                      (widget) => widget !== "workspaces",
-                    );
-                    if (kept.length !== config.bar[slot].length) {
-                      void set(`bar.${slot}`, kept);
-                    }
-                  }
-                }}
-              />
+              <WindowManagerStep manager={manager} />
             ) : null}
 
             {current.id === "keys" ? (
@@ -468,17 +431,9 @@ function Field({
 /** What the shell found when it asked for a window manager. */
 function WindowManagerStep({
   manager,
-  bar,
-  onDrop,
 }: {
   manager: string | null | undefined;
-  bar: { left: string[]; center: string[]; right: string[] };
-  onDrop: () => void;
 }) {
-  const onBar = [...bar.left, ...bar.center, ...bar.right].includes(
-    "workspaces",
-  );
-
   if (manager === undefined) {
     return <p className="bw-wizard-said">{tr("Looking…")}</p>;
   }
@@ -496,24 +451,15 @@ function WindowManagerStep({
   }
 
   return (
-    <>
-      <p className="bw-wizard-found">
-        <Symbol name="info" size={20} />
-        {/* Said plainly, because the alternative is a widget that is empty
-            forever and looks like a bar that failed to draw. Only GlazeWM can
-            be detected: its IPC is what this build reads. */}
-        {tr(
-          "No GlazeWM found. The workspaces widget has nothing to show without a tiling window manager, and this build can only talk to GlazeWM.",
-        )}
-      </p>
-      {onBar ? (
-        <Button icon="visibility_off" onClick={onDrop}>
-          {tr("Take it off the bar")}
-        </Button>
-      ) : (
-        <p className="bw-wizard-said">{tr("It is not on the bar anyway.")}</p>
+    <p className="bw-wizard-found">
+      <Symbol name="info" size={20} />
+      {/* Said plainly, because the alternative is a widget that is empty
+          forever and looks like a bar that failed to draw. Only GlazeWM can
+          be detected: its IPC is what this build reads. */}
+      {tr(
+        "No GlazeWM found. The workspaces widget has nothing to show without a tiling window manager, and this build can only talk to GlazeWM.",
       )}
-    </>
+    </p>
   );
 }
 
@@ -579,7 +525,7 @@ function KeysStep({
 }
 
 /** Why this key is a problem — three different reasons, said differently. */
-function explain(key: KeyStatus): string {
+export function explain(key: KeyStatus): string {
   if (key.sharedWith.length > 0) {
     // The one nothing refuses: both register as far as the config is
     // concerned, and only one of them can ever fire.

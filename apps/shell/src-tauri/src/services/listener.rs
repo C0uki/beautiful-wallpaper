@@ -8,9 +8,8 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
-use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
 
 /// The reader's thread, and the switch that stops it.
@@ -153,8 +152,7 @@ fn post(app: &AppHandle, found: Vec<(u32, bw_core::NewNotification)>, arrivals: 
         }
     }
 
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-    let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
+    crate::commands::emit_notifications(app);
 }
 
 /// What to tell the user about a gate they are standing at.
@@ -187,9 +185,11 @@ fn say(app: &AppHandle, problem: String) {
     let Some(store) = app.try_state::<NotificationStore>() else {
         return;
     };
-    store.0.post(bw_core::NewNotification::from_shell(
-        "Other applications' notifications",
-        problem,
-    ));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    let notice = bw_core::NewNotification::from_shell("Other applications' notifications", problem);
+    // Found again at every start; once is enough while it is still there.
+    if store.0.holds(&notice) {
+        return;
+    }
+    store.0.post(notice);
+    crate::commands::emit_notifications(app);
 }

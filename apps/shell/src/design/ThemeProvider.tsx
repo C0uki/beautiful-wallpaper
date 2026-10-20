@@ -54,14 +54,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         ? deriveTokens(theme, {
             transparencyEnabled: appearance.transparency.enable,
             extraTransparency: appearance.transparency.extra,
+            accent: appearance.palette.accentColor,
           })
         : null,
-    [theme, appearance.transparency.enable, appearance.transparency.extra],
+    [
+      theme,
+      appearance.transparency.enable,
+      appearance.transparency.extra,
+      appearance.palette.accentColor,
+    ],
   );
 
   useEffect(() => {
     if (!tokens) return;
     applyCssVariables(document.documentElement, tokens);
+    // For `light-dark()` in the stylesheets, and for what the browser draws
+    // itself — scrollbars, the colour picker, a range input's parts.
+    document.documentElement.style.colorScheme = tokens.mode;
   }, [tokens]);
 
   useEffect(() => {

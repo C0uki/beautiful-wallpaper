@@ -14,13 +14,14 @@ import "./screenChrome.css";
 
 /** The colour a frame is painted in.
  *
- * A palette role name becomes the variable that holds it; anything else is
- * handed to CSS untouched, so `#101014` and `black` both work. */
+ * A palette role name becomes the variable that holds it — `surface` is the
+ * window background, `--layer0` — and anything else is handed to CSS
+ * untouched, so `#101014` and `black` both work. */
 function frameColor(name: string): string {
   const role = name.trim();
   if (!role) return "var(--scrim)";
   return /^[a-z][a-zA-Z0-9]*$/.test(role) && ROLES.has(role)
-    ? `var(--${role})`
+    ? `var(--${role === "surface" ? "layer0" : role})`
     : role;
 }
 

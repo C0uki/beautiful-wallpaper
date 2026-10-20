@@ -5,7 +5,6 @@
  */
 export type Dock = {
   enable: boolean;
-  height: number;
   iconSize: number;
   /**
    * Full paths of the executables kept on the dock whether or not they
@@ -25,7 +24,6 @@ export type Dock = {
    * portable crate — and is named for what it actually accepts.
    */
   ignored: Array<string>;
-  showBackground: boolean;
   showPinButton: boolean;
   showMedia: boolean;
   /**

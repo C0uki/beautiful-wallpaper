@@ -11,10 +11,12 @@ import { IconButton, Placeholder, Symbol } from "../../widgets";
 import { formatClock } from "../../lib/format";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
+import { backend } from "../../shell/backend";
 import { Visualizer } from "../../widgets/Visualizer";
 
 /** The playing track's lyrics, with the line being sung kept in view. */
 function MediaLyrics({ media }: { media: MediaState }) {
+  const open = useShell((state) => state.states.sidebarLeftOpen);
   const track = `${media.artist}\u0000${media.title}`;
   const [found, setFound] = useState<{
     track: string;
@@ -51,10 +53,10 @@ function MediaLyrics({ media }: { media: MediaState }) {
   const [, tick] = useState(0);
   const timed = lines.length > 0;
   useEffect(() => {
-    if (!media.playing || !timed) return;
+    if (!media.playing || !timed || !open) return;
     const timer = window.setInterval(() => tick((count) => count + 1), 200);
     return () => window.clearInterval(timer);
-  }, [media.playing, timed]);
+  }, [media.playing, timed, open]);
   const position = media.playing
     ? heard.current.position +
       Math.min((performance.now() - heard.current.at) / 1000, 1.5)
@@ -93,6 +95,9 @@ function MediaLyrics({ media }: { media: MediaState }) {
 
 export function MediaTab() {
   const media = useShell((state) => state.media);
+  // The sidebar's page stays loaded while it is put away; the visualizer's
+  // audio capture and the lyrics' timer do not need to.
+  const open = useShell((state) => state.states.sidebarLeftOpen);
 
   if (!media?.title) {
     return <Placeholder icon="music_note" text={tr("Nothing is playing")} />;
@@ -107,7 +112,7 @@ export function MediaTab() {
     <div className="bw-media-tab">
       <div className="bw-media-tab-art">
         {media.artwork ? (
-          <img src={media.artwork} alt="" />
+          <img src={backend().assetUrl(media.artwork)} alt="" />
         ) : (
           <Symbol name="album" size={64} />
         )}
@@ -121,7 +126,7 @@ export function MediaTab() {
         ) : null}
       </div>
 
-      {media.playing ? (
+      {media.playing && open ? (
         <Visualizer bars={48} className="bw-media-tab-visualizer" />
       ) : null}
 

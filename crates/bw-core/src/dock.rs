@@ -197,6 +197,27 @@ fn file_stem(path: &str) -> String {
     }
 }
 
+/// `pinned` with the entry for `moved` placed where `target` is now, or `None`
+/// when that changes nothing — `reorder` in the webview dock's `order.ts`.
+///
+/// The dock knows its icons by normalised path and the config keeps paths as
+/// they were pinned, so both are matched the way the dock matches them.
+pub fn reorder(pinned: &[String], moved: &str, target: &str) -> Option<Vec<String>> {
+    let at = |path: &str| {
+        pinned
+            .iter()
+            .position(|pin| normalise(pin) == normalise(path))
+    };
+    let (from, to) = (at(moved)?, at(target)?);
+    if from == to {
+        return None;
+    }
+    let mut next = pinned.to_vec();
+    let entry = next.remove(from);
+    next.insert(to, entry);
+    Some(next)
+}
+
 /// How far the dock is pushed off the bottom of the screen while hidden.
 ///
 /// Everything but `hover_region` is off screen; that strip is what the pointer
@@ -209,6 +230,27 @@ pub fn hidden_offset(dock_height: f64, hover_region: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pinned_icon_moves_to_where_the_target_is() {
+        let pins = |paths: &[&str]| {
+            paths
+                .iter()
+                .map(|path| path.to_string())
+                .collect::<Vec<_>>()
+        };
+        let pinned = pins(&["C:/A.exe", r"c:\b.exe", r"C:\C.exe"]);
+        assert_eq!(
+            reorder(&pinned, r"c:\a.exe", r"C:\C.exe"),
+            Some(pins(&[r"c:\b.exe", r"C:\C.exe", "C:/A.exe"]))
+        );
+        assert_eq!(
+            reorder(&pinned, r"C:\C.exe", "c:/a.exe"),
+            Some(pins(&[r"C:\C.exe", "C:/A.exe", r"c:\b.exe"]))
+        );
+        assert_eq!(reorder(&pinned, r"C:\C.exe", r"C:\C.exe"), None);
+        assert_eq!(reorder(&pinned, r"D:\gone.exe", r"C:\C.exe"), None);
+    }
 
     fn window(executable: &str, title: &str, active: bool) -> WindowInfo {
         WindowInfo {

@@ -12,6 +12,7 @@
 // per page, and rows gathered into cards.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import type { Field } from "@bw/core";
 import { configSchema } from "@bw/core";
 import { IconButton, SearchField, Slider, Switch, Symbol } from "../../widgets";
@@ -21,8 +22,9 @@ import { describeError } from "../../shell/errors";
 import { OVERRIDES } from "./overrides";
 import { PAGES, orderOn, pageFor } from "./pages";
 import { Presets } from "./Presets";
-import { BarSlotEditor } from "./BarSlotEditor";
-import { BAR_SLOTS, type BarLayout, type BarSlot } from "./barLayout";
+import { Shortcuts } from "./Shortcuts";
+import { ColorPicker, FontPicker } from "./pickers";
+import { ApiKeys, ModelPicker } from "./ai";
 import "./settings.css";
 
 /** Reads a dotted path out of the config. */
@@ -107,6 +109,12 @@ export function Settings() {
     return fields.filter((field) => matches(field, term));
   }, [byPage, page, searching, term]);
 
+  // At the foot of the page list, where a Mac's settings keep it too.
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion, () => setVersion(""));
+  }, []);
+
   const set = useCallback(async (path: string, value: unknown) => {
     try {
       await actions.setConfigValue(path, value);
@@ -168,6 +176,9 @@ export function Settings() {
               <span>{entry.title()}</span>
             </button>
           ))}
+          {version ? (
+            <p className="bw-settings-version">{tr("Version %1", version)}</p>
+          ) : null}
         </nav>
 
         <div className="bw-settings-body">
@@ -203,13 +214,20 @@ export function Settings() {
                 still puts the rows back: the answer is wherever it is. */}
             {!searching && current?.custom === "presets" ? (
               <Presets />
+            ) : !searching && current?.custom === "shortcuts" ? (
+              <Shortcuts config={config} onSet={set} />
             ) : shown.length ? (
-              <Rows
-                fields={shown}
-                config={config}
-                onSet={set}
-                grouped={!searching}
-              />
+              <>
+                {/* The keys are not settings — they never enter the config —
+                    so the AI page draws them above its rows. */}
+                {!searching && current?.id === "ai" ? <ApiKeys /> : null}
+                <Rows
+                  fields={shown}
+                  config={config}
+                  onSet={set}
+                  grouped={!searching}
+                />
+              </>
             ) : (
               <p className="bw-settings-empty">{tr("Nothing matched")}</p>
             )}
@@ -289,24 +307,12 @@ function Row({
         {override?.hint ? <em>{override.hint()}</em> : null}
       </div>
       <div className="bw-settings-control">
-        {override?.barSlot ? (
-          <BarSlotEditor
-            slot={field.path as BarSlot}
-            layout={
-              Object.fromEntries(
-                BAR_SLOTS.map((slot) => [slot, valueAt(config, slot) ?? []]),
-              ) as BarLayout
-            }
-            onSet={onSet}
-          />
-        ) : (
-          <Control
-            field={field}
-            value={value}
-            override={override}
-            onSet={onSet}
-          />
-        )}
+        <Control
+          field={field}
+          value={value}
+          override={override}
+          onSet={onSet}
+        />
       </div>
     </div>
   );
@@ -323,6 +329,36 @@ function Control({
   override: (typeof OVERRIDES)[string] | undefined;
   onSet: (path: string, value: unknown) => void;
 }) {
+  // A colour or a font is picked rather than typed: the schema only knows
+  // either is a string.
+  if (override?.color) {
+    return (
+      <ColorPicker
+        value={typeof value === "string" ? value : (override.unset ?? "")}
+        swatches={override.color}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+  if (override?.model) {
+    return (
+      <ModelPicker
+        provider={override.model}
+        value={typeof value === "string" ? value : ""}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+  if (override?.font) {
+    return (
+      <FontPicker
+        value={typeof value === "string" ? value : ""}
+        kind={override.font}
+        onChange={(next) => onSet(field.path, next)}
+      />
+    );
+  }
+
   // A curated choice wins over the generated kind: the schema knows a bar
   // style is a string, not that it is one of four.
   if (override?.choices) {

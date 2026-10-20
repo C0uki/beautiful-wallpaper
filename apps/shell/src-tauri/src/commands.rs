@@ -14,10 +14,45 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::providers::{self, MediaAction};
 use crate::services;
 use crate::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, GlobalStates, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
+
+/// The last value of each reading sent, by event.
+static LATEST: parking_lot::Mutex<std::collections::BTreeMap<&'static str, Value>> =
+    parking_lot::Mutex::new(std::collections::BTreeMap::new());
+
+/// Sends a reading to the surfaces, unless it is the one they already have,
+/// and keeps it for [`latest_readings`].
+///
+/// The readings were sent on a timer whether or not they had changed, to all
+/// of the surfaces at once: the weather every two seconds, the tray every
+/// five, the media and the active window every second — each one parsed and
+/// drawn again by every page, on a machine doing nothing. Sending a page the
+/// last value when it loads, rather than sending everything again in case one
+/// had, is what lets the timers stop talking when there is nothing to say.
+pub fn emit_reading<T: serde::Serialize>(app: &AppHandle, event: &'static str, payload: T) {
+    let Ok(value) = serde_json::to_value(payload) else {
+        return;
+    };
+    {
+        let mut latest = LATEST.lock();
+        if latest.get(event) == Some(&value) {
+            return;
+        }
+        latest.insert(event, value.clone());
+    }
+    bw_native::update(event, &value);
+    let _ = app.emit(event, value);
+}
+
+/// The last value of every reading, by event name, for a page that has just
+/// loaded.
+#[tauri::command]
+pub fn latest_readings() -> std::collections::BTreeMap<&'static str, Value> {
+    LATEST.lock().clone()
+}
 
 /// Event names, mirrored in `packages/core/src/ipc.ts`.
 pub mod event {
@@ -74,8 +109,6 @@ pub mod event {
     /// moved its own level.
     pub const AUDIO_SESSIONS: &str = "bw://audio-sessions";
     pub const BRIGHTNESS: &str = "bw://brightness";
-    /// Asks the readout surface to appear, carrying what to show.
-    pub const OSD: &str = "bw://osd";
 }
 
 #[tauri::command]
@@ -146,56 +179,6 @@ pub fn click_tray_icon(window: String, id: u32, callback_message: u32, secondary
     }
     #[cfg(not(windows))]
     let _ = (window, id, callback_message, secondary);
-}
-
-/// Moves an auto-hiding surface in or out, as the pointer arrives and leaves.
-///
-/// The bar and the dock both park off their edge while hidden, leaving only a
-/// strip for the pointer to find. Only the page knows when the pointer is on
-/// that strip; only Rust can move the window. This is the join.
-#[tauri::command]
-pub fn set_surface_revealed(app: AppHandle, label: String, revealed: bool) {
-    crate::surfaces::set_revealed(&app, &label, revealed);
-}
-
-/// Cuts the dock's window down to the band its icons sit in.
-///
-/// The window spans the screen so the dock can be centred in it, and it is
-/// not click-through — it has to notice the pointer to come back — so every
-/// pixel of it took clicks: the strip left on screen while hidden ran along
-/// the whole bottom edge, and once revealed, a band the full width of the
-/// screen swallowed every click meant for the windows under it. With the
-/// taskbar's strip given back, maximised windows reach that band, and their
-/// buttons stopped working there. Only the page knows where the icons are;
-/// `left` and `width` are its CSS pixels across, and the band keeps the
-/// window's full height so the strip the pointer finds stays in it.
-#[tauri::command]
-pub fn set_dock_shape(app: AppHandle, left: f64, width: f64) {
-    #[cfg(windows)]
-    {
-        let Some(window) = app.get_webview_window(crate::surfaces::DOCK.label) else {
-            return;
-        };
-        let (Ok(handle), Ok(scale), Ok(size)) =
-            (window.hwnd(), window.scale_factor(), window.outer_size())
-        else {
-            return;
-        };
-        let band = bw_core::capture::Rect {
-            x: (left * scale).floor() as i32,
-            y: 0,
-            width: (width * scale).ceil() as i32,
-            height: size.height as i32,
-        };
-        if let Err(error) = crate::platform::region::set_window_region(
-            windows::Win32::Foundation::HWND(handle.0),
-            &[band],
-        ) {
-            tracing::warn!(%error, "could not cut the dock down to its icons");
-        }
-    }
-    #[cfg(not(windows))]
-    let _ = (app, left, width);
 }
 
 #[tauri::command]
@@ -366,28 +349,100 @@ pub fn post_notification(
     app_name: Option<String>,
     urgency: Option<String>,
 ) -> Notification {
-    let notification = store.0.post(NewNotification {
+    let notification = NewNotification {
         app_name: app_name.unwrap_or_else(|| "beautiful-wallpaper".to_owned()),
         summary,
         body: body.unwrap_or_default(),
         urgency: parse_urgency(urgency.as_deref()),
         ..NewNotification::default()
-    });
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-    notification
+    };
+    NotificationStore::announce(&app, notification.clone())
+        // Only without a store, which is managed before any command runs.
+        .unwrap_or_else(|| store.0.post(notification))
 }
 
 #[tauri::command]
 pub fn dismiss_notification(app: AppHandle, store: State<'_, NotificationStore>, id: u32) {
     if store.0.dismiss(id) {
-        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+        emit_notifications(&app);
     }
 }
 
 #[tauri::command]
 pub fn clear_notifications(app: AppHandle, store: State<'_, NotificationStore>) {
     store.0.clear();
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    emit_notifications(&app);
+}
+
+/// Sends every surface the notifications as they are now, and the native
+/// banners, which draw them.
+pub fn emit_notifications(app: &AppHandle) {
+    let Some(store) = app.try_state::<NotificationStore>() else {
+        return;
+    };
+    let list = store.0.list();
+    if let (Ok(value), Some(state)) = (serde_json::to_value(&list), app.try_state::<AppState>()) {
+        bw_native::toasts(value, toast_settings(&state.config()));
+    }
+    let _ = app.emit(event::NOTIFICATIONS, list);
+}
+
+/// The dock's settings, for the native dock.
+pub fn emit_dock_settings(app: &AppHandle) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    let dock = state.config().dock.clone();
+    bw_native::dock(bw_native::DockSettings {
+        enable: dock.enable,
+        icon_size: dock.icon_size,
+        show_media: dock.show_media,
+        show_pin_button: dock.show_pin_button,
+        auto_hide: dock.auto_hide,
+        hover_region_height: dock.hover_region_height,
+        pinned_on_startup: dock.pinned_on_startup,
+    });
+}
+
+/// Lists the dock's applications again and sends them, as the window watcher
+/// does: after a pin, a move, or a window that turned out to be gone.
+pub fn rebuild_dock(app: &AppHandle) {
+    let (Some(dock), Some(state)) = (app.try_state::<DockHandle>(), app.try_state::<AppState>())
+    else {
+        return;
+    };
+    emit_reading(app, event::DOCK, dock.items(&state.config()));
+}
+
+/// Whether the shell is in Japanese: `language.ui`, or Windows' own when that
+/// is `auto`.
+fn japanese(config: &bw_core::Config) -> bool {
+    match config.language.ui.as_str() {
+        "auto" => services::weather::system_language(),
+        chosen => chosen.to_owned(),
+    }
+    .starts_with("ja")
+}
+
+/// Tells the native bar how to write the time and the date.
+pub fn emit_bar_settings(config: &bw_core::Config) {
+    bw_native::bar(bw_native::BarSettings {
+        time_format: config.time.format.clone(),
+        japanese: japanese(config),
+    });
+}
+
+/// What the native banners need from the config.
+fn toast_settings(config: &bw_core::Config) -> bw_native::ToastSettings {
+    bw_native::ToastSettings {
+        timeout: config.notifications.timeout,
+        position: config.notifications.position.clone(),
+        max_visible: config.notifications.max_visible,
+        do_not_disturb: config.notifications.do_not_disturb || !config.notifications.enable,
+        bar: config.bar.enable && !config.bar.vertical,
+        bar_left: config.bar.enable && config.bar.vertical,
+        japanese: japanese(config),
+    }
 }
 
 fn parse_urgency(name: Option<&str>) -> Urgency {
@@ -1207,14 +1262,10 @@ fn save_capture(
     }
 
     let shown = path.to_string_lossy().into_owned();
-    if let Some(store) = app.try_state::<NotificationStore>() {
-        store.0.post(bw_core::NewNotification::from_shell(
-            "Screenshot saved",
-            shown.clone(),
-        ));
-        let _ = app.emit(event::NOTIFICATIONS, store.0.list());
-        let _ = crate::surfaces::set_visible(app, crate::surfaces::NOTIFICATIONS.label, true);
-    }
+    NotificationStore::announce(
+        app,
+        bw_core::NewNotification::from_shell("Screenshot saved", shown.clone()),
+    );
 
     bw_core::capture::CaptureOutcome {
         saved: Some(shown),
@@ -1334,79 +1385,8 @@ fn overlay_screen(app: &AppHandle) -> (i32, i32) {
 
 /// What the decorations should be drawing right now.
 #[tauri::command]
-pub fn get_screen_chrome(
-    state: State<'_, AppState>,
-    chrome: State<'_, ChromeState>,
-) -> bw_core::chrome::ScreenChrome {
-    bw_core::chrome::ScreenChrome::resolve(&state.config(), chrome.is_fullscreen())
-}
-
-/// The invisible strips, and what each one opens.
-#[tauri::command]
-pub fn get_hot_corners(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Vec<bw_core::chrome::HotCorner> {
-    bw_core::chrome::hot_corners(&state.config().sidebar.corner_open, screen_size(&app))
-}
-
-/// Flips whatever a corner is bound to.
-///
-/// The flag name is read here rather than in the surface: it comes from the
-/// config, and a name that does not match a flag has to be refused somewhere
-/// that can say so.
-#[tauri::command]
-pub fn run_hot_corner(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    corner: bw_core::chrome::Corner,
-) -> Result<(), String> {
-    let config = state.config();
-    let found = bw_core::chrome::hot_corners(&config.sidebar.corner_open, screen_size(&app))
-        .into_iter()
-        .find(|hot| hot.corner == corner)
-        .ok_or_else(|| format!("{corner:?} is not a hot corner"))?;
-
-    let states = state
-        .toggle_state(&found.action)
-        .ok_or_else(|| format!("there is no surface flag called `{}`", found.action))?;
-    crate::surfaces::apply_states(&app, &states);
-    let _ = app.emit(event::STATE_CHANGED, &states);
-    Ok(())
-}
-
-/// Scrolling on a corner: brightness on the left, volume on the right.
-#[tauri::command]
-pub fn scroll_hot_corner(
-    state: State<'_, AppState>,
-    volume: State<'_, VolumeHandle>,
-    brightness: State<'_, BrightnessHandle>,
-    corner: bw_core::chrome::Corner,
-    up: bool,
-) -> Result<(), String> {
-    if !state.config().sidebar.corner_open.value_scroll {
-        return Ok(());
-    }
-
-    match bw_core::chrome::scroll_target(corner) {
-        bw_core::chrome::ScrollTarget::Brightness => {
-            step_brightness(brightness, up);
-            Ok(())
-        }
-        bw_core::chrome::ScrollTarget::Volume => step_volume(state, volume, up),
-    }
-}
-
-/// The primary monitor in physical pixels, which is what a window region uses.
-fn screen_size(_app: &AppHandle) -> (i32, i32) {
-    _app.primary_monitor()
-        .ok()
-        .flatten()
-        .map(|monitor| {
-            let size = monitor.size();
-            (size.width as i32, size.height as i32)
-        })
-        .unwrap_or((1920, 1080))
+pub fn get_screen_chrome(state: State<'_, AppState>) -> bw_core::chrome::ScreenChrome {
+    bw_core::chrome::ScreenChrome::resolve(&state.config())
 }
 
 // --- The drop shelf --------------------------------------------------------
@@ -1805,14 +1785,6 @@ pub fn run_command(state: State<'_, AppState>, _line: String) -> Result<(), Stri
 
 // --- The dock --------------------------------------------------------------
 
-#[tauri::command]
-pub fn get_dock_items(
-    state: State<'_, AppState>,
-    dock: State<'_, DockHandle>,
-) -> Vec<bw_core::dock::DockApp> {
-    dock.items(&state.config())
-}
-
 /// What happened when the dock was clicked, so the UI can say something useful
 /// rather than looking inert.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -1965,16 +1937,36 @@ pub fn set_pinned(
 
 // --- Translation -----------------------------------------------------------
 
+/// The named service, or the one `ai.provider` names when none is.
+fn ai_provider(state: &AppState, provider: Option<String>) -> bw_core::ai::Provider {
+    match provider {
+        Some(name) => bw_core::ai::Provider::parse(&name),
+        None => crate::services::ai::provider(&state.config()),
+    }
+}
+
 /// Whether an API key has been configured, so the sidebar can show the
 /// translator or a pointer at the settings rather than a dead tab.
 #[tauri::command]
-pub fn has_ai_key() -> bool {
-    crate::services::ai::has_key()
+pub fn has_ai_key(state: State<'_, AppState>, provider: Option<String>) -> bool {
+    crate::services::ai::has_key(ai_provider(&state, provider))
 }
 
 #[tauri::command]
-pub fn set_ai_key(key: String) -> Result<(), String> {
-    crate::services::ai::set_key(&key)
+pub fn set_ai_key(
+    state: State<'_, AppState>,
+    key: String,
+    provider: Option<String>,
+) -> Result<(), String> {
+    crate::services::ai::set_key(ai_provider(&state, provider), &key)
+}
+
+/// The models a service offers, read from the service itself.
+#[tauri::command]
+pub async fn list_ai_models(
+    provider: String,
+) -> Result<Vec<bw_core::ai::AiModel>, bw_core::ai::AiError> {
+    crate::services::ai::list_models(bw_core::ai::Provider::parse(&provider)).await
 }
 
 /// The translator's result: the text, or a reason the UI can act on.
@@ -2133,11 +2125,19 @@ async fn send_chat_inner(
     Ok(())
 }
 
-/// Drops the last exchange, for retrying after a failure.
+/// Drops the failed exchange, for the window to send its question again.
 #[tauri::command]
 pub fn retry_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::chat::ChatMessage> {
-    // Two pops: the empty assistant turn, and the user turn to be resent.
-    store.0.pop();
+    use bw_core::chat::Role;
+
+    // Two pops: the empty assistant turn, and the user turn to be resent —
+    // sending it adds it back. Only dropping the reply left the question
+    // with no answer and nothing asking again.
+    for role in [Role::Assistant, Role::User] {
+        if store.0.list().last().map(|message| message.role) == Some(role) {
+            store.0.pop();
+        }
+    }
     let list = store.0.list();
     let _ = app.emit(event::CHAT, &list);
     list

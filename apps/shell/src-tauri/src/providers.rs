@@ -200,6 +200,7 @@ pub fn media() -> MediaState {
             .AlbumTitle()
             .map(|a| a.to_string())
             .unwrap_or_default();
+        state.artwork = artwork(&properties, &state);
     }
 
     if let Ok(info) = session.GetPlaybackInfo() {
@@ -242,6 +243,44 @@ pub fn media() -> MediaState {
     }
 
     state
+}
+
+/// The playing track's artwork, as a cached PNG's path for the asset protocol.
+///
+/// Asked every second, so a track's picture is read once and its path kept.
+/// A missing one is not kept: players often hand the picture over a moment
+/// after the title, and it is asked for again until it arrives.
+#[cfg(windows)]
+fn artwork(
+    properties: &windows::Media::Control::GlobalSystemMediaTransportControlsSessionMediaProperties,
+    state: &MediaState,
+) -> String {
+    static LAST: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+    let track = format!(
+        "{}\n{}\n{}\n{}",
+        state.source, state.title, state.artist, state.album
+    );
+    let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((known, path)) = last.as_ref() {
+        if *known == track {
+            return path.clone();
+        }
+    }
+
+    let found = properties
+        .Thumbnail()
+        .and_then(|picture| picture.OpenReadAsync())
+        .and_then(|operation| operation.get())
+        .ok()
+        .and_then(|stream| crate::platform::appicon::stream_bytes(&stream))
+        .and_then(|bytes| crate::platform::appicon::store_artwork(&track, &bytes));
+    match found {
+        Some(path) => {
+            *last = Some((track, path.clone()));
+            path
+        }
+        None => String::new(),
+    }
 }
 
 /// What the Start menu calls the application playing media: "メディア

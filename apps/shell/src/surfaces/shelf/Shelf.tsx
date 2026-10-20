@@ -76,6 +76,7 @@ export function Shelf() {
   const ready = useShell((state) => state.ready);
   const open = useShell((state) => state.states.shelfOpen);
   const enabled = useShell((state) => state.config.shelf.enable);
+  const backdrop = useShell((state) => state.config.windows.backdrop);
 
   const [items, setItems] = useState<ShelfItem[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
@@ -178,6 +179,8 @@ export function Shelf() {
       className={["bw-shelf", hovering ? "hovering" : ""]
         .filter(Boolean)
         .join(" ")}
+      // Windows blurs the desktop behind this window (`surfaces.rs`).
+      data-backdrop={backdrop !== "none"}
       onDragOver={(event) => {
         event.preventDefault();
         setHovering(true);

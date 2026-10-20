@@ -8,7 +8,7 @@ import { useState } from "react";
 import { IconButton, Placeholder, ScrollArea, Symbol } from "../../widgets";
 import SwipeRow from "../../widgets/reactbits/SwipeRow";
 import { formatAge } from "../../lib/format";
-import { tr } from "../../i18n";
+import { tr, trNotice } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import type { Notification } from "@bw/core";
 
@@ -77,7 +77,7 @@ export function NotificationCentre() {
                   <SwipeRow
                     key={notification.id}
                     className="bw-notification-row"
-                    label={notification.summary}
+                    label={trNotice(notification.appName, notification.summary)}
                     actions={[
                       {
                         id: "dismiss",
@@ -89,7 +89,7 @@ export function NotificationCentre() {
                     rowColor="var(--layer2)"
                     textColor="var(--on-surface)"
                     drawerColor="var(--layer3)"
-                    actionColor="var(--m3-error-container)"
+                    actionColor="var(--error)"
                     onAction={() =>
                       void actions.dismissNotification(notification.id)
                     }
@@ -104,7 +104,10 @@ export function NotificationCentre() {
                       <div className="bw-notification-text">
                         <div className="bw-notification-heading">
                           <span className="bw-notification-summary">
-                            {notification.summary}
+                            {trNotice(
+                              notification.appName,
+                              notification.summary,
+                            )}
                           </span>
                           <span className="bw-notification-age">
                             {formatAge(notification.time, now.getTime() / 1000)}
@@ -112,7 +115,7 @@ export function NotificationCentre() {
                         </div>
                         {notification.body ? (
                           <span className="bw-notification-body">
-                            {notification.body}
+                            {trNotice(notification.appName, notification.body)}
                           </span>
                         ) : null}
                       </div>

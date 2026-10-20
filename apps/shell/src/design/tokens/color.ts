@@ -99,6 +99,23 @@ export function applyAlpha(color: string, alpha: number): string {
   return formatColor({ ...parseColor(color), a: clamp(alpha) });
 }
 
+/** Relative luminance, per WCAG. */
+export function luminance(color: string): number {
+  const { r, g, b } = parseColor(color);
+  const linear = (channel: number) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
+/** Contrast ratio between two opaque colours, 1..21. */
+export function contrastRatio(a: string, b: string): number {
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [
+    number,
+    number,
+  ];
+  return (high + 0.05) / (low + 0.05);
+}
+
 /** HSL lightness, matching QML's `color.hslLightness`. */
 export function hslLightness(color: string): number {
   const { r, g, b } = parseColor(color);

@@ -7,8 +7,6 @@
 
 import { useEffect, useState } from "react";
 import { Background } from "./surfaces/background/Background";
-import { Bar } from "./surfaces/bar/Bar";
-import { Dock } from "./surfaces/dock/Dock";
 import { SidebarLeft } from "./surfaces/sidebarLeft/SidebarLeft";
 import { SidebarRight } from "./surfaces/sidebarRight/SidebarRight";
 import { WallpaperSelector } from "./surfaces/wallpaperSelector/WallpaperSelector";
@@ -17,7 +15,6 @@ import { Session } from "./surfaces/session/Session";
 import { DesktopMenu } from "./surfaces/desktopMenu/DesktopMenu";
 import { Shelf } from "./surfaces/shelf/Shelf";
 import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
-import { HotCorners } from "./surfaces/hotCorners/HotCorners";
 import { Settings } from "./surfaces/settings/Settings";
 import { Wizard } from "./surfaces/wizard/Wizard";
 import { Overlay } from "./surfaces/overlay/Overlay";
@@ -59,7 +56,6 @@ function Harness() {
   const showDesktop = !showPanel && (view === "desktop" || view === "both");
   const showSelector =
     !showPanel && (view === "wallpapers" || view === "both" || selectorOpen);
-  const barHeight = config.bar.enable ? config.bar.height : 0;
 
   return (
     <div
@@ -177,37 +173,6 @@ function Harness() {
             fontSize: "0.86em",
           }}
         >
-          <Symbol name="view_list" size={16} />
-          <select
-            aria-label="Bar style"
-            value={config.bar.style}
-            onChange={(event) =>
-              void actions.setConfigValue("bar.style", event.target.value)
-            }
-            style={{
-              background: "var(--layer3)",
-              color: "var(--on-surface)",
-              border: 0,
-              borderRadius: 999,
-              padding: "6px 10px",
-            }}
-          >
-            {["m3", "hug", "float", "islands"].map((name) => (
-              <option key={name} value={name}>
-                bar: {name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.86em",
-          }}
-        >
           <Symbol name="tune" size={16} />
           <select
             aria-label="Toggle style"
@@ -244,15 +209,6 @@ function Harness() {
           }
         >
           {config.policies.weeb === 1 ? "booru on" : "booru off"}
-        </Button>
-
-        <Button
-          icon={config.bar.bottom ? "expand_more" : "expand_less"}
-          onClick={() =>
-            void actions.setConfigValue("bar.bottom", !config.bar.bottom)
-          }
-        >
-          {config.bar.bottom ? "bottom" : "top"}
         </Button>
 
         {/* On Windows these are keys; the region overlay covers the screen
@@ -328,17 +284,6 @@ function Harness() {
         >
           first run
         </Button>
-        <Button
-          icon="highlight_alt"
-          onClick={() =>
-            void actions.setConfigValue(
-              "sidebar.cornerOpen.visualize",
-              !config.sidebar.cornerOpen.visualize,
-            )
-          }
-        >
-          {config.sidebar.cornerOpen.visualize ? "corners shown" : "corners"}
-        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -374,37 +319,6 @@ function Harness() {
             }}
           >
             <Background />
-            {/* On Windows the bar is its own window along a reserved edge; here
-                it is overlaid on the desktop pane so both can be seen at once. */}
-            {/* On Windows the dock is its own window along the bottom edge;
-                here it is overlaid on the desktop pane so both can be seen. */}
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: config.dock.height + 20,
-                pointerEvents: "none",
-              }}
-            >
-              <div style={{ height: "100%", pointerEvents: "auto" }}>
-                <Dock />
-              </div>
-            </div>
-            {config.bar.enable ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  [config.bar.bottom ? "bottom" : "top"]: 0,
-                  height: barHeight,
-                }}
-              >
-                <Bar />
-              </div>
-            ) : null}
           </div>
         ) : null}
 
@@ -435,7 +349,6 @@ function Harness() {
       <Session />
       <DesktopMenu />
       <ScreenChrome />
-      <HotCorners />
       {/* On Windows these are two windows over everything; here they are drawn
           over the harness the same way. */}
       <Overlay />

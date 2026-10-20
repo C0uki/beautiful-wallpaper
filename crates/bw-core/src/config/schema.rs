@@ -68,8 +68,8 @@ config_struct! {
         /// The wallpaper, how it arrives on screen, and the widgets drawn over
         /// it.
         pub background: Background = Background::default(),
-        /// The strip along one edge of the screen: where it sits, how it looks,
-        /// and what it carries.
+        /// The strip along one edge of the screen: where it sits and when it
+        /// hides.
         pub bar: Bar = Bar::default(),
         /// Screenshots and what can be done with one — the region picker, OCR
         /// and the screen translator.
@@ -111,7 +111,7 @@ config_struct! {
         /// The two sidebars — the left one's tabs, the right one's toggles,
         /// sliders and notification centre.
         pub sidebar: Sidebar = Sidebar::default(),
-        /// Clock and date formats, and which day a week starts on.
+        /// How the clock reads, and which day a week starts on.
         pub time: Time = Time::default(),
         /// The wallpaper picker: the folder it reads, how it is laid out, and
         /// the online sources it can search.
@@ -272,10 +272,8 @@ impl WidgetPlacement {
 config_struct! {
     pub struct Bar {
         pub enable: bool = true,
-        /// Anchor the bar to the bottom edge instead of the top.
-        pub bottom: bool = false,
+        /// Down the left edge instead of along the top.
         pub vertical: bool = false,
-        pub height: u32 = 40,
         /// Reserve screen space through `SHAppBarMessage` so maximised windows
         /// keep clear of the bar.
         ///
@@ -288,26 +286,11 @@ config_struct! {
         /// Put a bar on every monitor rather than only the primary one.
         ///
         /// Each gets its own window along the same edge of its own screen, and
-        /// reserves that edge on that monitor. The bars draw the same thing:
-        /// nothing in `left`/`center`/`right` is per-monitor yet.
+        /// reserves that edge on that monitor. The bars draw the same thing.
         pub per_monitor: bool = false,
-        /// How much of the bar stays on screen while it is hidden. This is the
-        /// strip the pointer has to reach, so zero would make the bar
-        /// unreachable.
+        /// The strip along the edge, in pixels, that the pointer has to reach
+        /// to bring a hidden bar back. Zero counts as one.
         pub hover_region_height: u32 = 3,
-        /// `"hug"` | `"float"` | `"islands"` | `"m3"`
-        pub style: String = s("m3"),
-        pub left: Vec<String> = vec![s("sidebarLeft"), s("media")],
-        pub center: Vec<String> = vec![s("workspaces"), s("activeWindow")],
-        pub right: Vec<String> = vec![
-            s("tray"),
-            s("resources"),
-            s("network"),
-            s("battery"),
-            s("utilButtons"),
-            s("sidebarRight"),
-            s("clock"),
-        ],
         /// Draw a thin border around the whole screen.
         pub show_frame: bool = false,
         pub frame_thickness: u32 = 4,
@@ -321,7 +304,6 @@ config_struct! {
     /// The dock: this shell's replacement for the taskbar it can hide.
     pub struct Dock {
         pub enable: bool = false,
-        pub height: u32 = 60,
         pub icon_size: u32 = 44,
         /// Full paths of the executables kept on the dock whether or not they
         /// are running. The original stores desktop-entry ids; Windows has no
@@ -337,7 +319,6 @@ config_struct! {
         /// takes globs instead rather than pulling a regex engine into the
         /// portable crate — and is named for what it actually accepts.
         pub ignored: Vec<String> = Vec::new(),
-        pub show_background: bool = true,
         pub show_pin_button: bool = true,
         pub show_media: bool = true,
         /// Slide out of the way until the pointer reaches the screen edge.
@@ -485,34 +466,6 @@ config_struct! {
 }
 
 config_struct! {
-    /// Throwing the pointer into a corner of the screen to open something.
-    ///
-    /// These are input regions nobody can see, so they are deliberately small
-    /// and deliberately anchored hard into their corners: a strip a few pixels
-    /// out of place is a sidebar that opens when somebody reaches for a
-    /// window's close button.
-    pub struct CornerOpen {
-        pub enable: bool = true,
-        /// Scrolling on a left corner changes the brightness and on a right
-        /// corner the volume.
-        pub value_scroll: bool = true,
-        /// Open on hover rather than on a click. Faster, and much easier to
-        /// trigger by accident, which is why it is off.
-        pub clickless: bool = false,
-        /// A wide, thin strip rather than a square: what makes a corner
-        /// reachable is being able to throw the pointer at the edge.
-        pub corner_region_width: u32 = 250,
-        pub corner_region_height: u32 = 5,
-        /// Paint the regions, for working out where they actually are.
-        pub visualize: bool = false,
-        /// Which `GlobalStates` flag each corner flips. Empty means the
-        /// corner does nothing and gets no region at all.
-        pub top_left_action: String = s("sidebarLeftOpen"),
-        pub top_right_action: String = s("sidebarRightOpen"),
-    }
-}
-
-config_struct! {
     /// The way out of the session.
     ///
     /// Each button can be switched off, but the order they appear in cannot:
@@ -562,6 +515,8 @@ config_struct! {
         /// `"top"` or `"bottom"`. The readout clears the bar on whichever edge
         /// the bar occupies, so this is only about which end of the screen.
         pub position: String = s("top"),
+        /// While on, the shell takes the volume keys, so Windows' own volume
+        /// flyout does not show as well.
         pub volume: bool = true,
         /// Brightness is unavailable on some displays; the readout is simply
         /// not shown when the platform cannot report a level.
@@ -581,7 +536,6 @@ config_struct! {
         pub max_visible: u32 = 4,
         /// Suppresses toasts without discarding the notifications themselves.
         pub do_not_disturb: bool = false,
-        pub width: u32 = 380,
     }
 }
 
@@ -621,7 +575,6 @@ config_struct! {
         pub quick_sliders: QuickSliders = QuickSliders::default(),
         pub night_light: NightLight = NightLight::default(),
         pub left: LeftSidebar = LeftSidebar::default(),
-        pub corner_open: CornerOpen = CornerOpen::default(),
     }
 }
 
@@ -720,13 +673,19 @@ config_struct! {
 }
 
 config_struct! {
-    /// Anthropic's API, used by the translator today and by the chat later.
+    /// The chat and the translator: which service answers, with which model.
     ///
-    /// The key itself is never stored here — it lives in the Windows
+    /// The keys themselves are never stored here — they live in the Windows
     /// credential manager, reached through the `keyring` crate, the same way
     /// the online wallpaper providers' keys are.
     pub struct Ai {
+        /// `anthropic`, `gemini` or `openai`.
+        pub provider: String = s("anthropic"),
+        /// The model each service answers with. Any the service lists can be
+        /// chosen in the settings; these are only where a new install starts.
         pub model: String = s("claude-opus-5"),
+        pub gemini_model: String = s("gemini-3.8-flash"),
+        pub openai_model: String = s("gpt-5.5"),
         pub max_tokens: u32 = 4096,
         /// Let the model search the web when it needs to. Costs tokens, so it
         /// is a setting rather than always on.
@@ -748,8 +707,9 @@ config_struct! {
 
 config_struct! {
     pub struct Time {
+        /// `HH:mm`, `HH:mm:ss` or `hh:mm AP`. The date beside it follows the
+        /// shell's language.
         pub format: String = s("HH:mm"),
-        pub date_format: String = s("ddd, dd/MM"),
         pub week_starts_on_monday: bool = true,
     }
 }

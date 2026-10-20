@@ -529,7 +529,7 @@ mod tests {
     fn a_saved_preset_reads_back() {
         let dir = scratch("round-trip");
         let mut config = Config::default();
-        config.bar.height = 44;
+        config.bar.frame_thickness = 44;
         let value = serde_json::to_value(&config).unwrap();
 
         save(&dir, "Slim bar", "a thinner bar", &value, false).unwrap();
@@ -643,8 +643,8 @@ mod tests {
     fn a_change_carries_both_sides_as_they_are_shown() {
         let current = defaults();
         let mut other = Config::default();
-        other.bar.height = 44;
-        other.bar.style = "float".into();
+        other.bar.frame_thickness = 44;
+        other.bar.frame_color = "white".into();
         other.appearance.transparency.enable = !other.appearance.transparency.enable;
         let preset = serde_json::to_value(&other).unwrap();
 
@@ -654,8 +654,8 @@ mod tests {
             .iter()
             .map(|change| change.path.as_str())
             .collect();
-        assert!(paths.contains(&"bar.height"), "{paths:?}");
-        assert!(paths.contains(&"bar.style"), "{paths:?}");
+        assert!(paths.contains(&"bar.frameThickness"), "{paths:?}");
+        assert!(paths.contains(&"bar.frameColor"), "{paths:?}");
         assert!(
             paths.contains(&"appearance.transparency.enable"),
             "{paths:?}"
@@ -664,16 +664,16 @@ mod tests {
         let height = comparison
             .changes
             .iter()
-            .find(|change| change.path == "bar.height")
+            .find(|change| change.path == "bar.frameThickness")
             .unwrap();
         assert_eq!(height.to, "44");
         let style = comparison
             .changes
             .iter()
-            .find(|change| change.path == "bar.style")
+            .find(|change| change.path == "bar.frameColor")
             .unwrap();
         // Strings are shown bare rather than quoted.
-        assert_eq!(style.to, "float");
+        assert_eq!(style.to, "white");
     }
 
     /// The whole reason applying is not a merge: a key from a newer build,
@@ -716,10 +716,10 @@ mod tests {
     #[test]
     fn a_key_the_preset_leaves_out_keeps_its_current_value() {
         let mut current = Config::default();
-        current.bar.height = 44;
+        current.bar.frame_thickness = 44;
         let current = serde_json::to_value(&current).unwrap();
 
-        let preset = serde_json::json!({ "bar": { "style": "float" } });
+        let preset = serde_json::json!({ "bar": { "frameColor": "white" } });
         let comparison = compare(&current, &preset);
         assert_eq!(
             comparison
@@ -727,12 +727,15 @@ mod tests {
                 .iter()
                 .map(|change| change.path.as_str())
                 .collect::<Vec<_>>(),
-            vec!["bar.style"]
+            vec!["bar.frameColor"]
         );
 
         let mut applied = current.clone();
-        apply(&mut applied, &preset, &["bar.style".to_owned()]).unwrap();
-        assert_eq!(config::get_path(&applied, "bar.height"), Some(&44.into()));
+        apply(&mut applied, &preset, &["bar.frameColor".to_owned()]).unwrap();
+        assert_eq!(
+            config::get_path(&applied, "bar.frameThickness"),
+            Some(&44.into())
+        );
     }
 
     /// Ticking half the list applies half the list — the same code path as
@@ -741,21 +744,21 @@ mod tests {
     fn only_the_chosen_paths_are_written() {
         let current = defaults();
         let mut other = Config::default();
-        other.bar.height = 44;
-        other.bar.style = "float".into();
+        other.bar.frame_thickness = 44;
+        other.bar.frame_color = "white".into();
         let preset = serde_json::to_value(&other).unwrap();
 
         let mut applied = current.clone();
-        let written = apply(&mut applied, &preset, &["bar.style".to_owned()]).unwrap();
+        let written = apply(&mut applied, &preset, &["bar.frameColor".to_owned()]).unwrap();
 
         assert_eq!(written, 1);
         assert_eq!(
-            config::get_path(&applied, "bar.style"),
-            Some(&Value::String("float".into()))
+            config::get_path(&applied, "bar.frameColor"),
+            Some(&Value::String("white".into()))
         );
         assert_eq!(
-            config::get_path(&applied, "bar.height"),
-            config::get_path(&current, "bar.height"),
+            config::get_path(&applied, "bar.frameThickness"),
+            config::get_path(&current, "bar.frameThickness"),
             "an unticked change is not written"
         );
     }
@@ -763,19 +766,19 @@ mod tests {
     #[test]
     fn applying_a_path_that_is_not_in_the_preset_is_refused() {
         let mut current = defaults();
-        let preset = serde_json::json!({ "bar": { "style": "float" } });
+        let preset = serde_json::json!({ "bar": { "frameColor": "white" } });
         assert!(matches!(
-            apply(&mut current, &preset, &["bar.height".to_owned()]),
+            apply(&mut current, &preset, &["bar.frameThickness".to_owned()]),
             Err(config::ConfigError::UnknownPath(_))
         ));
     }
 
-    /// A list is replaced whole. Merging `bar.left` element by element would
-    /// produce an arrangement of widgets nobody chose.
+    /// A list is replaced whole. Merging `wallpaperSelector.extensions`
+    /// element by element would produce a list nobody chose.
     #[test]
     fn a_list_is_one_change_rather_than_one_per_element() {
         let current = defaults();
-        let preset = serde_json::json!({ "bar": { "left": ["clock"] } });
+        let preset = serde_json::json!({ "wallpaperSelector": { "extensions": ["png"] } });
 
         let comparison = compare(&current, &preset);
         assert_eq!(
@@ -784,14 +787,19 @@ mod tests {
                 .iter()
                 .map(|change| change.path.as_str())
                 .collect::<Vec<_>>(),
-            vec!["bar.left"]
+            vec!["wallpaperSelector.extensions"]
         );
 
         let mut applied = current.clone();
-        apply(&mut applied, &preset, &["bar.left".to_owned()]).unwrap();
+        apply(
+            &mut applied,
+            &preset,
+            &["wallpaperSelector.extensions".to_owned()],
+        )
+        .unwrap();
         assert_eq!(
-            config::get_path(&applied, "bar.left"),
-            Some(&serde_json::json!(["clock"]))
+            config::get_path(&applied, "wallpaperSelector.extensions"),
+            Some(&serde_json::json!(["png"]))
         );
     }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyAlpha,
+  contrastRatio,
   formatColor,
   hslLightness,
   hslSaturation,
@@ -102,6 +103,15 @@ describe("HSL accessors", () => {
     expect(hslLightness("#ff0000")).toBeCloseTo(0.5, 5);
     expect(hslSaturation("#ff0000")).toBeCloseTo(1, 5);
     expect(hslSaturation("#808080")).toBe(0);
+  });
+});
+
+describe("contrastRatio", () => {
+  it("computes WCAG contrast ratios", () => {
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#ffffff", "#ffffff")).toBeCloseTo(1, 5);
+    // Order does not matter.
+    expect(contrastRatio("#ffffff", "#000000")).toBeCloseTo(21, 5);
   });
 });
 

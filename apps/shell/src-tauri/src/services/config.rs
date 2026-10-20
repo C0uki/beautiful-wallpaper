@@ -9,7 +9,7 @@ use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
@@ -91,13 +91,7 @@ pub fn watch(app: AppHandle, state: AppState) -> Option<RecommendedWatcher> {
 }
 
 fn say(app: &AppHandle, text: &str) {
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-    store
-        .0
-        .post(bw_core::NewNotification::from_shell("Config", text));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    NotificationStore::announce(app, bw_core::NewNotification::from_shell("Config", text));
 }
 
 /// Takes a wholesale config change and re-does everything it invalidates.
@@ -119,13 +113,15 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         .unwrap_or_else(|| state.config());
 
     let appearance_changed = config.appearance != previous.appearance;
-    let keybinds_changed = config.keybinds != previous.keybinds;
+    // The volume keys are held while the shell draws its own volume readout
+    // (`hotkeys::apply`), so turning that readout off has to give them back.
+    let keybinds_changed = config.keybinds != previous.keybinds
+        || config.osd.enable != previous.osd.enable
+        || config.osd.volume != previous.osd.volume;
     let menu_changed = config.hacks.desktop_menu != previous.hacks.desktop_menu
         || config.desktop_menu.enable != previous.desktop_menu.enable;
     let overlay_changed = config.overlay != previous.overlay;
-    let chrome_changed = config.sidebar.corner_open != previous.sidebar.corner_open
-        || config.appearance != previous.appearance
-        || config.bar != previous.bar;
+    let chrome_changed = config.appearance != previous.appearance || config.bar != previous.bar;
     let windows_changed = config.windows != previous.windows;
     // The taskbar setting decides how much of the edge is left for the bar.
     let bar_moved = config.bar != previous.bar || windows_changed;
@@ -156,10 +152,7 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
         crate::services::deskmenu::apply(app);
     }
 
-    // The hot corners' region is a property of their window, so a resized
-    // strip needs re-cutting rather than just a repaint.
     if chrome_changed {
-        crate::services::chrome::apply(app);
         crate::services::chrome::emit(app);
     }
 
@@ -175,11 +168,28 @@ pub fn adopt(app: &AppHandle, state: &AppState, config: bw_core::Config) {
     }
 
     // Where each surface sits is worked out when its window is made; without
-    // this, moving the bar to the bottom took a restart, and left the dock and
-    // the sidebars keeping clear of where it used to be. On the main thread,
-    // because a bar for a monitor that did not have one is a window to create.
-    // After the taskbar, which has to have given up its edge or taken it back
-    // before the bar asks what is left.
+    // the pass below, moving the bar to the left took a restart, and left the
+    // sidebars keeping clear of where it used to be. It runs after the
+    // taskbar, which has to have given up its edge or taken it back before
+    // the bar asks what is left.
+    if config.dock != previous.dock {
+        crate::commands::emit_dock_settings(app);
+        // Pinning lives in the config, and the icons say which are pinned.
+        crate::commands::rebuild_dock(app);
+    }
+
+    if config.time != previous.time || config.language != previous.language {
+        crate::commands::emit_bar_settings(&config);
+    }
+
+    // The native banners are told their settings with the list.
+    if config.notifications != previous.notifications
+        || config.language != previous.language
+        || bar_moved
+    {
+        crate::commands::emit_notifications(app);
+    }
+
     if overlays_moved {
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {

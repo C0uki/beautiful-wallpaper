@@ -54,8 +54,6 @@ export const Event = {
   Visualizer: "bw://visualizer",
   /** One piece of a reply as it streams. */
   ChatEvent: "bw://chat-event",
-  /** Asks the readout to appear, carrying what to show. */
-  Osd: "bw://osd",
   /**
    * The scan of installed applications finished, or found a change. Carries
    * nothing: the overview re-runs whatever query is in its box.
@@ -118,8 +116,6 @@ export const Command = {
   ThumbnailFor: "thumbnail_for",
   SetMode: "set_mode",
   ToggleState: "toggle_state",
-  SetSurfaceRevealed: "set_surface_revealed",
-  SetDockShape: "set_dock_shape",
   ClickTrayIcon: "click_tray_icon",
   SetState: "set_state",
   GetStates: "get_states",
@@ -128,6 +124,7 @@ export const Command = {
   SetTaskbarVisible: "set_taskbar_visible",
   SetApiKey: "set_api_key",
   GetNotifications: "get_notifications",
+  LatestReadings: "latest_readings",
   PostNotification: "post_notification",
   DismissNotification: "dismiss_notification",
   ClearNotifications: "clear_notifications",
@@ -170,13 +167,13 @@ export const Command = {
   ReorderTodo: "reorder_todo",
   GetPersistent: "get_persistent",
   SetPersistentValue: "set_persistent_value",
-  GetDockItems: "get_dock_items",
   ActivateWindow: "activate_window",
   LaunchApp: "launch_app",
   GetLyrics: "get_lyrics",
   SetPinned: "set_pinned",
   HasAiKey: "has_ai_key",
   SetAiKey: "set_ai_key",
+  ListAiModels: "list_ai_models",
   Translate: "translate",
   GetChat: "get_chat",
   SendChat: "send_chat",
@@ -205,9 +202,6 @@ export const Command = {
   RevealShelfItem: "reveal_shelf_item",
   DragFromShelf: "drag_from_shelf",
   GetScreenChrome: "get_screen_chrome",
-  GetHotCorners: "get_hot_corners",
-  RunHotCorner: "run_hot_corner",
-  ScrollHotCorner: "scroll_hot_corner",
   GetOverlayLayout: "get_overlay_layout",
   GetCrosshair: "get_crosshair",
   ToggleOverlayWidget: "toggle_overlay_widget",
@@ -352,6 +346,16 @@ export type ActivateOutcome =
   | "flashed"
   /** The window has gone since the dock last looked. */
   | "gone";
+
+/** The services the chat and the translator can talk to (`ai.provider`). */
+export type AiProvider = "anthropic" | "gemini" | "openai";
+
+/** A model a service lists, for the settings to offer. */
+export interface AiModel {
+  id: string;
+  /** The service's own name for it; empty where it has none (OpenAI). */
+  name: string;
+}
 
 export interface TranslationResult {
   text: string;

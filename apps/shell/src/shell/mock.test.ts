@@ -14,16 +14,16 @@ describe("the mock backend", () => {
     const backend = mockBackend();
     const before = await backend.invoke<Config>(Command.GetConfig);
     const after = await backend.invoke<Config>(Command.SetConfigValue, {
-      path: "bar.style",
-      value: "islands",
+      path: "bar.frameColor",
+      value: "white",
     });
 
-    expect(after.bar.style).toBe("islands");
+    expect(after.bar.frameColor).toBe("white");
     // Identity matters as much as the value: the store selects object slices,
     // and a mutated-in-place config would never look changed to React.
     expect(after).not.toBe(before);
     expect(after.bar).not.toBe(before.bar);
-    expect(before.bar.style).toBe("m3");
+    expect(before.bar.frameColor).toBe("black");
   });
 
   it("emits the new config to listeners", async () => {
@@ -34,13 +34,13 @@ describe("the mock backend", () => {
     );
 
     await backend.invoke(Command.SetConfigValue, {
-      path: "bar.height",
+      path: "bar.frameThickness",
       value: 52,
     });
 
     // The first delivery is the current state on subscribe; the edit follows.
     await new Promise((resolve) => queueMicrotask(() => resolve(undefined)));
-    expect(seen.at(-1)?.bar.height).toBe(52);
+    expect(seen.at(-1)?.bar.frameThickness).toBe(52);
   });
 
   it("applying a wallpaper re-themes and reports the new path", async () => {
@@ -235,80 +235,6 @@ describe("the mock backend", () => {
     ).toBe("connected");
   });
 
-  it("clicking a dock icon makes exactly one window active", async () => {
-    const backend = mockBackend();
-    const before = await backend.invoke<
-      Array<{ windows: Array<{ id: string; active: boolean }> }>
-    >(Command.GetDockItems);
-    const target = before.flatMap((app) => app.windows).find((w) => !w.active);
-    expect(target).toBeDefined();
-
-    expect(
-      await backend.invoke(Command.ActivateWindow, {
-        id: target!.id,
-        minimiseIfActive: false,
-      }),
-    ).toBe("activated");
-
-    const after = await backend.invoke<
-      Array<{ windows: Array<{ id: string; active: boolean }> }>
-    >(Command.GetDockItems);
-    const active = after.flatMap((app) => app.windows).filter((w) => w.active);
-    expect(active.map((w) => w.id)).toEqual([target!.id]);
-  });
-
-  it("clicking the application you are already in minimises it", async () => {
-    const backend = mockBackend();
-    const items = await backend.invoke<
-      Array<{ windows: Array<{ id: string; active: boolean }> }>
-    >(Command.GetDockItems);
-    const active = items.flatMap((app) => app.windows).find((w) => w.active);
-
-    expect(
-      await backend.invoke(Command.ActivateWindow, {
-        id: active!.id,
-        minimiseIfActive: true,
-      }),
-    ).toBe("minimised");
-  });
-
-  it("unpinning something that is not running takes it off the dock", async () => {
-    const backend = mockBackend();
-    const before = await backend.invoke<
-      Array<{ executable: string; pinned: boolean; windows: unknown[] }>
-    >(Command.GetDockItems);
-    const idle = before.find((app) => app.pinned && app.windows.length === 0);
-    expect(idle).toBeDefined();
-
-    await backend.invoke(Command.SetPinned, {
-      path: idle!.executable,
-      pinned: false,
-    });
-    const after = await backend.invoke<Array<{ executable: string }>>(
-      Command.GetDockItems,
-    );
-    expect(after.map((app) => app.executable)).not.toContain(idle!.executable);
-  });
-
-  it("unpinning something that is running keeps its icon", async () => {
-    const backend = mockBackend();
-    const before = await backend.invoke<
-      Array<{ executable: string; pinned: boolean; windows: unknown[] }>
-    >(Command.GetDockItems);
-    const busy = before.find((app) => app.pinned && app.windows.length > 0);
-
-    await backend.invoke(Command.SetPinned, {
-      path: busy!.executable,
-      pinned: false,
-    });
-    const after = await backend.invoke<
-      Array<{ executable: string; pinned: boolean }>
-    >(Command.GetDockItems);
-    const still = after.find((app) => app.executable === busy!.executable);
-    expect(still).toBeDefined();
-    expect(still!.pinned).toBe(false);
-  });
-
   it("the translator reports a missing key rather than an empty translation", async () => {
     const backend = mockBackend();
     await backend.invoke(Command.SetAiKey, { key: "" });
@@ -321,6 +247,27 @@ describe("the mock backend", () => {
     // An empty string with no error would look like the translator had eaten
     // the input; the UI needs to know it should point at the settings.
     expect(outcome.error).toBe("noKey");
+  });
+
+  it("each service has its own key, and lists its models only with one", async () => {
+    const backend = mockBackend();
+    await expect(
+      backend.invoke(Command.ListAiModels, { provider: "gemini" }),
+    ).rejects.toBe("noKey");
+
+    await backend.invoke(Command.SetAiKey, { provider: "gemini", key: "k" });
+    expect(
+      await backend.invoke<boolean>(Command.HasAiKey, { provider: "gemini" }),
+    ).toBe(true);
+    // The other services' keys are untouched.
+    expect(
+      await backend.invoke<boolean>(Command.HasAiKey, { provider: "openai" }),
+    ).toBe(false);
+    const models = await backend.invoke<{ id: string }[]>(
+      Command.ListAiModels,
+      { provider: "gemini" },
+    );
+    expect(models.length).toBeGreaterThan(0);
   });
 
   it("translating nothing is not an error", async () => {
@@ -380,11 +327,17 @@ describe("the mock backend", () => {
     expect(await backend.invoke<unknown[]>(Command.GetChat)).toEqual([]);
   });
 
-  it("retrying drops only the last turn", async () => {
+  it("retrying drops the failed reply and the question it answered", async () => {
     const backend = mockBackend();
-    const before = await backend.invoke<unknown[]>(Command.GetChat);
-    const after = await backend.invoke<unknown[]>(Command.RetryChat);
-    expect(after.length).toBe(before.length - 1);
+    const before = await backend.invoke<Array<{ role: string }>>(
+      Command.GetChat,
+    );
+    expect(before.at(-1)!.role).toBe("assistant");
+    const after = await backend.invoke<Array<{ role: string }>>(
+      Command.RetryChat,
+    );
+    // The question goes too: the window sends it again, which adds it back.
+    expect(after.length).toBe(before.length - 2);
   });
 
   it("a booru search returns a page of results", async () => {
@@ -418,8 +371,8 @@ describe("the mock backend", () => {
   it("saving a preset takes the config as it is now", async () => {
     const backend = mockBackend();
     await backend.invoke(Command.SetConfigValue, {
-      path: "bar.style",
-      value: "islands",
+      path: "bar.frameColor",
+      value: "white",
     });
     const saved = await backend.invoke<PresetSummary[]>(Command.SavePreset, {
       name: "Mine",
@@ -467,16 +420,16 @@ describe("the mock backend", () => {
 
     const after = await backend.invoke<Config>(Command.ApplyPreset, {
       name: "Midnight",
-      paths: ["bar.style"],
+      paths: ["bar.frameColor"],
     });
-    expect(after.bar.style).toBe("float");
-    expect(after.bar.height, "an unticked change is not written").toBe(
-      before.bar.height,
+    expect(after.bar.frameColor).toBe("white");
+    expect(after.bar.frameThickness, "an unticked change is not written").toBe(
+      before.bar.frameThickness,
     );
 
     expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(true);
     const back = await backend.invoke<Config>(Command.UndoPreset);
-    expect(back.bar.style).toBe(before.bar.style);
+    expect(back.bar.frameColor).toBe(before.bar.frameColor);
     // Taken rather than kept: pressing undo twice must not redo.
     expect(await backend.invoke<boolean>(Command.HasPresetUndo)).toBe(false);
   });

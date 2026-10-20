@@ -11,9 +11,8 @@
 //! is a value a surface draws; each reaches out and changes the machine, and
 //! each has to be undone.
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
-use crate::commands::event;
 use crate::state::{AppState, NotificationStore};
 
 /// Holds whatever the shell has done to Windows on the machine's behalf.
@@ -121,12 +120,8 @@ fn autostart(_app: &AppHandle, _wanted: bool) {}
 
 #[cfg(windows)]
 fn say(app: &AppHandle, problem: &str) {
-    let Some(store) = app.try_state::<NotificationStore>() else {
-        return;
-    };
-    store.0.post(bw_core::NewNotification::from_shell(
-        "Starting with Windows",
-        problem,
-    ));
-    let _ = app.emit(event::NOTIFICATIONS, store.0.list());
+    NotificationStore::announce(
+        app,
+        bw_core::NewNotification::from_shell("Starting with Windows", problem),
+    );
 }

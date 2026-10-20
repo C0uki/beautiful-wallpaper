@@ -1,0 +1,63 @@
+// The volume and brightness readout, drawn as the webview's is: the glyph,
+// Control Center's tall track filled in white, and the level. The window is
+// exactly the block; Windows rounds its corners and gives it its shadow.
+
+import { Palette } from "palette.slint";
+
+export component Osd inherits Window {
+    in property <image> glyph;
+    /// 0 to 1.
+    in property <float> level;
+    in property <string> value;
+    /// Still shows where the level would be, greyed, so unmuting is no surprise.
+    in property <bool> muted;
+
+    title: "bw-osd-native";
+    no-frame: true;
+    always-on-top: true;
+    background: Palette.popover;
+    width: 320px;
+    height: 46px;
+    default-font-family: "Segoe UI Variable Text";
+    default-font-size: 13px;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 12px;
+        Image {
+            source: root.glyph;
+            colorize: root.muted ? Palette.muted : Palette.foreground;
+            width: 20px;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 22px;
+            border-radius: 11px;
+            background: Palette.track;
+            clip: true;
+            Rectangle {
+                x: 0;
+                width: parent.width * root.level;
+                height: parent.height;
+                border-radius: 11px;
+                background: root.muted ? Palette.muted : Palette.level;
+                animate width {
+                    duration: 150ms;
+                    easing: ease-out;
+                }
+            }
+        }
+        Text {
+            text: root.value;
+            color: Palette.quiet;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            min-width: 24px;
+        }
+    }
+}

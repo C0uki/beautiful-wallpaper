@@ -82,8 +82,17 @@ pub fn list() -> Vec<WindowInfo> {
 ///
 /// The rules are Explorer's, arrived at by long tradition rather than by any
 /// documented contract: visible, no owner, not a tool window, and not cloaked.
+/// And not the shell's own: its settings and other windows are ordinary ones
+/// kept off the taskbar, not tool windows, and the dock listed them as an
+/// application of their own.
 unsafe fn is_taskbar_window(window: HWND) -> bool {
     if !IsWindowVisible(window).as_bool() {
+        return false;
+    }
+
+    let mut process = 0;
+    GetWindowThreadProcessId(window, Some(&mut process));
+    if process == std::process::id() {
         return false;
     }
 

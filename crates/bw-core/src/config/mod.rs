@@ -104,6 +104,16 @@ const RETIRED: &[&str] = &[
     "background.widgets.notes.style",
     "windows.windowManager",
     "windows.komorebi",
+    "bar.bottom",
+    "bar.height",
+    "bar.style",
+    "bar.left",
+    "bar.center",
+    "bar.right",
+    "dock.height",
+    "dock.showBackground",
+    "notifications.width",
+    "time.dateFormat",
 ];
 
 fn collect_unknown(document: &Value, known: &Value, path: &str, into: &mut Vec<String>) {
@@ -251,7 +261,7 @@ fn walk_mut<'a>(root: &'a mut Value, path: &str) -> Option<&'a mut Value> {
 }
 
 /// Converts a loosely typed incoming value to the type the config already holds,
-/// so `bw.exe config set bar.bottom true` works from a shell.
+/// so `bw.exe config set bar.vertical true` works from a shell.
 fn coerce(current: &Value, new: Value, path: &str) -> Result<Value, ConfigError> {
     let mismatch = |expected: &'static str, value: &Value| ConfigError::TypeMismatch {
         path: path.to_owned(),
@@ -347,9 +357,9 @@ mod tests {
 
     #[test]
     fn missing_keys_fall_back_to_defaults() {
-        let config = parse(r#"{"bar":{"bottom":true}}"#).unwrap();
-        assert!(config.bar.bottom);
-        assert_eq!(config.bar.height, Bar::default().height);
+        let config = parse(r#"{"bar":{"vertical":true}}"#).unwrap();
+        assert!(config.bar.vertical);
+        assert_eq!(config.bar.frame_thickness, Bar::default().frame_thickness);
         assert_eq!(config.appearance, Appearance::default());
     }
 
@@ -363,10 +373,10 @@ mod tests {
     fn unknown_keys_are_skipped_and_named_rather_than_refused() {
         // A typo, next to the setting it meant, and a section only a newer
         // version has: the config still loads, and both are named.
-        let text = r#"{"bar":{"botom":true,"bottom":true},"later":{"x":1}}"#;
+        let text = r#"{"bar":{"verticle":true,"vertical":true},"later":{"x":1}}"#;
         let config = parse(text).unwrap();
-        assert!(config.bar.bottom);
-        assert_eq!(unknown_keys(text, &config), ["bar.botom", "later"]);
+        assert!(config.bar.vertical);
+        assert_eq!(unknown_keys(text, &config), ["bar.verticle", "later"]);
         assert!(unknown_keys("{}", &config).is_empty());
     }
 
@@ -377,17 +387,17 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             &path,
-            r#"{"bar":{"height":30,"later":true},"later":{"x":1}}"#,
+            r#"{"bar":{"frameThickness":4,"later":true},"later":{"x":1}}"#,
         )
         .unwrap();
 
         let mut config = Config::default();
-        config.bar.height = 44;
+        config.bar.frame_thickness = 44;
         save(&path, &config).unwrap();
 
         let text = std::fs::read_to_string(&path).unwrap();
         let saved: Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(saved["bar"]["height"], 44);
+        assert_eq!(saved["bar"]["frameThickness"], 44);
         assert_eq!(saved["bar"]["later"], true);
         assert_eq!(saved["later"]["x"], 1);
         assert_eq!(load(&path).unwrap(), config);
@@ -430,9 +440,14 @@ mod tests {
     #[test]
     fn set_path_coerces_strings_to_the_stored_type() {
         let mut root = defaults();
-        set_path(&mut root, "bar.bottom", Value::String("true".into())).unwrap();
-        set_path(&mut root, "bar.height", Value::String("52".into())).unwrap();
-        set_path(&mut root, "bar.left", Value::String("media, clock".into())).unwrap();
+        set_path(&mut root, "bar.vertical", Value::String("true".into())).unwrap();
+        set_path(&mut root, "bar.frameThickness", Value::String("52".into())).unwrap();
+        set_path(
+            &mut root,
+            "wallpaperSelector.extensions",
+            Value::String("png, jpg".into()),
+        )
+        .unwrap();
         set_path(
             &mut root,
             "appearance.roundingScale",
@@ -441,11 +456,11 @@ mod tests {
         .unwrap();
 
         let config: Config = serde_json::from_value(root).unwrap();
-        assert!(config.bar.bottom);
-        assert_eq!(config.bar.height, 52);
+        assert!(config.bar.vertical);
+        assert_eq!(config.bar.frame_thickness, 52);
         assert_eq!(
-            config.bar.left,
-            vec!["media".to_owned(), "clock".to_owned()]
+            config.wallpaper_selector.extensions,
+            vec!["png".to_owned(), "jpg".to_owned()]
         );
         assert_eq!(config.appearance.rounding_scale, 1.25);
     }
@@ -454,18 +469,26 @@ mod tests {
     fn integer_fields_stay_integers() {
         let mut root = defaults();
         // A JSON number that arrives as a float must not turn `u32` into `52.0`.
-        set_path(&mut root, "bar.height", serde_json::json!(52.0)).unwrap();
-        assert_eq!(get_path(&root, "bar.height"), Some(&serde_json::json!(52)));
+        set_path(&mut root, "bar.frameThickness", serde_json::json!(52.0)).unwrap();
+        assert_eq!(
+            get_path(&root, "bar.frameThickness"),
+            Some(&serde_json::json!(52))
+        );
         serde_json::from_value::<Config>(root).unwrap();
     }
 
     #[test]
     fn set_path_indexes_into_arrays() {
         let mut root = defaults();
-        set_path(&mut root, "bar.left.0", Value::String("clock".into())).unwrap();
+        set_path(
+            &mut root,
+            "wallpaperSelector.extensions.0",
+            Value::String("png".into()),
+        )
+        .unwrap();
         assert_eq!(
-            get_path(&root, "bar.left.0"),
-            Some(&Value::String("clock".into()))
+            get_path(&root, "wallpaperSelector.extensions.0"),
+            Some(&Value::String("png".into()))
         );
     }
 
@@ -477,7 +500,11 @@ mod tests {
             Err(ConfigError::UnknownPath(_))
         ));
         assert!(matches!(
-            set_path(&mut root, "bar.height", Value::String("tall".into())),
+            set_path(
+                &mut root,
+                "bar.frameThickness",
+                Value::String("tall".into())
+            ),
             Err(ConfigError::TypeMismatch { .. })
         ));
     }
@@ -488,7 +515,7 @@ mod tests {
         let path = dir.join("config.json");
         let mut config = Config::default();
         config.background.wallpaper_path = r"C:\Users\me\Pictures\a.png".into();
-        config.bar.height = 44;
+        config.bar.frame_thickness = 44;
 
         save(&path, &config).unwrap();
         assert_eq!(load(&path).unwrap(), config);

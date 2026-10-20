@@ -19,5 +19,4 @@ export type Notifications = {
    * Suppresses toasts without discarding the notifications themselves.
    */
   doNotDisturb: boolean;
-  width: number;
 };

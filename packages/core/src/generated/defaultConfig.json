@@ -1,6 +1,9 @@
 {
   "ai": {
+    "provider": "anthropic",
     "model": "claude-opus-5",
+    "geminiModel": "gemini-3.8-flash",
+    "openaiModel": "gpt-5.5",
     "maxTokens": 4096,
     "webSearch": true,
     "maxSearches": 5,
@@ -104,25 +107,11 @@
   },
   "bar": {
     "enable": true,
-    "bottom": false,
     "vertical": false,
-    "height": 40,
     "reserveSpace": true,
     "autoHide": false,
     "perMonitor": false,
     "hoverRegionHeight": 3,
-    "style": "m3",
-    "left": ["sidebarLeft", "media"],
-    "center": ["workspaces", "activeWindow"],
-    "right": [
-      "tray",
-      "resources",
-      "network",
-      "battery",
-      "utilButtons",
-      "sidebarRight",
-      "clock"
-    ],
     "showFrame": false,
     "frameThickness": 4,
     "frameColor": "black"
@@ -146,11 +135,9 @@
   },
   "dock": {
     "enable": false,
-    "height": 60,
     "iconSize": 44,
     "pinnedApps": [],
     "ignored": [],
-    "showBackground": true,
     "showPinButton": true,
     "showMedia": true,
     "autoHide": true,
@@ -186,8 +173,7 @@
     "timeout": 7000,
     "position": "top_right",
     "maxVisible": 4,
-    "doNotDisturb": false,
-    "width": 380
+    "doNotDisturb": false
   },
   "osd": {
     "enable": true,
@@ -283,21 +269,10 @@
         "allowAdult": false,
         "perPage": 30
       }
-    },
-    "cornerOpen": {
-      "enable": true,
-      "valueScroll": true,
-      "clickless": false,
-      "cornerRegionWidth": 250,
-      "cornerRegionHeight": 5,
-      "visualize": false,
-      "topLeftAction": "sidebarLeftOpen",
-      "topRightAction": "sidebarRightOpen"
     }
   },
   "time": {
     "format": "HH:mm",
-    "dateFormat": "ddd, dd/MM",
     "weekStartsOnMonday": true
   },
   "wallpaperSelector": {

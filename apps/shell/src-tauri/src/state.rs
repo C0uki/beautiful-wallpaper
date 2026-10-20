@@ -219,6 +219,32 @@ mod tests {
 /// The notification history, managed so commands can reach it.
 pub struct NotificationStore(pub bw_core::notifications::Store);
 
+impl NotificationStore {
+    /// Records one of the shell's own notifications and shows it: into the
+    /// history, the surfaces told, and the toast surface brought up.
+    ///
+    /// Every such post goes through here. Before, each caller did the three
+    /// steps itself, and half of them left out the last: the updater's "moving
+    /// to version …", a config that would not load, autostart failing — all
+    /// went into the history without a toast, where nobody saw them.
+    pub fn announce(
+        app: &tauri::AppHandle,
+        notification: bw_core::NewNotification,
+    ) -> Option<bw_core::Notification> {
+        use tauri::Manager;
+        let store = app.try_state::<NotificationStore>()?;
+        // What a start finds wrong — a key Windows keeps, a package that is not
+        // installed — it finds again at the next one. Said once while that is
+        // still in the history to read; dismissed, it is said again.
+        if store.0.holds(&notification) {
+            return None;
+        }
+        let posted = store.0.post(notification);
+        crate::commands::emit_notifications(app);
+        Some(posted)
+    }
+}
+
 /// The sidebar's to-do list.
 pub struct TodoStore(pub bw_core::todo::Store);
 
@@ -660,30 +686,6 @@ impl DesktopMenuHandle {
 
 /// Whether anything is currently full-screen.
 ///
-/// Sampled beside the active window, and kept here so a surface that opens
-/// later can ask rather than waiting for the next change.
-#[derive(Default)]
-pub struct ChromeState {
-    fullscreen: std::sync::atomic::AtomicBool,
-}
-
-impl ChromeState {
-    pub fn is_fullscreen(&self) -> bool {
-        self.fullscreen.load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    /// Records the new state, returning whether it is different.
-    ///
-    /// The caller only emits on a change: this is sampled every second and
-    /// almost never moves, and an event a second would be noise on every
-    /// surface that listens.
-    pub fn set_fullscreen(&self, fullscreen: bool) -> bool {
-        self.fullscreen
-            .swap(fullscreen, std::sync::atomic::Ordering::Relaxed)
-            != fullscreen
-    }
-}
-
 /// What is on the drop shelf.
 pub struct ShelfStore(pub bw_core::shelf::Store);
 

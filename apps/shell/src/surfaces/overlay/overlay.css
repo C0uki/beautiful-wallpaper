@@ -44,38 +44,40 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: var(--rounding-full);
-  background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 8px 32px var(--shadow);
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--rounding-large);
+  background: var(--bw-popover);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 8px 32px var(--shadow);
 }
 
 .bw-overlay-taskbar button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 5px 12px;
   border: 0;
-  border-radius: var(--rounding-full);
+  border-radius: var(--rounding-verysmall);
   background: transparent;
   color: var(--on-surface);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: background var(--duration-small) var(--ease-effects-default);
+  transition: background var(--duration-fast) var(--ease-effects-default);
 }
 
 .bw-overlay-taskbar button:hover {
-  background: var(--layer1-hover);
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
 }
 
-/* On the canvas. Said with the accent rather than a checkmark, so the row
-   reads as a set of toggles at a glance. */
+/* On the canvas. Said as a Mac's toolbar says a toggle is on — a quiet
+   fill and the glyph in the accent — so the row still reads as a set of
+   toggles at a glance. */
 .bw-overlay-taskbar button.on {
-  background: var(--primary);
-  color: var(--primary-on);
+  background: color-mix(in srgb, var(--on-surface) 14%, transparent);
+  color: var(--primary);
 }
 
 .bw-overlay-widget {
@@ -84,8 +86,9 @@
   flex-direction: column;
   border-radius: var(--rounding-normal);
   background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 8px 32px var(--shadow);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 8px 32px var(--shadow);
   overflow: hidden;
 }
 
@@ -134,8 +137,9 @@
   padding: 4px 4px 4px 12px;
   border-radius: var(--rounding-full);
   background: var(--layer0);
-  border: 1px solid var(--layer0-border);
-  box-shadow: 0 6px 24px var(--shadow);
+  box-shadow:
+    inset 0 0 0 0.5px var(--outline-variant),
+    0 6px 24px var(--shadow);
 }
 
 .bw-overlay-widget-body {
@@ -170,9 +174,13 @@
   gap: 8px;
 }
 
+/* A segmented control: a grey track, the chosen one raised. */
 .bw-overlay-resources-tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--rounding-small);
+  background: var(--layer2);
 }
 
 .bw-overlay-resources-tabs button {
@@ -181,10 +189,10 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 4px;
+  padding: 4px;
   border: 0;
-  border-radius: var(--rounding-small);
-  background: var(--layer1);
+  border-radius: calc(var(--rounding-small) - 2px);
+  background: transparent;
   color: var(--on-surface);
   font-family: inherit;
   font-size: 12px;
@@ -192,8 +200,10 @@
 }
 
 .bw-overlay-resources-tabs button.selected {
-  background: var(--primary);
-  color: var(--primary-on);
+  background: var(--bw-raised);
+  box-shadow:
+    0 0 0 0.5px var(--outline-variant),
+    0 1px 2px var(--shadow);
 }
 
 .bw-overlay-resources-tabs button:disabled {

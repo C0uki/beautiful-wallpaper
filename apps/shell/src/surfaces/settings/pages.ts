@@ -36,11 +36,12 @@ export interface SettingsPage {
    * A page that is not a list of settings.
    *
    * Presets are the whole config under a name rather than one key each, so
-   * they have no rows the schema could generate; the page draws itself. A
-   * `custom` page claims no paths, which is why `pages.test.ts` still holds
-   * for it.
+   * they have no rows the schema could generate; the page draws itself and
+   * claims no paths. The keyboard page does claim its paths — the shortcuts
+   * are settings like any other, and a search still finds them as rows — but
+   * draws them as the Mac does, in a sheet with a recorder for each.
    */
-  custom?: "presets";
+  custom?: "presets" | "shortcuts";
 }
 
 export const PAGES: SettingsPage[] = [
@@ -92,7 +93,7 @@ export const PAGES: SettingsPage[] = [
     tint: "#5856d6",
     group: "shell",
     title: () => tr("Bar"),
-    summary: () => tr("Where the bar sits, how it looks, and what it carries"),
+    summary: () => tr("Where the bar sits and when it hides"),
     paths: ["bar"],
   },
   {
@@ -193,6 +194,7 @@ export const PAGES: SettingsPage[] = [
     title: () => tr("Keyboard"),
     summary: () => tr("The keys that open each part of the shell"),
     paths: ["keybinds"],
+    custom: "shortcuts",
   },
   {
     id: "privacy",
@@ -238,6 +240,10 @@ export const NOT_SHOWN = [
   // Where each widget sits and what it is called are decided by dragging it
   // in edit mode, not typed here.
   /^background\.widgets\.\w+\.(id|x|y)$/,
+  // ponytail: no surface reads these two fonts yet; the main, title and
+  // monospace ones are the three ThemeProvider applies. Show them once one
+  // does.
+  /^appearance\.fonts\.(reading|expressive)$/,
 ];
 
 /** The page a field belongs on — the longest claim on its path — or nothing,

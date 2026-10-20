@@ -168,16 +168,12 @@ export function Background() {
         />
       ) : null}
 
-      {/* The desktop's own controls: wallpaper picker, shuffle, edit mode.
-          Offset past the bar when it is along the bottom edge, so the two do
-          not sit on top of each other. */}
+      {/* The desktop's own controls: wallpaper picker, shuffle, edit mode. */}
       <div
         style={{
           position: "absolute",
           right: 18,
-          bottom:
-            18 +
-            (config.bar.enable && config.bar.bottom ? config.bar.height : 0),
+          bottom: 18,
           display: "flex",
           gap: 6,
           padding: 6,
@@ -187,7 +183,7 @@ export function Background() {
         }}
       >
         <IconButton
-          icon="wallpaper"
+          icon="photo_library"
           label={tr("Wallpapers")}
           onClick={() => void actions.toggleState("wallpaperSelectorOpen")}
         />

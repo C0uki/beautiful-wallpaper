@@ -27,7 +27,9 @@ variants, hover popups, and ten widgets: workspaces (GlazeWM), active window,
 clock, weather, tray, battery, network throughput, resources, media and the
 utility buttons, plus a spectrum visualiser. The layout comes from
 `bar.left/center/right`, as upstream, and the settings screen edits it by
-dragging widgets between the three slots.
+dragging widgets between the three slots. Since replaced by a native bar with
+one fixed layout, along the top or down the left; the styles, the bottom edge,
+the height and the slots went with the webview one.
 It can hide itself until the pointer reaches its edge (`bar.autoHide`), run one
 bar per monitor (`bar.perMonitor`), or be switched off (`bar.enable`).
 
@@ -124,12 +126,17 @@ collapsible pane instead of being spliced into the answer, web search is on
 with its queries and sources shown, and images and PDFs can be attached.
 Replies render as Markdown with highlighted code and a copy button per block.
 
-The original reaches three APIs through strategy objects; this reaches one,
-so the strategy layer is gone and the streaming is what is left. Its SSE
-parsing lives in bw-core under tests, including the three cases that are only
-obvious once seen: a fallback has no event type of its own, a failed web
-search arrives as HTTP 200 with an object where a list belongs, and thinking
-deltas must not be concatenated onto the reply.
+The original reaches three APIs through strategy objects; this reaches three
+too — Anthropic, Gemini and OpenAI, chosen in the settings — but as one
+request path with a branch per service rather than a strategy layer. Each
+service's key is entered on the AI page and kept in the credential manager,
+and each model is chosen from the list the service itself returns, so a new
+model needs no new version. The SSE parsing for all three lives in bw-core
+under tests, including the cases that are only obvious once seen: a fallback
+has no event type of its own, a failed web search arrives as HTTP 200 with an
+object where a list belongs, thinking deltas must not be concatenated onto
+the reply, one Gemini chunk can carry text, a thought and the sources at
+once, and Gemini answers a wrong key with a 400.
 
 ### Done: the image-board browser
 
@@ -331,7 +338,8 @@ Somewhere to put a file down while the place it is going to is not on screen.
 ### Done: the screen's chrome and the hot corners
 
 Fake rounded corners, a frame around the display, and the corners you throw
-the pointer at.
+the pointer at. The hot corners were taken out again in October 2026: nobody
+used them, and they kept a window of their own alive to catch a mouse.
 
 - **One window, not eight.** The original gives each corner and each frame
   edge its own `PanelWindow`, which is cheap under Quickshell. Here every
@@ -438,7 +446,7 @@ Every config key, reachable without opening a text editor.
   change has a control the moment it exists, with the right type and the right
   default.
 - **What the schema cannot say is curated on top**: which page a section
-  belongs on, that a string is really a choice between four bar styles, that a
+  belongs on, that a string is really a choice between named values, that a
   decimal is a fraction of the screen and wants a slider. Anything not curated
   still gets a control, so the table is an improvement on the default rather
   than a list that has to be kept complete — and a test holds every section in
@@ -696,7 +704,7 @@ new one. `windows.autoUpdate` turns it off.
 - **A polkit agent.** UAC cannot be hosted by a third-party process.
 - **An on-screen keyboard.** Windows ships `osk.exe` and TabTip.
 - **The Hyprland and niri settings pages**, replaced by a `windows.*` page for
-  GlazeWM/komorebi, taskbar hiding and accent sync.
+  GlazeWM, taskbar hiding and accent sync.
 - **GTK, Kvantum and xsettingsd theming**, EasyEffects, the screen-share privacy
   indicator, and the Arch package integrations — none have a Windows counterpart.
 

@@ -1,9 +1,11 @@
 # beautiful-wallpaper
 
-Windows 10 / 11 向けの Material 3 デスクトップシェルです。
+Windows 10 / 11 向けのデスクトップシェルです。
 [end4-pC](https://github.com/pctrade/end4-pC) と
 [illogical-impulse](https://github.com/end-4/dots-hyprland) の体験を、Windows
-自身の API の上に作り直したものです。
+自身の API の上に作り直したものです。さらに Apple の
+[Human Interface Guidelines](https://developer.apple.com/jp/design/human-interface-guidelines)
+に沿って、Windows でできる範囲で macOS に近い見た目と操作に作り直しました。
 
 壁紙が配色を決め、デスクトップウィジェットも壁紙セレクタも、これから作るパネル
 群も、すべてそこから導かれます。
@@ -30,7 +32,7 @@ Hyprland の IPC ソケットと会話し、すべてのパネルを `wlr-layer-
 | `switchwall.sh` → matugen → `colors.json` | `material-colors` クレートをプロセス内で                       |
 | MPRIS                                     | Windows のメディアセッション (SMTC)                            |
 | UPower / PipeWire / `/proc`               | `GetSystemPowerStatus` / WASAPI / `sysinfo`                    |
-| Hyprland のワークスペース                 | GlazeWM / komorebi（動いていれば）                             |
+| Hyprland のワークスペース                 | GlazeWM（動いていれば）                                        |
 | `IpcHandler` のターゲット                 | `bw.exe <ターゲット> <関数>`（6 つは同名）                     |
 
 本家が選んだ接合面は、そのまま Windows でも通用します。設定キー名、
@@ -42,10 +44,12 @@ Hyprland の IPC ソケットと会話し、すべてのパネルを `wlr-layer-
 
 ## 現時点で動くもの
 
-- **壁紙からの Material 3 配色生成。** 壁紙の代表色を量子化・スコアリングし、
-  画像に合うスキームバリアントを選び、全ロール（本家独自の `success` 4 色と
-  ターミナル 16 色を含む）を導出します。Windows のアクセントカラーと Windows
-  Terminal への反映も任意で行えます。
+- **macOS の配色と、選べる壁紙の色。** パネルは Mac の灰色・文字と区切り線の色・
+  システムの赤と緑を使い、アクセント色は Apple の青です。ほかの色や、壁紙の色にも
+  できます。壁紙の色を使うときは、壁紙の代表色を量子化・スコアリングし、画像に
+  合う Material 3 のスキームバリアントを選び、各ロール（本家独自の `success`
+  4 色とターミナル 16 色を含む）を導出します。Windows のアクセントカラーと
+  Windows Terminal への反映も任意で行えます。
 - **背景サーフェス**: 14 種の GPU トランジション付きの壁紙表示（画像のほか
   mp4 / webm の動画も可）と、デスクトップウィジェット（時計・メディア・天気・
   CPU/RAM/ディスク・カレンダー・ユーザーカード）。ドラッグしてグリッドに
@@ -181,11 +185,12 @@ cargo clippy --target x86_64-pc-windows-msvc --all-targets
 Win32 / WinRT 呼び出しを型検査できます。Windows ターゲットの `cargo check` は
 Linux でも macOS でも通り、Windows が要るのはリンクだけです。
 
-同梱のアイコンフォントは、シェルが描画するアイコンだけに絞った Material Symbols の
-サブセットで、対象は `apps/shell/scripts/icons.json` に列挙してあります。リストに
-無い名前は字形ではなく**その単語がそのまま描画される**ため、UI にアイコンを増やす
-ときはこのファイルに追記して `pnpm gen:icons` を実行してください（`fonttools` と
-`brotli` が必要です）。
+アイコンは [Lucide](https://lucide.dev) のものを、インライン SVG で描いています。
+`apps/shell/scripts/icons.json` が、コードで使う名前と Lucide のアイコンの対応表です。
+`pnpm gen:icons` を実行すると、固定した版のアイコンを取ってきて
+`apps/shell/src/widgets/icons.gen.ts` に書き出します。UI にアイコンを増やすときは、
+名前をこの表に足してから実行してください。表にない名前をコードで使うと、テストが
+失敗します。
 
 Rust のツールチェーンは `rust-toolchain.toml` で固定してあり、rustup が CI と
 同じコンパイラを clippy・rustfmt・Windows ターゲットごと入れます。これは

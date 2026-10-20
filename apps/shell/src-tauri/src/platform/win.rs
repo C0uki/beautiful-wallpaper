@@ -14,8 +14,9 @@ use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use windows::core::{w, Result, PCWSTR};
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE,
-    DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE,
+    DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_SYSTEMBACKDROP_TYPE,
+    DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+    DWMWINDOWATTRIBUTE, DWM_SYSTEMBACKDROP_TYPE, DWM_WINDOW_CORNER_PREFERENCE,
 };
 use windows::Win32::Graphics::Gdi::{
     CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, GetWindowRgn,
@@ -24,6 +25,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
+use windows::Win32::UI::Controls::MARGINS;
 use windows::Win32::UI::Shell::{
     DefSubclassProc, RemoveWindowSubclass, SHAppBarMessage, SetWindowSubclass, ABE_BOTTOM,
     ABE_LEFT, ABE_RIGHT, ABE_TOP, ABM_GETSTATE, ABM_NEW, ABM_QUERYPOS, ABM_REMOVE, ABM_SETPOS,
@@ -32,14 +34,17 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetForegroundWindow,
     GetMessageW, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsWindowVisible, IsZoomed, PostThreadMessageW,
-    RegisterWindowMessageW, SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW,
-    SetWindowPos, ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST,
-    HWND_TOPMOST, MSG, SIZE_MAXIMIZED, SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE,
-    WINDOWPOS, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT,
-    WM_SIZE, WM_STYLECHANGING, WM_WINDOWPOSCHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    GetWindowThreadProcessId, IsZoomed, PostThreadMessageW, RegisterWindowMessageW,
+    SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
+    SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
+    WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
     WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
+    WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME,
 };
 
 /// Where a surface sits relative to the desktop.
@@ -196,28 +201,15 @@ unsafe extern "system" fn keep_tool_window(
 
 const EDGE_WINDOW: usize = 0x6277_6577; // "bwew"
 
-/// The hot corners' window, once it exists.
-static HOT_CORNERS: AtomicIsize = AtomicIsize::new(0);
-
 /// What to do when Explorer comes back: see [`watch_edge_window`].
 static TASKBAR_CREATED: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>> =
     std::sync::OnceLock::new();
-
-/// Names the hot corners' window, for [`watch_edge_window`] to keep others under.
-pub fn set_hot_corners(hwnd: HWND) {
-    HOT_CORNERS.store(hwnd.0 as isize, Ordering::Relaxed);
-}
 
 /// Looks after a window that runs along an edge of the screen: the bar or the
 /// dock.
 ///
 /// Two things happen to those that nothing else would notice:
 ///
-///   * a click raises them — WebView2 brings its window to the front even when
-///     it cannot be activated — over the hot corners, whose strips they cover.
-///     A bar clicked once left the top corners dead until the shell
-///     restarted. Every change of their place in the z-order is redirected to
-///     just under the hot corners, which is the one point all of them pass.
 ///   * Explorer restarting forgets every app bar, so the edge the bar held was
 ///     given back while the bar went on sitting in it. Explorer announces
 ///     itself with `TaskbarCreated`, sent to every top-level window, and
@@ -226,9 +218,6 @@ pub fn set_hot_corners(hwnd: HWND) {
 ///     surfaces were placed against. Windows says so with `WM_DISPLAYCHANGE`,
 ///     also sent to every top-level window, and the same callback runs: it is
 ///     the same work, putting everything back where the screens now are.
-///   * Windows maximizing one, which it does by itself to the hot corners'
-///     window — watched here too — and which leaves their strips off the
-///     screen. The same callback runs.
 ///
 /// # Safety
 /// `hwnd` must be a live top-level window owned by this process.
@@ -314,25 +303,7 @@ unsafe extern "system" fn edge_window(
         return DefSubclassProc(hwnd, msg, wparam, lparam);
     }
 
-    if msg == WM_WINDOWPOSCHANGING {
-        let position = lparam.0 as *mut WINDOWPOS;
-        let corners = HWND(HOT_CORNERS.load(Ordering::Relaxed) as _);
-        if !position.is_null()
-            && (*position).flags.0 & SWP_NOZORDER.0 == 0
-            && !corners.0.is_null()
-            && corners != hwnd
-            && IsWindowVisible(corners).as_bool()
-        {
-            (*position).hwndInsertAfter = corners;
-        }
-    }
-
-    // Windows maximizes a window the size of the screen by itself — the hot
-    // corners were found that way after a monitor came back — and a maximized
-    // window hangs 8px off every edge, which took the corners' strips off the
-    // top of the screen. Putting it back is the same pass.
-    let maximized = msg == WM_SIZE && wparam.0 == SIZE_MAXIMIZED as usize;
-    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE || maximized {
+    if msg == taskbar_created() || msg == WM_DISPLAYCHANGE {
         if let Some(callback) = TASKBAR_CREATED.get() {
             callback();
         }
@@ -384,6 +355,97 @@ pub unsafe fn set_backdrop(hwnd: HWND, backdrop: Backdrop, dark: bool) {
         std::ptr::addr_of!(value).cast(),
         std::mem::size_of::<DWM_SYSTEMBACKDROP_TYPE>() as u32,
     );
+
+    if backdrop != Backdrop::None {
+        // A system backdrop is only drawn for a window with a sizing frame:
+        // on a bare popup Windows paints its flat fallback grey instead,
+        // whatever the settings say. Found by trying window styles on real
+        // hardware. The frame is given and then taken straight back — no
+        // width, no sizing handles — by `backdrop_frame`.
+        let _ = SetWindowSubclass(hwnd, Some(backdrop_frame), BACKDROP_FRAME, 0);
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, backdrop_style(style) as isize);
+        let _ = SetWindowPos(
+            hwnd,
+            HWND::default(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+
+        // The backdrop is drawn in the window frame, and a frameless window
+        // has none to draw it in until the frame is extended over the whole
+        // client area.
+        let margins = MARGINS {
+            cxLeftWidth: -1,
+            cxRightWidth: -1,
+            cyTopHeight: -1,
+            cyBottomHeight: -1,
+        };
+        let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+        // Rounded as Windows 11 rounds a window, so the blur stops near the
+        // panel's own rounded corners rather than filling square ones.
+        let corner = DWMWCP_ROUND;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::addr_of!(corner).cast(),
+            std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
+        );
+    }
+}
+
+const BACKDROP_FRAME: usize = 0x6277_6266; // "bwbf"
+
+/// A blurred surface's window style: the sizing frame the backdrop needs, and
+/// no caption. Tao gives an undecorated window a caption and a system menu,
+/// and with the frame extended over the window Windows drew the caption's
+/// close button over the panel's top corner, a small red cross.
+fn backdrop_style(style: u32) -> u32 {
+    let caption = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    (style | WS_THICKFRAME.0) & !caption.0
+}
+
+/// Keeps the sizing frame a system backdrop needs (see [`set_backdrop`]),
+/// and the caption off, without letting the frame show or work: no width, since the client area is the
+/// whole window, and no sizing handles at its edges. Tao rewrites a window's
+/// styles whole on every show and hide, so the frame goes back into each
+/// write, as [`keep_tool_window`] does for its bit.
+unsafe extern "system" fn backdrop_frame(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> LRESULT {
+    match msg {
+        WM_STYLECHANGING if wparam.0 as i32 == GWL_STYLE.0 => {
+            let styles = lparam.0 as *mut STYLESTRUCT;
+            if !styles.is_null() {
+                (*styles).styleNew = backdrop_style((*styles).styleNew);
+            }
+        }
+        // The whole window is client area: nothing is drawn as a frame.
+        WM_NCCALCSIZE if wparam.0 != 0 => return LRESULT(0),
+        WM_NCHITTEST => {
+            let hit = DefSubclassProc(hwnd, msg, wparam, lparam);
+            let sizing = (HTLEFT as isize)..=(HTBOTTOMRIGHT as isize);
+            return if sizing.contains(&hit.0) {
+                LRESULT(HTCLIENT as isize)
+            } else {
+                hit
+            };
+        }
+        WM_NCDESTROY => {
+            let _ = RemoveWindowSubclass(hwnd, Some(backdrop_frame), BACKDROP_FRAME);
+        }
+        _ => {}
+    }
+    DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
 /// WM_APP plus an offset of our choosing, for the shell's app bar callbacks.
@@ -1053,6 +1115,23 @@ pub fn network_counters() -> NetworkCounters {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_blurred_window_has_the_frame_and_no_caption() {
+        // What Tao gives an undecorated window: caption, system menu, both
+        // boxes, a sizing frame.
+        let tao = 0x14CF_0000;
+        let style = backdrop_style(tao);
+        assert_ne!(style & WS_THICKFRAME.0, 0);
+        assert_eq!(
+            style & (WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX).0,
+            0
+        );
+        // Visible and clipped siblings untouched.
+        assert_eq!(style & 0x1400_0000, 0x1400_0000);
+        // A bare popup gains the frame.
+        assert_ne!(backdrop_style(0x8000_0000) & WS_THICKFRAME.0, 0);
+    }
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DestroyWindow, WINDOW_STYLE, WS_POPUP,
     };

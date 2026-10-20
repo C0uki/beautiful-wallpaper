@@ -51,14 +51,19 @@ Three ways to change a value:
 
 The assistant in the left sidebar: which model answers, and what it is allowed to do while answering.
 
-| Setting           | Value        | Default           |
-| ----------------- | ------------ | ----------------- |
-| `ai.model`        | text         | `"claude-opus-5"` |
-| `ai.maxTokens`    | whole number | `4096`            |
-| `ai.webSearch`    | true / false | `true`            |
-| `ai.maxSearches`  | whole number | `5`               |
-| `ai.showThinking` | true / false | `true`            |
+| Setting           | Value        | Default              |
+| ----------------- | ------------ | -------------------- |
+| `ai.provider`     | text         | `"anthropic"`        |
+| `ai.model`        | text         | `"claude-opus-5"`    |
+| `ai.geminiModel`  | text         | `"gemini-3.8-flash"` |
+| `ai.openaiModel`  | text         | `"gpt-5.5"`          |
+| `ai.maxTokens`    | whole number | `4096`               |
+| `ai.webSearch`    | true / false | `true`               |
+| `ai.maxSearches`  | whole number | `5`                  |
+| `ai.showThinking` | true / false | `true`               |
 
+- **`ai.provider`** — `anthropic`, `gemini` or `openai`.
+- **`ai.model`** — The model each service answers with. Any the service lists can be chosen in the settings; these are only where a new install starts.
 - **`ai.webSearch`** — Let the model search the web when it needs to. Costs tokens, so it is a setting rather than always on.
 - **`ai.maxSearches`** — Searches per turn. Without a cap a single question can run several.
 - **`ai.showThinking`** — Show the model's summarised reasoning in its own pane.
@@ -266,32 +271,25 @@ The wallpaper, how it arrives on screen, and the widgets drawn over it.
 
 ## `bar`
 
-The strip along one edge of the screen: where it sits, how it looks, and what it carries.
+The strip along one edge of the screen: where it sits and when it hides.
 
-| Setting                 | Value        | Default                                                                         |
-| ----------------------- | ------------ | ------------------------------------------------------------------------------- |
-| `bar.enable`            | true / false | `true`                                                                          |
-| `bar.bottom`            | true / false | `false`                                                                         |
-| `bar.vertical`          | true / false | `false`                                                                         |
-| `bar.height`            | whole number | `40`                                                                            |
-| `bar.reserveSpace`      | true / false | `true`                                                                          |
-| `bar.autoHide`          | true / false | `false`                                                                         |
-| `bar.perMonitor`        | true / false | `false`                                                                         |
-| `bar.hoverRegionHeight` | whole number | `3`                                                                             |
-| `bar.style`             | text         | `"m3"`                                                                          |
-| `bar.left`              | list of text | `["sidebarLeft","media"]`                                                       |
-| `bar.center`            | list of text | `["workspaces","activeWindow"]`                                                 |
-| `bar.right`             | list of text | `["tray","resources","network","battery","utilButtons","sidebarRight","clock"]` |
-| `bar.showFrame`         | true / false | `false`                                                                         |
-| `bar.frameThickness`    | whole number | `4`                                                                             |
-| `bar.frameColor`        | text         | `"black"`                                                                       |
+| Setting                 | Value        | Default   |
+| ----------------------- | ------------ | --------- |
+| `bar.enable`            | true / false | `true`    |
+| `bar.vertical`          | true / false | `false`   |
+| `bar.reserveSpace`      | true / false | `true`    |
+| `bar.autoHide`          | true / false | `false`   |
+| `bar.perMonitor`        | true / false | `false`   |
+| `bar.hoverRegionHeight` | whole number | `3`       |
+| `bar.showFrame`         | true / false | `false`   |
+| `bar.frameThickness`    | whole number | `4`       |
+| `bar.frameColor`        | text         | `"black"` |
 
-- **`bar.bottom`** — Anchor the bar to the bottom edge instead of the top.
+- **`bar.vertical`** — Down the left edge instead of along the top.
 - **`bar.reserveSpace`** — Reserve screen space through `SHAppBarMessage` so maximised windows keep clear of the bar. Ignored while `auto_hide` is on: reserving an edge for something that is off screen would leave a strip no window may use and no bar in it.
 - **`bar.autoHide`** — Slide off the screen edge until the pointer reaches it.
-- **`bar.perMonitor`** — Put a bar on every monitor rather than only the primary one. Each gets its own window along the same edge of its own screen, and reserves that edge on that monitor. The bars draw the same thing: nothing in `left`/`center`/`right` is per-monitor yet.
-- **`bar.hoverRegionHeight`** — How much of the bar stays on screen while it is hidden. This is the strip the pointer has to reach, so zero would make the bar unreachable.
-- **`bar.style`** — `"hug"` | `"float"` | `"islands"` | `"m3"`
+- **`bar.perMonitor`** — Put a bar on every monitor rather than only the primary one. Each gets its own window along the same edge of its own screen, and reserves that edge on that monitor. The bars draw the same thing.
+- **`bar.hoverRegionHeight`** — The strip along the edge, in pixels, that the pointer has to reach to bring a hidden bar back. Zero counts as one.
 - **`bar.showFrame`** — Draw a thin border around the whole screen.
 - **`bar.frameColor`** — A palette role name — `primary`, `surface`, `outline` and so on — or any CSS colour. The default is the original's.
 
@@ -332,11 +330,9 @@ The strip of pinned and running applications.
 | Setting                  | Value        | Default |
 | ------------------------ | ------------ | ------- |
 | `dock.enable`            | true / false | `false` |
-| `dock.height`            | whole number | `60`    |
 | `dock.iconSize`          | whole number | `44`    |
 | `dock.pinnedApps`        | list of text | `[]`    |
 | `dock.ignored`           | list of text | `[]`    |
-| `dock.showBackground`    | true / false | `true`  |
 | `dock.showPinButton`     | true / false | `true`  |
 | `dock.showMedia`         | true / false | `true`  |
 | `dock.autoHide`          | true / false | `true`  |
@@ -412,7 +408,6 @@ Toasts: where they appear, how long they stay, and how many at once.
 | `notifications.position`     | text         | `"top_right"` |
 | `notifications.maxVisible`   | whole number | `4`           |
 | `notifications.doNotDisturb` | true / false | `false`       |
-| `notifications.width`        | whole number | `380`         |
 
 - **`notifications.timeout`** — Milliseconds a toast stays up. Urgent notifications ignore this.
 - **`notifications.position`** — One of `top_left`, `top_center`, `top_right`, `bottom_left`, `bottom_center`, `bottom_right`.
@@ -433,6 +428,7 @@ The readout that appears on a volume or brightness key.
 
 - **`osd.timeout`** — Milliseconds the readout stays up after the last change.
 - **`osd.position`** — `"top"` or `"bottom"`. The readout clears the bar on whichever edge the bar occupies, so this is only about which end of the screen.
+- **`osd.volume`** — While on, the shell takes the volume keys, so Windows' own volume flyout does not show as well.
 - **`osd.brightness`** — Brightness is unavailable on some displays; the readout is simply not shown when the platform cannot report a level.
 
 ## `overlay`
@@ -629,34 +625,16 @@ The two sidebars — the left one's tabs, the right one's toggles, sliders and n
 - **`sidebar.left.booru.provider`** — One of `safebooru`, `yandere`, `konachan`, `danbooru`, `gelbooru`. Safebooru by default: it is the one board that carries nothing but safe-rated work.
 - **`sidebar.left.booru.allowAdult`** — Lift the safe-rating filter. Off unless set deliberately, and it does nothing on a board that has only safe work to return.
 
-### `sidebar.cornerOpen`
-
-| Setting                                 | Value        | Default              |
-| --------------------------------------- | ------------ | -------------------- |
-| `sidebar.cornerOpen.enable`             | true / false | `true`               |
-| `sidebar.cornerOpen.valueScroll`        | true / false | `true`               |
-| `sidebar.cornerOpen.clickless`          | true / false | `false`              |
-| `sidebar.cornerOpen.cornerRegionWidth`  | whole number | `250`                |
-| `sidebar.cornerOpen.cornerRegionHeight` | whole number | `5`                  |
-| `sidebar.cornerOpen.visualize`          | true / false | `false`              |
-| `sidebar.cornerOpen.topLeftAction`      | text         | `"sidebarLeftOpen"`  |
-| `sidebar.cornerOpen.topRightAction`     | text         | `"sidebarRightOpen"` |
-
-- **`sidebar.cornerOpen.valueScroll`** — Scrolling on a left corner changes the brightness and on a right corner the volume.
-- **`sidebar.cornerOpen.clickless`** — Open on hover rather than on a click. Faster, and much easier to trigger by accident, which is why it is off.
-- **`sidebar.cornerOpen.cornerRegionWidth`** — A wide, thin strip rather than a square: what makes a corner reachable is being able to throw the pointer at the edge.
-- **`sidebar.cornerOpen.visualize`** — Paint the regions, for working out where they actually are.
-- **`sidebar.cornerOpen.topLeftAction`** — Which `GlobalStates` flag each corner flips. Empty means the corner does nothing and gets no region at all.
-
 ## `time`
 
-Clock and date formats, and which day a week starts on.
+How the clock reads, and which day a week starts on.
 
-| Setting                   | Value        | Default        |
-| ------------------------- | ------------ | -------------- |
-| `time.format`             | text         | `"HH:mm"`      |
-| `time.dateFormat`         | text         | `"ddd, dd/MM"` |
-| `time.weekStartsOnMonday` | true / false | `true`         |
+| Setting                   | Value        | Default   |
+| ------------------------- | ------------ | --------- |
+| `time.format`             | text         | `"HH:mm"` |
+| `time.weekStartsOnMonday` | true / false | `true`    |
+
+- **`time.format`** — `HH:mm`, `HH:mm:ss` or `hh:mm AP`. The date beside it follows the shell's language.
 
 ## `wallpaperSelector`
 

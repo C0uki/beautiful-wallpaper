@@ -3,11 +3,9 @@
 export type Bar = {
   enable: boolean;
   /**
-   * Anchor the bar to the bottom edge instead of the top.
+   * Down the left edge instead of along the top.
    */
-  bottom: boolean;
   vertical: boolean;
-  height: number;
   /**
    * Reserve screen space through `SHAppBarMessage` so maximised windows
    * keep clear of the bar.
@@ -25,23 +23,14 @@ export type Bar = {
    * Put a bar on every monitor rather than only the primary one.
    *
    * Each gets its own window along the same edge of its own screen, and
-   * reserves that edge on that monitor. The bars draw the same thing:
-   * nothing in `left`/`center`/`right` is per-monitor yet.
+   * reserves that edge on that monitor. The bars draw the same thing.
    */
   perMonitor: boolean;
   /**
-   * How much of the bar stays on screen while it is hidden. This is the
-   * strip the pointer has to reach, so zero would make the bar
-   * unreachable.
+   * The strip along the edge, in pixels, that the pointer has to reach
+   * to bring a hidden bar back. Zero counts as one.
    */
   hoverRegionHeight: number;
-  /**
-   * `"hug"` | `"float"` | `"islands"` | `"m3"`
-   */
-  style: string;
-  left: Array<string>;
-  center: Array<string>;
-  right: Array<string>;
   /**
    * Draw a thin border around the whole screen.
    */

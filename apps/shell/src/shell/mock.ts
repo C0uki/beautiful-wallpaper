@@ -8,7 +8,6 @@ import {
   Command,
   Event,
   defaultStates,
-  isStateFlag,
   type BatteryState,
   type Config,
   type Entry,
@@ -24,7 +23,6 @@ import {
   type NetworkReading,
   type TrayIcon,
   type Notification,
-  type OsdReading,
   type VolumeReading,
   type BrightnessReading,
   type AudioSession,
@@ -50,7 +48,6 @@ import {
   type KeyStatus,
   type DropOutcome,
   type ScreenChrome,
-  type HotCorner,
   type Edge,
   type OverlayLayout,
   type OverlayWidget,
@@ -198,7 +195,7 @@ const LIGHT_COLORS: Record<string, string> = {
   ),
 };
 
-function sampleTheme(mode: "light" | "dark"): GeneratedTheme {
+export function sampleTheme(mode: "light" | "dark"): GeneratedTheme {
   return {
     mode,
     variant: "tonalSpot",
@@ -245,25 +242,16 @@ export function mockBackend(): Backend {
    * full-screen. */
   const screenChrome = (): ScreenChrome => {
     const bar = config.bar;
-    const hugging = bar.enable && bar.style === "hug";
-    const centreOnly = !bar.left.length && !bar.right.length;
-    const barEdge: Edge = bar.vertical
-      ? bar.bottom
-        ? "right"
-        : "left"
-      : bar.bottom
-        ? "bottom"
-        : "top";
+    const barEdge: Edge = bar.vertical ? "left" : "top";
 
     return {
       frameEdges: bar.showFrame
         ? (["top", "bottom", "left", "right"] as Edge[]).filter(
-            (edge) => !hugging || edge !== barEdge || centreOnly,
+            (edge) => !bar.enable || edge !== barEdge,
           )
         : [],
       frameThickness: bar.frameThickness,
       frameColor: bar.frameColor,
-      hotCornersActive: config.sidebar.cornerOpen.enable,
     };
   };
 
@@ -329,7 +317,7 @@ export function mockBackend(): Backend {
     {
       summary: {
         name: "Midnight",
-        description: "dark, floating bar, no frame",
+        description: "dark, with a white frame",
         created: "2026-08-11T22:14:00+09:00",
         wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[1]!.name}`,
         problem: null,
@@ -337,10 +325,9 @@ export function mockBackend(): Backend {
       config: presetConfig((draft) => {
         draft.appearance.roundingScale = 1.4;
         draft.appearance.transparency.extra = 0.15;
-        draft.bar.style = "float";
-        draft.bar.height = 44;
         draft.bar.showFrame = true;
-        draft.bar.left = ["media", "clock"];
+        draft.bar.frameColor = "white";
+        draft.bar.frameThickness = 8;
         draft.dock.enable = true;
         draft.sidebar.width = 0.3;
         draft.notifications.timeout = 4000;
@@ -351,15 +338,14 @@ export function mockBackend(): Backend {
     {
       summary: {
         name: "Daylight",
-        description: "light, bar at the bottom",
+        description: "light, bar down the left",
         created: "2026-07-03T09:02:00+09:00",
         wallpaper: `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`,
         problem: null,
       },
       config: presetConfig((draft) => {
         draft.appearance.palette.mode = "light";
-        draft.bar.bottom = true;
-        draft.bar.height = 36;
+        draft.bar.vertical = true;
         draft.dock.enable = true;
         draft.background.wallpaperPath = `C:/Users/you/Pictures/Wallpapers/${SAMPLE_WALLPAPERS[2]!.name}`;
       }),
@@ -682,9 +668,11 @@ export function mockBackend(): Backend {
     },
   ];
 
-  // The mock has a key so the translator is exercised; flip to false to see
-  // the first-run state instead.
-  let hasAiKey = true;
+  // The mock has an Anthropic key so the translator is exercised; choose
+  // another service, or remove the key, to see the first-run state instead.
+  const aiKeys = new Set<string>(["anthropic"]);
+  const hasAiKey = (provider?: unknown) =>
+    aiKeys.has(String(provider ?? config.ai.provider));
 
   // A conversation that exercises what the window has to draw: a reply with
   // Markdown and a fenced code block, summarised thinking, and a web search
@@ -873,7 +861,6 @@ export function mockBackend(): Backend {
       active: false,
     },
   ];
-  const osd: OsdReading = { kind: "volume", value: 42, muted: false };
 
   // Push the periodic events the real backend sends.
   const timers: ReturnType<typeof setInterval>[] = [];
@@ -945,12 +932,8 @@ export function mockBackend(): Backend {
           return config as T;
         }
 
-        // Both of these ask Win32 to move or message a window, which is the one
-        // thing a browser cannot stand in for. Accepting them is the point: the
-        // dock asks to be revealed the moment it mounts, and a mock that threw
-        // would take down every surface on the harness page with it.
-        case Command.SetSurfaceRevealed:
-        case Command.SetDockShape:
+        // This asks Win32 to message a window, which is the one thing a
+        // browser cannot stand in for.
         case Command.ClickTrayIcon:
           return undefined as T;
 
@@ -1029,6 +1012,10 @@ export function mockBackend(): Backend {
 
         case Command.GetNotifications:
           return notifications as T;
+
+        // The mock pushes its readings as events from the start.
+        case Command.LatestReadings:
+          return {} as T;
 
         case Command.GetVolume:
           return volume as T;
@@ -1299,59 +1286,6 @@ export function mockBackend(): Backend {
 
         case Command.GetScreenChrome:
           return screenChrome() as T;
-
-        case Command.GetHotCorners: {
-          const corner = config.sidebar.cornerOpen;
-          if (!corner.enable) return [] as HotCorner[] as T;
-          const screen = {
-            width: window.innerWidth,
-            height: window.innerHeight,
-          };
-          const width = Math.min(corner.cornerRegionWidth, screen.width >> 1);
-          const height = Math.min(
-            corner.cornerRegionHeight,
-            screen.height >> 1,
-          );
-
-          const made: HotCorner[] = [
-            {
-              corner: "topLeft" as const,
-              x: 0,
-              y: 0,
-              action: corner.topLeftAction,
-            },
-            {
-              corner: "topRight" as const,
-              x: screen.width - width,
-              y: 0,
-              action: corner.topRightAction,
-            },
-          ]
-            .filter((made) => made.action.trim().length > 0)
-            .map((made) => ({
-              corner: made.corner,
-              rect: { x: made.x, y: made.y, width, height },
-              action: made.action,
-            }));
-          return made as T;
-        }
-
-        case Command.RunHotCorner: {
-          const corner = String(args["corner"] ?? "");
-          const open = config.sidebar.cornerOpen;
-          const flag =
-            corner === "topLeft" ? open.topLeftAction : open.topRightAction;
-          if (isStateFlag(flag)) {
-            states[flag] = !states[flag];
-            emit(Event.StateChanged, states);
-          }
-          return undefined as T;
-        }
-
-        case Command.ScrollHotCorner:
-          // Brightness and volume are both faked here already; a corner
-          // scroll is the same call by another route.
-          return undefined as T;
 
         // The rules that matter are in `bw-core::overlay` under tests; this
         // mirrors their shape so the harness can draw the canvas.
@@ -1675,9 +1609,6 @@ export function mockBackend(): Backend {
           // the harness usable: the overview closes, as it would in the shell.
           return undefined as T;
 
-        case Command.GetDockItems:
-          return dock as T;
-
         case Command.ActivateWindow: {
           const id = String(args["id"]);
           const wasActive = dock.some((app) =>
@@ -1714,15 +1645,33 @@ export function mockBackend(): Backend {
         }
 
         case Command.HasAiKey:
-          return hasAiKey as T;
+          return hasAiKey(args["provider"]) as T;
 
         case Command.SetAiKey:
-          hasAiKey = String(args["key"] ?? "").trim().length > 0;
+          {
+            const provider = String(args["provider"] ?? config.ai.provider);
+            if (String(args["key"] ?? "").trim()) aiKeys.add(provider);
+            else aiKeys.delete(provider);
+          }
           return undefined as T;
+
+        case Command.ListAiModels: {
+          const provider = String(args["provider"]);
+          // Rejects as the backend does, with the error's name.
+          if (!hasAiKey(provider)) throw "noKey";
+          return ({
+            anthropic: [
+              { id: "claude-opus-5", name: "Claude Opus 5" },
+              { id: "claude-sonnet-5", name: "Claude Sonnet 5" },
+            ],
+            gemini: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" }],
+            openai: [{ id: "gpt-5.5", name: "gpt-5.5" }],
+          }[provider] ?? []) as T;
+        }
 
         case Command.Translate: {
           const text = String(args["text"] ?? "");
-          if (!hasAiKey) return { text: "", error: "noKey" } as T;
+          if (!hasAiKey()) return { text: "", error: "noKey" } as T;
           if (!text.trim()) return { text: "", error: null } as T;
           // Obviously synthetic, like every other value here — it reverses the
           // words so it is visibly not a real translation.
@@ -1777,7 +1726,9 @@ export function mockBackend(): Backend {
           return chat as T;
 
         case Command.RetryChat:
-          chat = chat.slice(0, -1);
+          // The failed reply, and the question the window sends again.
+          if (chat.at(-1)?.role === "assistant") chat = chat.slice(0, -1);
+          if (chat.at(-1)?.role === "user") chat = chat.slice(0, -1);
           emit(Event.Chat, chat);
           return chat as T;
 
@@ -1823,10 +1774,15 @@ export function mockBackend(): Backend {
               emit(Event.Chat, chat);
               return;
             }
-            emit(Event.ChatEvent, {
-              kind: "text",
-              value: (index === 0 ? "" : " ") + words[index],
-            });
+            const piece = (index === 0 ? "" : " ") + words[index];
+            // Kept, as the backend keeps it: the whole conversation sent at
+            // the end would otherwise wipe the reply that streamed in.
+            const last = chat.at(-1)!;
+            chat = [
+              ...chat.slice(0, -1),
+              { ...last, content: last.content + piece },
+            ];
+            emit(Event.ChatEvent, { kind: "text", value: piece });
             index += 1;
           }, 60);
 
@@ -1993,7 +1949,6 @@ export function mockBackend(): Backend {
         if (event === Event.Dock) handler(dock as T);
         if (event === Event.Chat) handler(chat as T);
         if (event === Event.Brightness) handler((brightness.percent ?? 0) as T);
-        if (event === Event.Osd) handler(osd as T);
       });
 
       return () => {

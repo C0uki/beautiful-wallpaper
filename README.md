@@ -1,9 +1,11 @@
 # beautiful-wallpaper
 
-A Material 3 desktop shell for Windows 10 and 11 — the experience of
+A desktop shell for Windows 10 and 11 — the experience of
 [end4-pC](https://github.com/pctrade/end4-pC) and
 [illogical-impulse](https://github.com/end-4/dots-hyprland), rebuilt on Windows'
-own APIs.
+own APIs, and redrawn after Apple's
+[Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines)
+to look and behave as much like macOS as Windows allows.
 
 日本語版は [README.ja.md](README.ja.md) にあります。
 
@@ -32,7 +34,7 @@ What the original does with a Wayland protocol, this does with Win32:
 | `switchwall.sh` → matugen → `colors.json` | the `material-colors` crate, in process                |
 | MPRIS                                     | the Windows media session (SMTC)                       |
 | UPower, PipeWire, `/proc`                 | `GetSystemPowerStatus`, WASAPI, `sysinfo`              |
-| Hyprland workspaces                       | GlazeWM / komorebi, when one is running                |
+| Hyprland workspaces                       | GlazeWM, when it is running                            |
 | `IpcHandler` targets                      | `bw.exe <target> <function>`; six names carry over     |
 
 The seams the original chose turn out to travel well. Its config key names, its
@@ -44,10 +46,13 @@ and the six IPC targets that still mean the same thing.
 
 ## What works today
 
-- **Wallpaper-driven Material 3 theming.** The dominant colour of the wallpaper
-  is quantised and scored, a scheme variant is chosen to suit the image, and the
-  full role set — plus a `success` quad and sixteen terminal colours — is
-  derived. Optionally pushed into the Windows accent colour and Windows Terminal.
+- **macOS colours, with the wallpaper's if you want them.** Panels use the
+  Mac's neutral greys, label and separator colours and system red and green,
+  with Apple's blue as the accent — or any other, or the wallpaper's. For that,
+  the dominant colour of the wallpaper is quantised and scored, a Material 3
+  scheme variant is chosen to suit the image, and its roles — plus a `success`
+  quad and sixteen terminal colours — are derived. Optionally pushed into the
+  Windows accent colour and Windows Terminal.
 - **The background surface**: the wallpaper — a picture or an mp4/webm video —
   with fourteen GPU transitions, and desktop widgets — clock, media, weather,
   CPU/RAM/disk, calendar, user card — that can be dragged and snapped to a
@@ -59,11 +64,10 @@ and the six IPC targets that still mean the same thing.
 - **Notification toasts**, grouped by application and swipe-dismissable, over a
   persisted history.
 - **The bar**, reserving its edge through `SHAppBarMessage` so maximised windows
-  keep clear of it. Four styles, horizontal or vertical, with workspaces,
-  active window, clock, weather, tray, battery, network, resources, media,
-  a visualiser and utility buttons — laid out by `bar.left/center/right`, by
-  dragging in the settings screen or in the file. It can hide itself until
-  the pointer reaches its edge, run one bar per monitor, or be switched off.
+  keep clear of it. Along the top or down the left, with workspaces, active
+  window, clock, weather, tray, battery, network, resources, media and utility
+  buttons. It can hide itself until the pointer reaches its edge, run one bar
+  per monitor, or be switched off.
 - **The tray**, hosted by the shell itself so it works on the Windows 11
   taskbar: each icon as its real image, with its tooltip, and clicks packed the
   way the application asked for.
@@ -82,7 +86,7 @@ and the six IPC targets that still mean the same thing.
   down, or quit just the shell — **the desktop menu, the drop shelf and a
   floating overlay** with a crosshair.
 - **The screen's own decorations**: rounded corners and a frame drawn over the
-  display, and hot corners that open a panel or run an action.
+  display.
 - **A settings screen** whose form is generated from the config schema, so a new
   setting has a control the moment it exists.
 - **Presets** — whole configurations saved by name, and a first-run screen that
@@ -96,7 +100,7 @@ and the six IPC targets that still mean the same thing.
   itself** (`windows.autoUpdate`).
 - **Config as one JSON file**, watched both ways: edit it in any editor and the
   shell follows. Every key is in [docs/config.md](docs/config.md).
-- **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.bottom true` — for
+- **A CLI** — `bw wallpapers apply <path>`, `bw config set bar.vertical true` — for
   hotkeys and scripts.
 - **English and Japanese**, chosen from Windows' language unless set, down to
   every row of the generated settings screen.
@@ -184,11 +188,12 @@ That last one is the important one: it type-checks every Win32 and WinRT call
 without needing a Windows machine or a cross compiler. `cargo check` for the
 Windows target works from Linux and macOS too — only linking needs Windows.
 
-The bundled icon font is a subset of Material Symbols covering only the icons
-the shell draws, listed in `apps/shell/scripts/icons.json`. A name outside that
-list renders as the literal word rather than a glyph, so adding an icon to the
-UI means adding it there and running `pnpm gen:icons` (which needs `fonttools`
-and `brotli`).
+The icons are [Lucide](https://lucide.dev)'s, drawn as inline SVG.
+`apps/shell/scripts/icons.json` maps each name the code uses to a Lucide icon,
+and `pnpm gen:icons` fetches them at the pinned version into
+`apps/shell/src/widgets/icons.gen.ts`. Adding an icon to the UI means adding its
+name there and running that; a test fails on any name the code uses that the
+map does not have.
 
 The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup installs the
 same compiler CI uses, along with clippy, rustfmt and the Windows target. That

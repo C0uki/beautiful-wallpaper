@@ -239,7 +239,7 @@ function Row({ row, selected, onHover, onPressEnter }: RowProps) {
           draggable={false}
         />
       ) : (
-        <Symbol name={row.symbol} size={24} className="bw-overview-glyph" />
+        <Symbol name={row.symbol} size={22} className="bw-overview-glyph" />
       )}
 
       <span className="bw-overview-text">

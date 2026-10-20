@@ -20,7 +20,7 @@ export function Banner() {
   const buttons = (
     <div className="bw-banner-buttons">
       <IconButton
-        icon="wallpaper"
+        icon="photo_library"
         size={34}
         label={tr("Wallpapers")}
         onClick={() => void actions.toggleState("wallpaperSelectorOpen")}

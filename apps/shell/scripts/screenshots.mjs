@@ -157,39 +157,8 @@ const SHOTS = [
       await page.getByRole("button", { name: "Edit widgets" }).click();
     },
   },
-  {
-    name: "07-bar-styles",
-    url: "/index.html",
-    setup: async (page) => {
-      await selectView(page, "Desktop");
-      await page.getByLabel("Bar style").selectOption("islands");
-    },
-  },
-  {
-    name: "08-bar-at-the-bottom",
-    url: "/index.html",
-    setup: async (page) => {
-      await selectView(page, "Desktop");
-      await page.getByRole("button", { name: /^top$/ }).click();
-    },
-  },
   { name: "09-background-surface", url: "/background.html" },
-  // The bar window is only as tall as the bar itself, so previewing it in a
-  // full-height viewport would be misleading.
-  {
-    name: "10-bar-surface",
-    url: "/bar.html",
-    viewport: { width: 1600, height: 48 },
-  },
   { name: "11-wallpaper-selector-surface", url: "/wallpaperSelector.html" },
-  // Both windows are sized to their content on Windows, so the viewports here
-  // match the fraction of the screen each surface declares.
-  { name: "12-osd", url: "/osd.html", viewport: { width: 420, height: 110 } },
-  {
-    name: "13-notification-toasts",
-    url: "/notifications.html",
-    viewport: { width: 460, height: 460 },
-  },
   // The sidebar is a tall narrow panel; a 1600x900 viewport would show it
   // floating in the middle of nothing.
   {
@@ -223,16 +192,6 @@ const SHOTS = [
     viewport: { width: 420, height: 1000 },
     setup: async (page) => {
       await page.getByRole("button", { name: "More" }).last().click();
-    },
-  },
-  // The dock window is only as tall as the dock plus its margin, and it slides
-  // out of the way until hovered — so the shot hovers it.
-  {
-    name: "18-dock",
-    url: "/dock.html",
-    viewport: { width: 1200, height: 90 },
-    setup: async (page) => {
-      await page.getByLabel("Firefox").hover();
     },
   },
   {
@@ -423,17 +382,6 @@ const SHOTS = [
       await page.locator(".bw-chrome-frame").first().waitFor();
     },
   },
-  // The hot corners are invisible by construction, which is why there is a
-  // setting to paint them — and why this shot is worth having.
-  {
-    name: "38-hot-corners",
-    url: "/index.html",
-    viewport: { width: 1280, height: 820 },
-    setup: async (page) => {
-      await page.getByRole("button", { name: "corners", exact: false }).click();
-      await page.locator(".bw-hot-corner.visible").first().waitFor();
-    },
-  },
   // The overlay: its taskbar, and the widgets on the canvas with their title
   // bars, pin and see-through buttons.
   {
@@ -470,9 +418,7 @@ const SHOTS = [
     setup: async (page) => {
       // Exact: another control's label has "settings" inside it, and
       // `getByRole` matches accessible names by substring.
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.locator(".bw-settings-row").first().waitFor();
     },
@@ -483,9 +429,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByPlaceholder("Search every setting").fill("wallpaper");
       await page.locator(".bw-settings-row").first().waitFor();
@@ -497,9 +441,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByRole("button", { name: "Presets", exact: true }).click();
       await page.locator(".bw-preset").first().waitFor();
@@ -511,9 +453,7 @@ const SHOTS = [
     url: "/index.html",
     viewport: { width: 1280, height: 820 },
     setup: async (page) => {
-      await page
-        .getByRole("button", { name: "settings", exact: true })
-        .click();
+      await page.getByRole("button", { name: "settings", exact: true }).click();
       await page.getByRole("dialog", { name: "Settings" }).waitFor();
       await page.getByRole("button", { name: "Presets", exact: true }).click();
       await page.getByRole("button", { name: "Apply Midnight" }).click();

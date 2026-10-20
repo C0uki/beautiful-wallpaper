@@ -1,7 +1,7 @@
 // Where the generated form is not good enough on its own.
 //
 // The schema knows a value is a string; it does not know the string is one of
-// four bar styles. It knows a value is a decimal; it does not know the decimal
+// a handful of names. It knows a value is a decimal; it does not know the decimal
 // is a fraction of the screen and wants a slider rather than a box to type a
 // number into. And its labels are mechanical — `from` reads the same for a
 // night-light schedule and a translation — with nothing to say what a setting
@@ -13,6 +13,8 @@
 
 import { tr } from "../../i18n";
 import { TRANSITION_NAMES } from "../../gl/transitions";
+import type { AiProvider } from "@bw/core";
+import type { Swatch } from "./pickers";
 
 export interface Choice {
   value: string;
@@ -28,8 +30,14 @@ export interface Override {
   hint?: () => string;
   /** A label for where the mechanical one reads wrongly. */
   label?: () => string;
-  /** One of the bar's three slots: chips dragged between the three rows. */
-  barSlot?: true;
+  /** A colour: picked from these wells, or from the system's picker. */
+  color?: Swatch[];
+  /** The value a well stands for while the setting is unset (null). */
+  unset?: string;
+  /** A font stack: picked from the installed families of this kind. */
+  font?: "sans" | "mono";
+  /** A model: chosen from the ones this service lists. */
+  model?: AiProvider;
 }
 
 /** Values that are really a choice, keyed by config path. */
@@ -41,20 +49,41 @@ const plain = (values: string[]): Choice[] =>
 const named = (pairs: [string, string][]): Choice[] =>
   pairs.map(([value, words]) => ({ value, label: () => tr(words) }));
 
-/** What a screen corner can open. */
-const CORNER_ACTIONS = named([
-  ["", "Do nothing"],
-  ["sidebarLeftOpen", "Left sidebar"],
-  ["sidebarRightOpen", "Right sidebar"],
-  ["overviewOpen", "Overview"],
-  ["wallpaperSelectorOpen", "Wallpaper picker"],
-  ["sessionOpen", "Session screen"],
-  ["shelfOpen", "Shelf"],
-  ["overlayOpen", "Overlay"],
-  ["settingsOpen", "Settings"],
-]);
-
 export const OVERRIDES: Record<string, Override> = {
+  // The Mac's accent colours, after the wallpaper's own. Unset is Apple's
+  // blue (`deriveTokens`); empty is what `services/theme.rs` reads as "take it
+  // from the wallpaper". The wallpaper's well is grey with the wallpaper
+  // glyph: while another accent is chosen there is no wallpaper colour to
+  // paint it with.
+  "appearance.palette.accentColor": {
+    unset: "#007aff",
+    color: [
+      { value: "", paint: "var(--layer3)", label: "From the wallpaper" },
+      { value: "#007aff", paint: "#007aff", label: "Blue" },
+      { value: "#a550a7", paint: "#a550a7", label: "Purple" },
+      { value: "#f74f9e", paint: "#f74f9e", label: "Pink" },
+      { value: "#ff5257", paint: "#ff5257", label: "Red" },
+      { value: "#f7821b", paint: "#f7821b", label: "Orange" },
+      { value: "#ffc600", paint: "#ffc600", label: "Yellow" },
+      { value: "#62ba46", paint: "#62ba46", label: "Green" },
+      { value: "#8c8c8c", paint: "#8c8c8c", label: "Graphite" },
+    ],
+  },
+  // The palette's roles follow the wallpaper; black and white do not.
+  "bar.frameColor": {
+    color: [
+      { value: "black", paint: "#000000", label: "Black" },
+      { value: "white", paint: "#ffffff", label: "White" },
+      { value: "primary", paint: "var(--primary)", label: "Primary" },
+      { value: "secondary", paint: "var(--secondary)", label: "Secondary" },
+      { value: "tertiary", paint: "var(--tertiary)", label: "Tertiary" },
+      { value: "surface", paint: "var(--layer0)", label: "Surface" },
+      { value: "outline", paint: "var(--outline)", label: "Outline" },
+    ],
+  },
+  "appearance.fonts.main": { font: "sans" },
+  "appearance.fonts.title": { font: "sans" },
+  "appearance.fonts.monospace": { font: "mono" },
   "language.ui": {
     choices: [
       { value: "auto", label: () => tr("Automatic") },
@@ -86,6 +115,16 @@ export const OVERRIDES: Record<string, Override> = {
   },
   "appearance.roundingScale": { range: { min: 0, max: 2, step: 0.05 } },
   "appearance.transparency.extra": { range: { min: 0, max: 1, step: 0.05 } },
+  "ai.provider": {
+    choices: [
+      { value: "anthropic", label: () => "Claude (Anthropic)" },
+      { value: "gemini", label: () => "Gemini (Google)" },
+      { value: "openai", label: () => "ChatGPT (OpenAI)" },
+    ],
+  },
+  "ai.model": { model: "anthropic" },
+  "ai.geminiModel": { model: "gemini" },
+  "ai.openaiModel": { model: "openai" },
   // Tri-state numbers. A box showing "1" is honest and says nothing.
   "policies.ai": {
     choices: [
@@ -100,10 +139,13 @@ export const OVERRIDES: Record<string, Override> = {
       { value: "1", label: () => tr("On") },
     ],
   },
-  "bar.style": { choices: plain(["m3", "hug", "float", "islands"]) },
-  "bar.left": { barSlot: true },
-  "bar.center": { barSlot: true },
-  "bar.right": { barSlot: true },
+  "time.format": {
+    choices: named([
+      ["HH:mm", "24-hour"],
+      ["HH:mm:ss", "24-hour, with seconds"],
+      ["hh:mm AP", "12-hour"],
+    ]),
+  },
   "background.wallpaperAnimation": {
     choices: plain([...TRANSITION_NAMES, "random"]),
   },
@@ -213,8 +255,6 @@ export const OVERRIDES: Record<string, Override> = {
       "gelbooru",
     ]),
   },
-  "sidebar.cornerOpen.topLeftAction": { choices: CORNER_ACTIONS },
-  "sidebar.cornerOpen.topRightAction": { choices: CORNER_ACTIONS },
   "sidebar.nightLight.temperature": {
     range: { min: 1200, max: 6500, step: 100 },
   },
@@ -231,33 +271,33 @@ const LABELS: Record<string, string> = {
   "sidebar.nightLight.to": "Turns off at",
   "overlay.crosshair.code": "Crosshair code",
   "policies.ai": "AI features",
+  "ai.provider": "Service",
+  "ai.model": "Claude model",
+  "ai.geminiModel": "Gemini model",
+  "ai.openaiModel": "ChatGPT model",
   "policies.weeb": "Anime and image-board features",
   "background.widgets.grid": "Snap to a grid",
   "appearance.fonts.pixelSize": "Text size",
   "hacks.desktopMenu": "Take over the desktop's right-click menu",
-  "sidebar.cornerOpen.enable": "Open things from the screen corners",
+  // Only the temperature changes; "USC units" named a system nobody calls it.
+  "weather.useUscUnits": "Show temperatures in Fahrenheit",
+  "time.weekStartsOnMonday": "Week starts on Monday",
 };
 
 /** The sentence under a label, for every setting whose name alone does not
  *  say what it does. English, translated when drawn. */
 const HINTS: Record<string, string> = {
   "language.ui": "Automatic follows the language Windows is set to.",
-  "time.format":
-    "HH for hours, mm for minutes, ss for seconds. HH:mm shows 14:05.",
-  "time.dateFormat":
-    "ddd for the day's name, dd for the day, MM for the month.",
+  "time.format": "The date beside the clock follows the language.",
   "weather.city": "Empty finds where you are from your internet connection.",
   "weather.refreshInterval": "Seconds between updates.",
   "windows.startWithWindows": "Start the shell when you sign in.",
   "windows.autoUpdate":
     "Check for a new version a minute after starting and every six hours, and install it.",
   "appearance.palette.accentColor":
-    "A colour such as #4f8cff to build the colours from. Empty takes it from the wallpaper.",
+    "The colour of selections, switches and buttons. The first well takes it from the wallpaper.",
   "appearance.palette.mode": "Automatic picks by how bright the wallpaper is.",
-  "appearance.fonts.main":
-    "Font names as Windows lists them. Later names are used when an earlier one is missing.",
-  "appearance.fonts.reading": "Used for long passages, such as AI answers.",
-  "appearance.fonts.expressive": "Used for large text, such as the clock.",
+  "appearance.fonts.main": "Each font is listed in its own lettering.",
   "appearance.fonts.pixelSize": "Everything else is sized from this.",
   "appearance.transparency.extra":
     "How much more see-through panels are, on top of what the wallpaper calls for.",
@@ -300,7 +340,7 @@ const HINTS: Record<string, string> = {
     "Pixels left showing while it is hidden, for the pointer to find.",
   "bar.showFrame": "A thin border around the whole screen.",
   "bar.frameColor":
-    "A colour such as #000000, or a palette name such as primary.",
+    "Primary, secondary, tertiary, surface and outline follow the wallpaper.",
   "dock.pinnedApps": "Full paths of programs, one per line.",
   "dock.ignored":
     "File names never shown on the dock, one per line. * matches anything.",
@@ -316,21 +356,12 @@ const HINTS: Record<string, string> = {
   "sidebar.bannerImage": "Empty uses the wallpaper.",
   "sidebar.profile.displayName": "Empty uses your Windows account name.",
   "sidebar.profile.avatarPath": "Empty uses your Windows account picture.",
-  "sidebar.cornerOpen.valueScroll":
-    "Scroll on a left corner for brightness, on a right corner for volume.",
-  "sidebar.cornerOpen.clickless":
-    "Open by just reaching the corner. Quicker, and easy to set off by accident.",
-  "sidebar.cornerOpen.cornerRegionWidth": "Pixels along the top edge.",
-  "sidebar.cornerOpen.cornerRegionHeight": "Pixels down from the top edge.",
-  "sidebar.cornerOpen.visualize":
-    "Colour the corner areas, to see where they are.",
   "notifications.timeout":
     "Milliseconds a notification stays up. Urgent ones stay until dismissed.",
   "notifications.maxVisible":
     "More than this wait in the notification centre without popping up.",
   "notifications.doNotDisturb":
     "Keep notifications in the centre without popping them up.",
-  "notifications.width": "Pixels.",
   "sidebar.nightLight.temperature":
     "Kelvin. 6500 is no change; lower is warmer.",
   "sidebar.nightLight.automatic": "Turn it on and off at the times below.",
@@ -338,6 +369,10 @@ const HINTS: Record<string, string> = {
   "sidebar.nightLight.to": "24-hour time, such as 07:00.",
   "osd.enable": "Show the level when a volume or brightness key is pressed.",
   "osd.timeout": "Milliseconds it stays after the last press.",
+  "osd.volume":
+    "While on, the shell takes the volume keys, so Windows' own volume display does not show as well.",
+  "osd.brightness":
+    "Windows shows its own brightness display too, and it cannot be hidden. Turn this off to see only Windows' one.",
   "audio.step": "How much one press of a volume key changes it, in percent.",
   "audio.protection.enable":
     "Stop the volume being turned up past the limit below.",
@@ -360,11 +395,12 @@ const HINTS: Record<string, string> = {
   "overlay.clickthroughOpacity":
     "How solid a pinned panel looks while clicks go through it.",
   "session.force": "Close programs without letting them save. Best left off.",
-  "ai.model": "The Claude model that answers, such as claude-opus-5.",
+  "ai.provider":
+    "Which service answers in the chat and the translator. Each needs its own key, above.",
   "ai.maxTokens": "The longest answer, in tokens.",
   "ai.webSearch":
     "Let it search the web when it needs to. Searches cost tokens.",
-  "ai.maxSearches": "Searches allowed per question.",
+  "ai.maxSearches": "Searches allowed per question. Claude only.",
   "ai.showThinking": "Show a summary of how it reached its answer.",
   "policies.ai": "Local models only keeps everything on this computer.",
   "sidebar.left.translator.delay":

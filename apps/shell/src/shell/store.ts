@@ -34,10 +34,12 @@ import {
   type WifiNetwork,
   type ConnectOutcome,
   type BluetoothDeviceInfo,
-  type DockApp,
   type TranslationResult,
+  type AiModel,
+  type AiProvider,
   type ActivateOutcome,
   type ChatMessage,
+  type AiError,
   type StreamEvent,
   type BooruPage,
   type LauncherResult,
@@ -51,8 +53,6 @@ import {
   type ShelfItem,
   type DropOutcome,
   type ScreenChrome,
-  type HotCorner,
-  type Corner,
   type OverlayLayout,
   type OverlayWidget,
   type Crosshair,
@@ -90,18 +90,22 @@ export interface ShellState {
   todos: TodoItem[];
   persistent: Persistent;
   systemInfo: SystemInfo | null;
-  dock: DockApp[];
   /**
    * Bumped each time the application scan finishes. The overview watches it
    * rather than a list: it has to re-rank against what is typed anyway, so
    * carrying every application into every surface's store would be waste.
    */
   appsScanned: number;
-  /** Whether an Anthropic key is configured; the translator needs one. */
+  /** Whether the chosen AI service has a key; the chat and the translator
+   * need one. */
   hasAiKey: boolean;
+  /** Bumped when a key is saved or removed, so a model list asks again. */
+  aiKeyChanges: number;
   chat: ChatMessage[];
   /** True while a reply is streaming in. */
   chatStreaming: boolean;
+  /** Why the last reply failed, while it is the one on screen. */
+  chatError: AiError | null;
   /** The wallpaper currently applied, per monitor. */
   wallpaper: { path: string; blanked: boolean };
   /** Ticked once a second, so every clock in a surface stays in step. */
@@ -165,11 +169,12 @@ const initial: ShellState = {
     },
   },
   systemInfo: null,
-  dock: [],
   appsScanned: 0,
   hasAiKey: false,
+  aiKeyChanges: 0,
   chat: [],
   chatStreaming: false,
+  chatError: null,
   wallpaper: { path: "", blanked: false },
   now: new Date(),
 };
@@ -177,6 +182,29 @@ const initial: ShellState = {
 export const useShell = create<ShellState>(() => initial);
 
 const set = useShell.setState;
+
+/** Which part of the state each reading's event fills. */
+const READINGS = {
+  [Event.Resources]: "resources",
+  [Event.Media]: "media",
+  [Event.Battery]: "battery",
+  [Event.Weather]: "weather",
+  [Event.Workspaces]: "workspaces",
+  [Event.ActiveWindow]: "activeWindow",
+  [Event.Network]: "network",
+  [Event.Tray]: "tray",
+} as const satisfies Record<string, keyof ShellState>;
+
+/** The readings `latest_readings` returned, as the state they fill. */
+export function latestReadings(
+  readings: Record<string, unknown> | null | undefined,
+): Partial<ShellState> {
+  const found: Record<string, unknown> = {};
+  for (const [event, key] of Object.entries(READINGS)) {
+    if (readings && event in readings) found[key] = readings[event];
+  }
+  return found as Partial<ShellState>;
+}
 
 let connected: Promise<void> | undefined;
 
@@ -209,19 +237,25 @@ export function connect(): Promise<void> {
         arrived("states", states),
       ),
       api.listen<ResourceReading>(Event.Resources, (resources) =>
-        set({ resources }),
+        arrived("resources", resources),
       ),
-      api.listen<MediaState>(Event.Media, (media) => set({ media })),
-      api.listen<BatteryState>(Event.Battery, (battery) => set({ battery })),
-      api.listen<WeatherState>(Event.Weather, (weather) => set({ weather })),
+      api.listen<MediaState>(Event.Media, (media) => arrived("media", media)),
+      api.listen<BatteryState>(Event.Battery, (battery) =>
+        arrived("battery", battery),
+      ),
+      api.listen<WeatherState>(Event.Weather, (weather) =>
+        arrived("weather", weather),
+      ),
       api.listen<WorkspaceState>(Event.Workspaces, (workspaces) =>
-        set({ workspaces }),
+        arrived("workspaces", workspaces),
       ),
       api.listen<ActiveWindow>(Event.ActiveWindow, (activeWindow) =>
-        set({ activeWindow }),
+        arrived("activeWindow", activeWindow),
       ),
-      api.listen<NetworkReading>(Event.Network, (network) => set({ network })),
-      api.listen<TrayIcon[]>(Event.Tray, (tray) => set({ tray })),
+      api.listen<NetworkReading>(Event.Network, (network) =>
+        arrived("network", network),
+      ),
+      api.listen<TrayIcon[]>(Event.Tray, (tray) => arrived("tray", tray)),
       api.listen<Notification[]>(Event.Notifications, (notifications) =>
         arrived("notifications", notifications),
       ),
@@ -243,7 +277,6 @@ export function connect(): Promise<void> {
       api.listen<Persistent>(Event.Persistent, (persistent) =>
         set({ persistent }),
       ),
-      api.listen<DockApp[]>(Event.Dock, (dock) => set({ dock })),
       // The scan carries nothing; the overview re-runs its own query, which
       // is what it would have to do anyway to re-rank against what is typed.
       api.listen(Event.Apps, () =>
@@ -266,14 +299,19 @@ export function connect(): Promise<void> {
     // shell posts its own notifications long before the last surface has
     // finished loading, so a page that only listens starts out believing there
     // have never been any.
-    const [config, theme, states, notifications] = await Promise.all([
+    //
+    // The readings are only sent when they change, so a page that loads after
+    // one was sent asks for the last of each rather than waiting for the next.
+    const [config, theme, states, notifications, readings] = await Promise.all([
       api.invoke<Config>(Command.GetConfig),
       api.invoke<GeneratedTheme>(Command.GetTheme),
       api.invoke<GlobalStates>(Command.GetStates),
       api.invoke<Notification[]>(Command.GetNotifications),
+      api.invoke<Record<string, unknown>>(Command.LatestReadings),
     ]);
 
     const snapshot: Partial<ShellState> = {
+      ...latestReadings(readings),
       config,
       theme,
       states,
@@ -331,26 +369,14 @@ export function connectSidebar(): Promise<void> {
   return sidebarConnected;
 }
 
-let dockConnected: Promise<void> | undefined;
-
-/** Fetches the dock's icons. Kept out of `connect` for the same reason the
- * sidebar's data is: enumerating every window costs time no other surface
- * should pay at startup. */
-export function connectDock(): Promise<void> {
-  dockConnected ??= (async () => {
-    await connect();
-    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
-  })();
-  return dockConnected;
-}
-
 /** Folds one streamed delta into the conversation. */
 function applyStreamEvent(
   state: ShellState,
   event: StreamEvent,
 ): Partial<ShellState> {
-  if (event.kind === "done" || event.kind === "failed") {
-    return { chatStreaming: false };
+  if (event.kind === "done") return { chatStreaming: false };
+  if (event.kind === "failed") {
+    return { chatStreaming: false, chatError: event.value };
   }
 
   const chat = [...state.chat];
@@ -384,6 +410,9 @@ function applyStreamEvent(
 }
 
 let leftConnected: Promise<void> | undefined;
+
+/** The last question this window sent, with the paths of its files. */
+let lastSent: { text: string; attachments: string[] } | undefined;
 
 /** What the left sidebar needs beyond the shared state. */
 export function connectSidebarLeft(): Promise<void> {
@@ -431,20 +460,6 @@ export const actions = {
   },
   setState(name: StateFlagName, value: boolean) {
     return backend().invoke<GlobalStates>(Command.SetState, { name, value });
-  },
-  /** Slides an auto-hiding surface in or out. The window itself has to move:
-   *  it is not click-through, so one parked over its whole band would swallow
-   *  clicks meant for what is behind it. */
-  setSurfaceRevealed(label: string, revealed: boolean) {
-    return backend().invoke<void>(Command.SetSurfaceRevealed, {
-      label,
-      revealed,
-    });
-  },
-  /** Cuts the dock's window down to the band its icons sit in, so the rest
-   *  of the bottom edge lets clicks through to the windows under it. */
-  setDockShape(left: number, width: number) {
-    return backend().invoke<void>(Command.SetDockShape, { left, width });
   },
   /** Forwards a click to the application that owns a tray icon. */
   clickTrayIcon(icon: TrayIcon, secondary: boolean) {
@@ -562,9 +577,6 @@ export const actions = {
   clearDoneTodos() {
     return backend().invoke<TodoItem[]>(Command.ClearDoneTodos);
   },
-  async refreshDock() {
-    set({ dock: await backend().invoke<DockApp[]>(Command.GetDockItems) });
-  },
   activateWindow(id: string, minimiseIfActive: boolean) {
     return backend().invoke<ActivateOutcome>(Command.ActivateWindow, {
       id,
@@ -584,9 +596,21 @@ export const actions = {
       to,
     });
   },
-  async setAiKey(key: string) {
-    await backend().invoke<void>(Command.SetAiKey, { key });
+  /** Asks again whether the chosen service has a key. Both the key and the
+   * choice of service are made in the settings window, which is another
+   * webview, so this window is not told. */
+  async checkAiKey() {
     set({ hasAiKey: await backend().invoke<boolean>(Command.HasAiKey) });
+  },
+  hasAiKeyFor(provider: AiProvider) {
+    return backend().invoke<boolean>(Command.HasAiKey, { provider });
+  },
+  async setAiKey(provider: AiProvider, key: string) {
+    await backend().invoke<void>(Command.SetAiKey, { provider, key });
+    set((state) => ({ aiKeyChanges: state.aiKeyChanges + 1 }));
+  },
+  listAiModels(provider: AiProvider) {
+    return backend().invoke<AiModel[]>(Command.ListAiModels, { provider });
   },
   /** Saves an online image locally and returns its path. */
   downloadWallpaper(url: string, provider: string) {
@@ -674,16 +698,6 @@ export const actions = {
   screenChrome() {
     return backend().invoke<ScreenChrome>(Command.GetScreenChrome);
   },
-  hotCorners() {
-    return backend().invoke<HotCorner[]>(Command.GetHotCorners);
-  },
-  /** Flips whatever the corner is bound to. The flag name never leaves Rust. */
-  runHotCorner(corner: Corner) {
-    return backend().invoke<void>(Command.RunHotCorner, { corner });
-  },
-  scrollHotCorner(corner: Corner, up: boolean) {
-    return backend().invoke<void>(Command.ScrollHotCorner, { corner, up });
-  },
   overlayLayout() {
     return backend().invoke<OverlayLayout>(Command.GetOverlayLayout);
   },
@@ -708,7 +722,8 @@ export const actions = {
     return picked ?? [];
   },
   async sendChat(text: string, attachments: string[] = []) {
-    set({ chatStreaming: true });
+    lastSent = { text, attachments };
+    set({ chatStreaming: true, chatError: null });
     try {
       await backend().invoke<void>(Command.SendChat, { text, attachments });
     } catch (error) {
@@ -719,10 +734,24 @@ export const actions = {
     }
   },
   async clearChat() {
-    set({ chat: await backend().invoke<ChatMessage[]>(Command.ClearChat) });
+    set({
+      chat: await backend().invoke<ChatMessage[]>(Command.ClearChat),
+      chatError: null,
+    });
   },
+  /** Sends the failed question again. The backend drops the exchange and
+   * sending adds it back, with its files when it is the one this window
+   * sent — the backend keeps only their names. */
   async retryChat() {
+    const question = useShell
+      .getState()
+      .chat.filter((message) => message.role === "user")
+      .at(-1);
     set({ chat: await backend().invoke<ChatMessage[]>(Command.RetryChat) });
+    if (!question) return;
+    const sent = lastSent;
+    const files = sent?.text === question.content ? sent.attachments : [];
+    await actions.sendChat(question.content, files);
   },
   /** Reads the persisted state, for a surface that needs it but not the rest
    * of what `connectSidebar` fetches — enumerating radios and audio sessions

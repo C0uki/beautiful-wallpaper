@@ -33,18 +33,26 @@ use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoSetProxyBlanket, CLSCTX_INPROC_SERVER,
     COINIT_MULTITHREADED, EOAC_NONE, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE,
 };
+use windows::Win32::System::Power::{
+    PowerSettingRegisterNotification, PowerSettingUnregisterNotification,
+    DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS, HPOWERNOTIFY,
+};
 use windows::Win32::System::Wmi::{
     IWbemClassObject, IWbemLocator, IWbemServices, WbemLocator, WBEM_FLAG_FORWARD_ONLY,
     WBEM_FLAG_RETURN_IMMEDIATELY, WBEM_GENERIC_FLAG_TYPE,
 };
 use windows::Win32::UI::ColorSystem::SetDeviceGammaRamp;
+use windows::Win32::UI::WindowsAndMessaging::DEVICE_NOTIFY_CALLBACK;
 
 /// What the watcher calls when the level changes. Boxed for the same reason the
 /// audio callback is: the worker holds one and cannot be generic over it.
 type OnChange = Arc<dyn Fn(u8) + Send + Sync + 'static>;
 
 /// Milliseconds WMI is allowed to spend applying a level before giving up.
-const WMI_TIMEOUT_MS: u32 = 0;
+///
+/// An `i32` though the method's parameter is a uint32: WMI takes a uint32 as
+/// VT_I4, and a `u32` becomes VT_UI4, which it can refuse as the wrong type.
+const WMI_TIMEOUT_MS: i32 = 0;
 
 /// The cached level when nothing can report one.
 const UNKNOWN: i32 = -1;
@@ -68,6 +76,82 @@ pub struct BrightnessControl {
     /// that a command can answer immediately.
     cached: Arc<AtomicI32>,
     worker: Option<std::thread::JoinHandle<()>>,
+    /// Windows' word that the level moved, from outside the shell — the
+    /// brightness keys, the quick settings: [`Watch`].
+    _watch: Option<Watch>,
+}
+
+/// GUID_VIDEO_CURRENT_MONITOR_BRIGHTNESS: Windows announces every change to
+/// the panel's level under it, whoever made the change.
+const CURRENT_MONITOR_BRIGHTNESS: windows::core::GUID =
+    windows::core::GUID::from_u128(0x8ffee2c6_2d01_46be_adb9_398addc5b4ff);
+
+/// A subscription to [`CURRENT_MONITOR_BRIGHTNESS`] that asks the worker to
+/// read the hardware again each time it fires.
+///
+/// Without it the worker only read on its own changes, so the brightness keys
+/// moved the panel and the shell never knew: no readout, and a slider left at
+/// the old level.
+struct Watch {
+    /// `HPOWERNOTIFY`, as an integer so the control stays `Send`.
+    registration: isize,
+    /// The sender the callback holds, freed once the subscription is gone.
+    context: *mut Sender<Request>,
+}
+
+// The context is only touched by the callback and by `Drop`, which
+// unsubscribes before freeing it.
+unsafe impl Send for Watch {}
+unsafe impl Sync for Watch {}
+
+unsafe extern "system" fn brightness_changed(
+    context: *const core::ffi::c_void,
+    _kind: u32,
+    _setting: *const core::ffi::c_void,
+) -> u32 {
+    if let Some(requests) = (context as *const Sender<Request>).as_ref() {
+        let _ = requests.send(Request::Refresh);
+    }
+    0
+}
+
+impl Watch {
+    fn subscribe(requests: Sender<Request>) -> Option<Self> {
+        let context = Box::into_raw(Box::new(requests));
+        let parameters = DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
+            Callback: Some(brightness_changed),
+            Context: context.cast(),
+        };
+        let mut registration: *mut core::ffi::c_void = std::ptr::null_mut();
+        let status = unsafe {
+            PowerSettingRegisterNotification(
+                &CURRENT_MONITOR_BRIGHTNESS,
+                DEVICE_NOTIFY_CALLBACK,
+                windows::Win32::Foundation::HANDLE(
+                    std::ptr::addr_of!(parameters) as *mut core::ffi::c_void
+                ),
+                &mut registration,
+            )
+        };
+        if status.is_err() {
+            tracing::info!(?status, "Windows would not report brightness changes");
+            drop(unsafe { Box::from_raw(context) });
+            return None;
+        }
+        Some(Self {
+            registration: registration as isize,
+            context,
+        })
+    }
+}
+
+impl Drop for Watch {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = PowerSettingUnregisterNotification(HPOWERNOTIFY(self.registration));
+            drop(Box::from_raw(self.context));
+        }
+    }
 }
 
 impl BrightnessControl {
@@ -88,10 +172,13 @@ impl BrightnessControl {
                 .ok()
         };
 
+        let watch = Watch::subscribe(requests.clone());
+
         Self {
             requests,
             cached,
             worker,
+            _watch: watch,
         }
     }
 
@@ -124,6 +211,9 @@ impl BrightnessControl {
 
 impl Drop for BrightnessControl {
     fn drop(&mut self) {
+        // The subscription holds a sender too; it has to go first, or the
+        // worker's `recv` would never see the channel close.
+        self._watch = None;
         // Dropping the sender is what ends the worker's `recv` loop; it clears
         // the gamma ramp on the way out.
         let (dead, _) = mpsc::channel();
@@ -397,9 +487,13 @@ impl Wmi {
                     &VARIANT::from(WMI_TIMEOUT_MS),
                     0,
                 )
+                .map_err(
+                    |error| tracing::warn!(%error, "WMI would not take the brightness timeout"),
+                )
                 .ok()?;
             arguments
                 .Put(&HSTRING::from("Brightness"), 0, &VARIANT::from(percent), 0)
+                .map_err(|error| tracing::warn!(%error, "WMI would not take the brightness level"))
                 .ok()?;
 
             // WMI addresses an instance by a quoted key; a name containing a
@@ -418,6 +512,7 @@ impl Wmi {
                     None,
                     None,
                 )
+                .map_err(|error| tracing::warn!(%error, "WMI would not set the brightness"))
                 .ok()?;
             Some(())
         }

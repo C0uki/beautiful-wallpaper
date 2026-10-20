@@ -13,10 +13,11 @@ use bw_shell::commands::{self, event};
 use bw_shell::providers::{Network, Resources};
 use bw_shell::services;
 use bw_shell::state::{
-    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore, ChromeState,
+    AppState, BrightnessHandle, CaptureHandle, CatalogueHandle, ChatBusy, ChatStore,
     DesktopMenuHandle, DockHandle, IdleHandle, KeyReport, MicHandle, MixerHandle,
     NotificationStore, PersistentStore, PresetUndo, ShelfStore, TodoStore, VolumeHandle,
 };
+use bw_shell::surfaces::later;
 use bw_shell::{cli, surfaces};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -88,8 +89,6 @@ fn main() {
             commands::get_states,
             commands::toggle_state,
             commands::set_state,
-            commands::set_surface_revealed,
-            commands::set_dock_shape,
             commands::click_tray_icon,
             commands::list_wallpapers,
             commands::apply_wallpaper,
@@ -102,6 +101,7 @@ fn main() {
             commands::get_monitors,
             commands::set_taskbar_visible,
             commands::get_notifications,
+            commands::latest_readings,
             commands::post_notification,
             commands::dismiss_notification,
             commands::clear_notifications,
@@ -144,13 +144,13 @@ fn main() {
             commands::reorder_todo,
             commands::get_persistent,
             commands::set_persistent_value,
-            commands::get_dock_items,
             commands::activate_window,
             commands::launch_app,
             commands::get_lyrics,
             commands::set_pinned,
             commands::has_ai_key,
             commands::set_ai_key,
+            commands::list_ai_models,
             commands::translate,
             commands::get_chat,
             commands::send_chat,
@@ -179,9 +179,6 @@ fn main() {
             commands::reveal_shelf_item,
             commands::drag_from_shelf,
             commands::get_screen_chrome,
-            commands::get_hot_corners,
-            commands::run_hot_corner,
-            commands::scroll_hot_corner,
             commands::get_overlay_layout,
             commands::get_crosshair,
             commands::toggle_overlay_widget,
@@ -237,7 +234,6 @@ fn main() {
             app.manage(CaptureHandle::default());
             app.manage(DesktopMenuHandle::default());
             app.manage(ShelfStore::default());
-            app.manage(ChromeState::default());
             app.manage(PresetUndo::default());
             app.manage(KeyReport::default());
             app.manage(services::integration::Integration::default());
@@ -247,22 +243,75 @@ fn main() {
             services::integration::apply(&handle);
             services::listener::apply(&handle);
 
-            // One surface to a turn of the event loop, rather than nineteen
+            spawn_readings(&handle, &state);
+
+            // The bar, the dock, the readout and the banners, drawn natively:
+            // up in a second, beside everything else rather than behind it.
+            {
+                let reserving = handle.clone();
+                let clicking = handle.clone();
+                let config = state.config();
+                bw_native::bar_shown(config.bar.enable);
+                bw_native::bars(surfaces::bar_layout(&config));
+                commands::emit_bar_settings(&config);
+                bw_native::spawn(
+                    Some(bw_native::BarHooks {
+                        place: Box::new(move |hwnd, monitor, vertical, thickness| {
+                            surfaces::adopt_native_bar(
+                                &reserving, hwnd, monitor, vertical, thickness,
+                            )
+                        }),
+                    }),
+                    Box::new(|| {
+                        commands::latest_readings()
+                            .into_iter()
+                            .map(|(event, value)| (event.to_owned(), value))
+                            .collect()
+                    }),
+                    Box::new(move |action| native_pressed(&clicking, action)),
+                );
+                commands::emit_dock_settings(&handle);
+                // The window watcher only sends the icons when a window
+                // changes.
+                commands::rebuild_dock(&handle);
+            }
+
+            // One surface to a turn of the event loop, rather than all of them
             // back to back. See the note on `later`.
-            for surface in surfaces::ALL {
+            let make = |surface: &'static surfaces::Surface| {
                 let each = handle.clone();
-                later(&handle, move || {
+                Box::new(move || {
                     if let Err(error) = surfaces::ensure(&each, surface) {
                         tracing::error!(%error, surface = surface.label, "could not create a surface");
                     }
-                });
-            }
+                }) as Box<dyn FnOnce() + Send>
+            };
 
-            // Behind every one of them in the queue, because each step of it
-            // needs a surface to have a window before it can touch it.
+            // What is on screen first, then the rest of the startup, which
+            // reaches for those; the surfaces only ever opened come after, so
+            // a slow machine shows a desktop in seconds rather than once all
+            // of them exist.
+            let mut steps: Vec<Box<dyn FnOnce() + Send>> =
+                surfaces::FIRST.iter().map(make).collect();
+            // The frame, only when there is one to draw.
+            let framing = handle.clone();
+            steps.push(Box::new(move || services::chrome::emit(&framing)));
             let rest = handle.clone();
             let state = state.clone();
-            later(&handle, move || finish_starting(rest, state));
+            steps.push(Box::new(move || finish_starting(rest, state)));
+            steps.extend(surfaces::AFTER.iter().map(make));
+            // The passive half is masked by transparency rather than by a
+            // region, and its window has to exist before that can be set.
+            let overlays = handle.clone();
+            steps.push(Box::new(move || {
+                services::overlay::make_passive_clickthrough(&overlays);
+                services::overlay::apply(&overlays);
+            }));
+            let first = handle.clone();
+            std::thread::spawn(move || {
+                wait_for_profile(&first);
+                in_turn(first, steps.into());
+            });
 
             Ok(())
         })
@@ -294,20 +343,73 @@ fn main() {
 /// Holds the config watcher so it is not dropped at the end of `setup`.
 struct WatcherHandle(#[allow(dead_code)] Option<notify::RecommendedWatcher>);
 
-/// Starts the timers that push system readings to the surfaces.
-/// Queues `work` for a later turn of the event loop.
+/// Waits, for up to three minutes, until no WebView2 from an earlier run still has
+/// the shell's profile open.
 ///
-/// Creating a webview takes long enough that nineteen of them back to back
-/// leave the main thread without a message pump for well past the five seconds
-/// Windows waits before it decides a window is hung. What it puts up then is a
-/// full-screen "not responding" ghost over `screenChrome` — transparent but
-/// not layered, which is exactly the pair that swallows every click on the
-/// desktop rather than passing it through. Spread over the loop, the thread is
-/// never silent long enough to be asked.
-fn later(handle: &tauri::AppHandle, work: impl FnOnce() + Send + 'static) {
-    if let Err(error) = handle.run_on_main_thread(work) {
-        tracing::error!(%error, "could not queue a step of the startup");
+/// WebView2 hands a new webview to whatever browser process already has its
+/// profile folder open, and a quit — an update's restart above all — leaves
+/// that process shutting down for half a minute after the shell itself has
+/// gone. Handed to it, the first surface was never finished, and the shell
+/// sat running with no bar, no dock and nothing else. The browser keeps the
+/// profile's `lockfile` open unshared until it exits, so being able to open it
+/// that way means there is nothing left to join.
+///
+/// Three minutes because a whole one was measured going by, after the shell
+/// was killed, with the old browser still holding on.
+fn wait_for_profile(handle: &tauri::AppHandle) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        const SHARING_VIOLATION: i32 = 32;
+        let Ok(folder) = handle.path().app_local_data_dir() else {
+            return;
+        };
+        let lock = folder.join("EBWebView").join("lockfile");
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(180) {
+            match std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&lock)
+            {
+                Err(error) if error.raw_os_error() == Some(SHARING_VIOLATION) => {
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+                // Opened, or not there at all: nobody holds it.
+                _ => break,
+            }
+        }
+        if started.elapsed() >= Duration::from_millis(250) {
+            tracing::info!(
+                waited_ms = started.elapsed().as_millis() as u64,
+                "waited for the last run's WebView2 to exit"
+            );
+        }
     }
+    #[cfg(not(windows))]
+    let _ = handle;
+}
+
+/// Runs `steps` one to a turn, each queued only once the one before has run.
+///
+/// Queued all at once, they stood ahead of everything sent to the surfaces in
+/// the meantime: an event reaches a page by a turn of this same loop, so every
+/// reading, the weather and the active window's title waited behind all
+/// nineteen surfaces — the bar sat half empty for thirty seconds on a slow
+/// start, though each of them was ready within one.
+fn in_turn(
+    handle: tauri::AppHandle,
+    mut steps: std::collections::VecDeque<Box<dyn FnOnce() + Send>>,
+) {
+    let Some(step) = steps.pop_front() else {
+        return;
+    };
+    let next = handle.clone();
+    later(&handle, move || {
+        step();
+        in_turn(next, steps);
+    });
 }
 
 /// The rest of the startup, once every surface has a window.
@@ -322,21 +424,20 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
     // keep their order — each still runs behind the surfaces it reaches for,
     // and behind each other — but the loop gets to breathe between them.
 
-    // The hot corners need their window before they can be cut down to size.
-    let each = handle.clone();
-    later(&handle, move || services::chrome::apply(&each));
-
-    // The passive half is masked by transparency rather than by a region, and
-    // its window has to exist before that can be set.
-    let each = handle.clone();
-    later(&handle, move || {
-        services::overlay::make_passive_clickthrough(&each);
-        services::overlay::apply(&each);
-    });
-
     // So the first click has somewhere to go.
     let each = handle.clone();
     later(&handle, move || services::deskmenu::apply(&each));
+
+    // So what the wallpaper surface draws can be pressed: Explorer's desktop
+    // takes every click over it.
+    #[cfg(windows)]
+    {
+        let each = handle.clone();
+        bw_shell::platform::deskclick::forward_pointer(move || {
+            let window = each.get_webview_window(&surfaces::background_label())?;
+            Some(window.hwnd().ok()?.0 as isize)
+        });
+    }
 
     // So a key pressed the instant the shell is up has something to open. And
     // before the first-run screen, which shows what Windows refused.
@@ -356,30 +457,40 @@ fn finish_starting(handle: tauri::AppHandle, state: AppState) {
         }
 
         services::updater::start(&handle);
-        services::weather::start(&handle);
         spawn_providers(handle, state);
+        tracing::info!("the shell is up");
+    });
+}
+
+/// Starts the readings that only ever send: the bar's resources, network and
+/// battery, and the weather.
+///
+/// Ahead of the surfaces rather than behind them, as everything in
+/// [`spawn_providers`] is: none of these reaches for a surface, and behind
+/// nineteen of them on a slow start the bar went thirty seconds with nothing
+/// to show. A surface still loading misses a sample, and has the next.
+fn spawn_readings(app: &tauri::AppHandle, state: &AppState) {
+    services::weather::start(app);
+
+    let resource_interval = Duration::from_millis(state.config().resources.poll_interval.into());
+    // Sampled on a plain thread: `sysinfo` blocks, and does not belong on the
+    // UI thread.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut resources = Resources::new();
+        let mut network = Network::new();
+        loop {
+            commands::emit_reading(&app, event::RESOURCES, resources.sample());
+            commands::emit_reading(&app, event::NETWORK, network.sample());
+            commands::emit_reading(&app, event::BATTERY, bw_shell::providers::battery());
+            std::thread::sleep(resource_interval);
+        }
     });
 }
 
 fn spawn_providers(app: tauri::AppHandle, state: AppState) {
-    let resource_interval = Duration::from_millis(state.config().resources.poll_interval.into());
-
-    // Resources and media are sampled on a plain thread: `sysinfo` and the SMTC
-    // calls both block, and neither belongs on the UI thread.
-    {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            let mut resources = Resources::new();
-            let mut network = Network::new();
-            loop {
-                let _ = app.emit(event::RESOURCES, resources.sample());
-                let _ = app.emit(event::NETWORK, network.sample());
-                let _ = app.emit(event::BATTERY, bw_shell::providers::battery());
-                std::thread::sleep(resource_interval);
-            }
-        });
-    }
-
+    // Media is sampled on a plain thread: the SMTC calls block, and do not
+    // belong on the UI thread.
     {
         let app = app.clone();
         std::thread::spawn(move || loop {
@@ -387,22 +498,11 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             media.source = bw_shell::providers::app_name(&media.source, || {
                 app.state::<CatalogueHandle>().items()
             });
-            let _ = app.emit(event::MEDIA, media);
+            commands::emit_reading(&app, event::MEDIA, media);
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
             let active = bw_shell::providers::active_window();
-            let fullscreen = active.fullscreen;
-            let _ = app.emit(event::ACTIVE_WINDOW, active);
-
-            // Whether anything is full-screen comes free with the foreground
-            // window, and only matters when it changes: the decorations would
-            // otherwise be told the same thing every second for hours.
-            if let Some(chrome) = app.try_state::<ChromeState>() {
-                if chrome.set_fullscreen(fullscreen) {
-                    services::chrome::emit(&app);
-                    services::chrome::apply(&app);
-                }
-            }
+            commands::emit_reading(&app, event::ACTIVE_WINDOW, active);
 
             // Rides this timer rather than one of its own: it reads the same
             // kind of window state, and a desktop that has stopped taking
@@ -423,20 +523,19 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
     }
 
     // The notification area is hosted by the shell, which hears of every
-    // change as it happens. Sent again every few seconds as well: a surface
-    // that has just loaded has to be told what is already there, and an
+    // change as it happens. Looked at again every few seconds as well, so an
     // application that exited without taking its icon away is noticed then.
     {
         #[cfg(windows)]
         {
             let app = app.clone();
             bw_shell::platform::tray::host(move || {
-                let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+                commands::emit_reading(&app, event::TRAY, bw_shell::providers::tray_icons());
             });
         }
         let app = app.clone();
         std::thread::spawn(move || loop {
-            let _ = app.emit(event::TRAY, bw_shell::providers::tray_icons());
+            commands::emit_reading(&app, event::TRAY, bw_shell::providers::tray_icons());
             std::thread::sleep(Duration::from_secs(5));
         });
     }
@@ -448,10 +547,122 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
         tauri::async_runtime::spawn(async move {
             loop {
                 let state = bw_shell::providers::workspaces(port).await;
-                let _ = app.emit(event::WORKSPACES, &state);
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                // Most machines have no GlazeWM at all, and asked every two
+                // seconds anyway, each time with a new connection. Nobody
+                // there, it is asked again in half a minute.
+                let away = state.source.is_none();
+                commands::emit_reading(&app, event::WORKSPACES, &state);
+                tokio::time::sleep(Duration::from_secs(if away { 30 } else { 2 })).await;
             }
         });
+    }
+}
+
+/// Does what was pressed on a native surface, as the webview's buttons do.
+fn native_pressed(app: &AppHandle, action: bw_native::Action) {
+    match action {
+        bw_native::Action::Open(what) => {
+            let arguments: Vec<String> = match what.as_str() {
+                "randomWallpaper" => vec!["wallpapers".into(), "random".into()],
+                _ => vec![what, "toggle".into()],
+            };
+            // On the main thread, as a request from a second launch is.
+            let each = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Err(error) = cli::dispatch(&each, &arguments) {
+                    tracing::warn!(%error, "the native bar's button did nothing");
+                }
+            });
+        }
+        // The media calls block, and the bar's thread draws it.
+        bw_native::Action::Media(what) => {
+            std::thread::spawn(move || {
+                if let Err(error) = commands::media_command(what) {
+                    tracing::warn!(%error, "the native bar could not control the media");
+                }
+            });
+        }
+        bw_native::Action::Tray(icon, secondary) => commands::click_tray_icon(
+            icon["window"].as_str().unwrap_or_default().to_owned(),
+            icon["id"].as_u64().unwrap_or_default() as u32,
+            icon["callbackMessage"].as_u64().unwrap_or_default() as u32,
+            secondary,
+        ),
+        bw_native::Action::Dismiss(id) => {
+            if app.state::<NotificationStore>().0.dismiss(id) {
+                commands::emit_notifications(app);
+            }
+        }
+        // As the webview dock's `activate`: start it when nothing of it is
+        // open, otherwise bring up the window after the one in front, so a
+        // program with several windows cycles through them.
+        bw_native::Action::DockActivate(dock_app) => {
+            let windows = dock_app["windows"].as_array().cloned().unwrap_or_default();
+            if windows.is_empty() {
+                let path = dock_app["executable"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                if let Err(error) = commands::launch_app(app.clone(), path) {
+                    tracing::warn!(%error, "the dock could not start an application");
+                }
+                return;
+            }
+            let current = windows
+                .iter()
+                .position(|window| window["active"].as_bool().unwrap_or(false));
+            let next = &windows[current.map_or(0, |at| (at + 1) % windows.len())];
+            let id = next["id"].as_str().unwrap_or_default().to_owned();
+            let active = dock_app["active"].as_bool().unwrap_or(false);
+            // ponytail: a refused activation only flashes the window; the
+            // webview dock also bounced its icon.
+            if commands::activate_window(id, active) == commands::ActivateOutcome::Gone {
+                commands::rebuild_dock(app);
+            }
+        }
+        bw_native::Action::DockPin(path, pinned) => {
+            if let Err(error) = commands::set_pinned(app.state(), path, pinned) {
+                tracing::warn!(%error, "the dock could not pin an application");
+            }
+            commands::rebuild_dock(app);
+        }
+        bw_native::Action::DockMove(moved, target) => {
+            let state = app.state::<AppState>();
+            let pinned = state.config().dock.pinned_apps;
+            if let Some(next) = bw_core::dock::reorder(&pinned, &moved, &target) {
+                if let Err(error) =
+                    state.set_config_value("dock.pinnedApps", serde_json::json!(next))
+                {
+                    tracing::warn!(%error, "the dock could not move an icon");
+                }
+                commands::rebuild_dock(app);
+            }
+        }
+        bw_native::Action::DockDrop(dock_app, files) => {
+            // Only ever a program that is really there, whatever the dock
+            // says, and off this thread: starting one can take a moment.
+            let program = dock_app["executable"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            let path = std::path::Path::new(&program);
+            let runnable = path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"));
+            if !runnable {
+                tracing::warn!(%program, "files were dropped on something that is not a program");
+                return;
+            }
+            #[cfg(windows)]
+            std::thread::spawn(move || {
+                if let Err(error) = bw_shell::platform::launch::open_with(&program, &files) {
+                    tracing::warn!(%error, "could not open the files dropped on the dock");
+                }
+            });
+            #[cfg(not(windows))]
+            let _ = files;
+        }
     }
 }
 
@@ -603,6 +814,32 @@ fn start_brightness_watch(app: &AppHandle) -> BrightnessHandle {
 fn start_dock_watch(app: &AppHandle) -> DockHandle {
     #[cfg(windows)]
     {
+        // A title changes many times a second in a browser or a player, and
+        // every change rebuilt the whole list — each window's process opened,
+        // its icon looked up — and sent it out. Changes now only ask for a
+        // rebuild; this thread does one for each burst, a fifth of a second
+        // after it starts, and the list goes out only when it differs.
+        let (rebuild, asked) = std::sync::mpsc::channel::<()>();
+        {
+            let handle = app.clone();
+            std::thread::Builder::new()
+                .name("bw-dock".to_owned())
+                .spawn(move || {
+                    while asked.recv().is_ok() {
+                        std::thread::sleep(Duration::from_millis(200));
+                        while asked.try_recv().is_ok() {}
+                        let (Some(dock), Some(state)) = (
+                            handle.try_state::<DockHandle>(),
+                            handle.try_state::<AppState>(),
+                        ) else {
+                            continue;
+                        };
+                        commands::emit_reading(&handle, event::DOCK, dock.items(&state.config()));
+                    }
+                })
+                .expect("could not start the thread that rebuilds the dock");
+        }
+
         let handle = app.clone();
         let watcher = bw_shell::platform::windows::WindowWatcher::new(move |change| {
             use bw_shell::platform::windows::Change;
@@ -610,7 +847,7 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             // `try_state`, not `state`: the first event can arrive between the
             // watcher being built and the handle being managed, and `state`
             // panics on a type nobody has registered yet.
-            let (Some(dock), Some(state)) = (
+            let (Some(_), Some(state)) = (
                 handle.try_state::<DockHandle>(),
                 handle.try_state::<AppState>(),
             ) else {
@@ -641,7 +878,7 @@ fn start_dock_watch(app: &AppHandle) -> DockHandle {
             if matches!(change, Change::Click { .. }) {
                 return;
             }
-            let _ = handle.emit(event::DOCK, dock.items(&state.config()));
+            let _ = rebuild.send(());
         });
 
         DockHandle::new(Some(watcher))
@@ -677,43 +914,17 @@ fn start_app_scan(app: &AppHandle) -> CatalogueHandle {
     }
 }
 
-/// Shows the readout with a value, and lets it time itself out.
-///
-/// The timeout lives here rather than in the surface so that a burst of
-/// changes — holding a volume key — keeps the readout up instead of letting an
-/// early timer close it mid-press.
+/// Shows the readout with a value. `bw-native` times it out, and a burst of
+/// changes — holding a volume key — keeps it up rather than letting an early
+/// timer close it mid-press.
 #[cfg(windows)]
 fn show_osd(app: &AppHandle, kind: &str, value: f32, muted: bool) {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::OnceLock;
-
-    static GENERATION: OnceLock<AtomicU64> = OnceLock::new();
-    let generation = GENERATION.get_or_init(|| AtomicU64::new(0));
-
     let state = app.state::<AppState>();
     let config = state.config();
     if !config.osd.enable {
         return;
     }
 
-    let _ = app.emit(
-        event::OSD,
-        serde_json::json!({ "kind": kind, "value": value, "muted": muted }),
-    );
-    if let Err(error) = surfaces::set_visible(app, surfaces::OSD.label, true) {
-        tracing::warn!(%error, "could not show the readout");
-        return;
-    }
-
-    // Only the newest change gets to close the readout.
-    let mine = generation.fetch_add(1, Ordering::Relaxed) + 1;
-    let handle = app.clone();
     let timeout = Duration::from_millis(u64::from(config.osd.timeout));
-
-    std::thread::spawn(move || {
-        std::thread::sleep(timeout);
-        if generation.load(Ordering::Relaxed) == mine {
-            let _ = surfaces::set_visible(&handle, surfaces::OSD.label, false);
-        }
-    });
+    bw_native::osd(kind, value, muted, timeout, config.osd.position == "bottom");
 }
