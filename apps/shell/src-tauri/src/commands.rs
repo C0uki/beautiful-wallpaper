@@ -2147,13 +2147,17 @@ pub fn retry_chat(app: AppHandle, store: State<'_, ChatStore>) -> Vec<bw_core::c
 ///
 /// Filtered to what the API accepts, so an unusable choice is not offered in
 /// the first place rather than rejected after the fact.
+///
+/// Owned by the window that asked: every caller is an overlay, always on
+/// top, and an unowned picker opened behind it where it could not be reached.
 #[tauri::command]
-pub async fn pick_files(app: AppHandle) -> Vec<String> {
+pub async fn pick_files(app: AppHandle, window: tauri::WebviewWindow) -> Vec<String> {
     use tauri_plugin_dialog::DialogExt;
 
     let (send, receive) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
+        .set_parent(&window)
         .add_filter(
             "Images and PDFs",
             &["png", "jpg", "jpeg", "gif", "webp", "pdf"],
