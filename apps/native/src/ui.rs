@@ -1,6 +1,9 @@
 //! The native surfaces' markup: the palette, the bar, the readout, the banners
 //! and the dock, in Slint. One `slint!` for all of them, so `Palette` and
 //! `Icons` are the same global to every window.
+//!
+//! Comments inside the macro are `//`, never `///`: Rust turns a doc comment
+//! into an attribute before Slint sees it, and Slint cannot parse one.
 
 slint::slint! {
     // ---- palette ---------------------------------------------------------------
@@ -479,10 +482,10 @@ slint::slint! {
 
     export component Osd inherits Window {
         in property <image> glyph;
-        /// 0 to 1.
+        // 0 to 1.
         in property <float> level;
         in property <string> value;
-        /// Still shows where the level would be, greyed, so unmuting is no surprise.
+        // Still shows where the level would be, greyed, so unmuting is no surprise.
         in property <bool> muted;
 
         title: "bw-osd-native";
@@ -553,12 +556,12 @@ slint::slint! {
         in property <string> app;
         in property <string> age;
         in property <string> body;
-        /// "+2 more", or empty.
+        // "+2 more", or empty.
         in property <string> more;
         callback close();
-        /// The pointer went down, moved while down, or came up: the window is
-        /// dragged by where the pointer is on the screen, which Rust reads, since
-        /// a position inside the window moves with it.
+        // The pointer went down, moved while down, or came up: the window is
+        // dragged by where the pointer is on the screen, which Rust reads, since
+        // a position inside the window moves with it.
         callback drag-start();
         callback drag-move();
         callback drag-end();
@@ -689,9 +692,9 @@ slint::slint! {
         in property <image> fallback;
         in property <bool> drop-target;
         in property <bool> dragging;
-        /// Pinned icons can be dragged along the others.
+        // Pinned icons can be dragged along the others.
         in property <bool> movable;
-        /// How many places the pointer has been dragged across, while dragging.
+        // How many places the pointer has been dragged across, while dragging.
         callback pressed();
         callback dragged(length);
         callback released(bool);
@@ -757,8 +760,8 @@ slint::slint! {
         in property <bool> show-keep;
         in property <bool> kept;
         in property <image> keep-glyph;
-        /// The pinned icon being dragged, and the place it would take: -1 when
-        /// nothing is.
+        // The pinned icon being dragged, and the place it would take: -1 when
+        // nothing is.
         in-out property <int> dragged: -1;
         in-out property <int> over: -1;
         callback activate(bool, int);
@@ -767,8 +770,8 @@ slint::slint! {
         callback media();
         callback keep();
         callback hovered(bool);
-        /// The size the dock wants, which a hidden window does not take on until
-        /// it is shown again.
+        // The size the dock wants, which a hidden window does not take on until
+        // it is shown again.
         out property <length> wanted-width: row.preferred-width;
         out property <length> wanted-height: row.preferred-height;
 
