@@ -40,6 +40,10 @@ struct State {
     /// Kept up by its own button, whatever `auto_hide` says.
     kept: bool,
     hovered: bool,
+    /// Files from Explorer are being carried over the dock.
+    carrying: bool,
+    /// Files dropped on the dock, one event each, gathered for the drop.
+    dropped: Vec<String>,
     revealed: bool,
     settled: bool,
     act: Option<Rc<dyn Fn(Action)>>,
@@ -231,6 +235,7 @@ fn wants_hiding() -> bool {
             .is_some_and(|settings| settings.auto_hide)
             && !state.kept
             && !state.hovered
+            && !state.carrying
             && !dragging
     })
 }
@@ -304,21 +309,43 @@ fn make_window() -> Result<Dock, slint::PlatformError> {
         STATE.with(|state| state.borrow_mut().hovered = inside);
         if inside {
             STATE.with(|state| state.borrow_mut().leave = None);
-            return;
+        } else {
+            leave_soon();
         }
-        // A moment's grace, as the pointer crosses a gap or the edge.
-        let leave = slint::Timer::default();
-        leave.start(
-            slint::TimerMode::SingleShot,
-            Duration::from_millis(400),
-            || {
-                if wants_hiding() {
-                    reveal(false);
-                }
-            },
-        );
-        STATE.with(|state| state.borrow_mut().leave = Some(leave));
     });
+    // Files carried in from Explorer, which winit takes as an OLE drop target:
+    // the dock stays up while they are over it, and dropped on an icon they
+    // open in that application, as on a taskbar.
+    #[cfg(windows)]
+    {
+        use slint::winit_030::winit::event::WindowEvent;
+        use slint::winit_030::{EventResult, WinitWindowAccessor};
+        window.window().on_winit_window_event(|_, event| {
+            match event {
+                WindowEvent::HoveredFile(_) => {
+                    STATE.with(|state| state.borrow_mut().carrying = true);
+                }
+                WindowEvent::HoveredFileCancelled => {
+                    STATE.with(|state| state.borrow_mut().carrying = false);
+                    leave_soon();
+                }
+                WindowEvent::DroppedFile(path) => {
+                    // One event a file, all within the one drop: the first
+                    // has the rest gathered before they are handed on.
+                    let first = STATE.with(|state| {
+                        let mut state = state.borrow_mut();
+                        state.dropped.push(path.to_string_lossy().into_owned());
+                        state.dropped.len() == 1
+                    });
+                    if first {
+                        slint::Timer::single_shot(Duration::ZERO, open_dropped);
+                    }
+                }
+                _ => {}
+            }
+            EventResult::Propagate
+        });
+    }
     window.on_activate(|pinned, index| {
         if let Some(app) = app_at(pinned, index) {
             act(Action::DockActivate(app));
@@ -350,6 +377,75 @@ fn make_window() -> Result<Dock, slint::PlatformError> {
     Ok(window)
 }
 
+/// Puts the dock away a moment after the pointer, or the files it carried,
+/// left — a moment's grace, as the pointer crosses a gap or the edge.
+fn leave_soon() {
+    let leave = slint::Timer::default();
+    leave.start(
+        slint::TimerMode::SingleShot,
+        Duration::from_millis(400),
+        || {
+            if wants_hiding() {
+                reveal(false);
+            }
+        },
+    );
+    STATE.with(|state| state.borrow_mut().leave = Some(leave));
+}
+
+/// Hands the files just dropped to the application under the pointer.
+fn open_dropped() {
+    let (files, at) = STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        state.carrying = false;
+        let files = std::mem::take(&mut state.dropped);
+        let at = state.window.as_ref().map(|window| {
+            let origin = window.window().position();
+            let scale = window.window().scale_factor();
+            let (x, _) = cursor();
+            let size = state
+                .settings
+                .as_ref()
+                .map_or(44.0, |settings| settings.icon_size as f32);
+            icon_at(
+                (x - origin.x) as f32 / scale,
+                size,
+                state.pinned.len(),
+                state.running.len(),
+            )
+        });
+        (files, at.flatten())
+    });
+    if let Some(app) = at.and_then(|(pinned, index)| app_at(pinned, index as i32)) {
+        act(Action::DockDrop(app, files));
+    }
+    leave_soon();
+}
+
+/// The icon at `x` logical pixels from the dock's left edge, as the layout
+/// lays them out: 6 pixels in, each `size` wide with 2 between, and a 1-pixel
+/// separator between the pinned and the running. Whether it is pinned, and
+/// its place among those.
+fn icon_at(x: f32, size: f32, pinned: usize, running: usize) -> Option<(bool, usize)> {
+    let mut left = 6.0;
+    for index in 0..pinned {
+        if x >= left && x < left + size {
+            return Some((true, index));
+        }
+        left += size + 2.0;
+    }
+    if pinned > 0 && running > 0 {
+        left += 1.0 + 2.0;
+    }
+    for index in 0..running {
+        if x >= left && x < left + size {
+            return Some((false, index));
+        }
+        left += size + 2.0;
+    }
+    None
+}
+
 fn app_at(pinned: bool, index: i32) -> Option<Value> {
     STATE.with(|state| {
         let state = state.borrow();
@@ -365,5 +461,21 @@ fn app_at(pinned: bool, index: i32) -> Option<Value> {
 fn act(action: Action) {
     if let Some(act) = STATE.with(|state| state.borrow().act.clone()) {
         act(action);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_drop_finds_the_icon_under_it() {
+        use super::icon_at;
+        // Two pinned, a separator, one running; 44 wide, 2 apart, 6 in.
+        assert_eq!(icon_at(6.0, 44.0, 2, 1), Some((true, 0)));
+        assert_eq!(icon_at(51.0, 44.0, 2, 1), None, "the gap between");
+        assert_eq!(icon_at(52.0, 44.0, 2, 1), Some((true, 1)));
+        assert_eq!(icon_at(98.0, 44.0, 2, 1), None, "the separator");
+        assert_eq!(icon_at(101.0, 44.0, 2, 1), Some((false, 0)));
+        assert_eq!(icon_at(145.0, 44.0, 2, 1), None, "past the last");
+        assert_eq!(icon_at(6.0, 44.0, 0, 1), Some((false, 0)), "no separator");
     }
 }

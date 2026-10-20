@@ -108,6 +108,9 @@ pub enum Action {
     DockPin(String, bool),
     /// A pinned icon dragged onto another's place, both by executable.
     DockMove(String, String),
+    /// Files dropped on a dock icon: the application, as the shell sent it,
+    /// and the files' paths.
+    DockDrop(Value, Vec<String>),
 }
 
 /// What a press on a native surface is handed to.
