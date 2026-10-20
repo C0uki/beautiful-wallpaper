@@ -25,7 +25,8 @@ use serde::Deserialize;
 use serde_json::Value;
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
-slint::include_modules!();
+mod ui;
+pub use ui::*;
 
 mod dock;
 mod toasts;

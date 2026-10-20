@@ -6,8 +6,6 @@ use std::fmt::Write as _;
 const ICONS: &str = "../shell/src/widgets/icons.gen.ts";
 
 fn main() {
-    slint_build::compile("ui/native.slint").expect("the native surfaces should compile");
-
     println!("cargo:rerun-if-changed={ICONS}");
     let source = std::fs::read_to_string(ICONS).expect("the icon set should be readable");
     let mut arms = String::new();
