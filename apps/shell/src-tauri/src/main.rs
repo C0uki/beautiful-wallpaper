@@ -293,6 +293,9 @@ fn main() {
             // of them exist.
             let mut steps: Vec<Box<dyn FnOnce() + Send>> =
                 surfaces::FIRST.iter().map(make).collect();
+            // The frame, only when there is one to draw.
+            let framing = handle.clone();
+            steps.push(Box::new(move || services::chrome::emit(&framing)));
             let rest = handle.clone();
             let state = state.clone();
             steps.push(Box::new(move || finish_starting(rest, state)));

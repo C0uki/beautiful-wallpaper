@@ -145,9 +145,9 @@ pub const OVERLAY_PINNED: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
-/// The screen's decorations: fake rounded corners and the frame. Covers the
-/// whole display and is click-through everywhere, because none of it is
-/// something to press.
+/// The screen's decoration: the frame. Covers the whole display and is
+/// click-through everywhere, because none of it is something to press. Made
+/// only while there is a frame to draw (`services::chrome::emit`).
 pub const SCREEN_CHROME: Surface = Surface {
     label: "screenChrome",
     page: "screenChrome.html",
@@ -182,7 +182,7 @@ pub const ALL: &[Surface] = &[
 
 /// What the startup makes first: everything on screen from the start. A start
 /// is over, to whoever is watching it, once these are up.
-pub const FIRST: &[Surface] = &[BACKGROUND, SCREEN_CHROME];
+pub const FIRST: &[Surface] = &[BACKGROUND];
 
 /// Made once the rest of the startup has run, so opening one is as quick as it
 /// always was.
@@ -1124,6 +1124,7 @@ mod tests {
             .iter()
             .chain(super::AFTER)
             .chain(super::ON_DEMAND)
+            .chain([&super::SCREEN_CHROME])
             .map(|surface| surface.label)
             .collect();
         let mut all: Vec<&str> = super::ALL.iter().map(|surface| surface.label).collect();
