@@ -1,6 +1,7 @@
 // Compiles every wallpaper transition in a real browser and holds each to the
 // promise `transitions.ts` makes: an opaque colour at every pixel, the old
-// picture exactly at progress 0 and the new one exactly at progress 1.
+// picture exactly at progress 0 and the new one exactly at progress 1. And the
+// crossfade they are compared against is held to "cover" framing.
 //
 // A shader that breaks either end does not fail loudly — it flashes for one
 // frame at the start or end of every wallpaper change. Three of the first six
@@ -51,20 +52,12 @@ const results = await page.evaluate(async (module) => {
   const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
   if (!gl) return { error: "no WebGL" };
 
-  // Two pictures that differ everywhere, with detail for a shader to move.
-  const picture = (hue: number, word: string) => {
+  // A 4:3 picture, painted by `paint`, on the 16:9 canvas.
+  const picture = (paint: (g: CanvasRenderingContext2D) => void) => {
     const c = document.createElement("canvas");
     c.width = 400;
     c.height = 300;
-    const g = c.getContext("2d")!;
-    const fill = g.createLinearGradient(0, 0, 400, 300);
-    fill.addColorStop(0, `hsl(${hue},80%,30%)`);
-    fill.addColorStop(1, `hsl(${hue + 40},80%,70%)`);
-    g.fillStyle = fill;
-    g.fillRect(0, 0, 400, 300);
-    g.fillStyle = "#fff";
-    g.font = "bold 90px sans-serif";
-    g.fillText(word, 90, 180);
+    paint(c.getContext("2d")!);
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -73,8 +66,29 @@ const results = await page.evaluate(async (module) => {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
     return texture;
   };
-  const from = picture(10, "OLD");
-  const to = picture(200, "NEW");
+  // Two pictures that differ everywhere, with detail for a shader to move.
+  const gradient = (hue: number, word: string) =>
+    picture((g) => {
+      const fill = g.createLinearGradient(0, 0, 400, 300);
+      fill.addColorStop(0, `hsl(${hue},80%,30%)`);
+      fill.addColorStop(1, `hsl(${hue + 40},80%,70%)`);
+      g.fillStyle = fill;
+      g.fillRect(0, 0, 400, 300);
+      g.fillStyle = "#fff";
+      g.font = "bold 90px sans-serif";
+      g.fillText(word, 90, 180);
+    });
+  const from = gradient(10, "OLD");
+  const to = gradient(200, "NEW");
+  // White, with a black band along the top and the bottom a tenth deep.
+  // Covering the canvas crops an eighth off each, so no black shows.
+  const banded = picture((g) => {
+    g.fillStyle = "#fff";
+    g.fillRect(0, 0, 400, 300);
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 400, 30);
+    g.fillRect(0, 270, 400, 30);
+  });
 
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(
@@ -101,7 +115,12 @@ const results = await page.evaluate(async (module) => {
     return program;
   };
 
-  const draw = (program: WebGLProgram, progress: number, seed: number) => {
+  const draw = (
+    program: WebGLProgram,
+    progress: number,
+    seed: number,
+    next: WebGLTexture | null = to,
+  ) => {
     gl.viewport(0, 0, W, H);
     gl.useProgram(program);
     const position = gl.getAttribLocation(program, "aPosition");
@@ -112,7 +131,7 @@ const results = await page.evaluate(async (module) => {
     gl.bindTexture(gl.TEXTURE_2D, from);
     gl.uniform1i(at("uFrom"), 0);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, to);
+    gl.bindTexture(gl.TEXTURE_2D, next);
     gl.uniform1i(at("uTo"), 1);
     gl.uniform1f(at("uProgress"), progress);
     gl.uniform2f(at("uResolution"), W, H);
@@ -147,6 +166,10 @@ const results = await page.evaluate(async (module) => {
   // pictures and nothing else.
   const fade = build(fragmentShaderFor("fade"));
   const problems: string[] = [];
+  const covered = draw(fade, 1, 0, banded);
+  let dark = 0;
+  for (let i = 0; i < covered.length; i += 4) if (covered[i]! < 128) dark++;
+  if (dark) problems.push(`fade: ${dark} pixels show what cover crops off`);
   for (const name of TRANSITION_NAMES) {
     let program;
     try {

@@ -151,7 +151,7 @@ export function Background() {
             // Faded in once it is moving, so the still underneath carries the
             // change and the first decoded frame does not pop in.
             opacity: playing === videoSrc ? 1 : 0,
-            transform: `scale(${background.parallax.enable ? background.parallax.zoom : 1}) translate(${pan.x}%, ${pan.y}%)`,
+            transform: `translate(${pan.x}%, ${pan.y}%) scale(${background.parallax.enable ? background.parallax.zoom : 1})`,
             transition:
               "opacity var(--duration-slow) var(--ease-effects-default), transform var(--duration-slower) var(--ease-spatial-default)",
           }}

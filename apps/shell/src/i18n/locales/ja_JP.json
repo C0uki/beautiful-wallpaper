@@ -568,7 +568,7 @@
   "A still from a video wallpaper, taken for its colours. Set for you.": "動画の壁紙から配色用に取り出した静止画。自動で入ります。",
   "How one wallpaper gives way to the next.": "壁紙を切り替えるときの演出です。",
   "Milliseconds the change takes.": "切り替えにかける時間（ミリ秒）。",
-  "Shift the wallpaper a little as you move between workspaces.": "ワークスペースを移るときに、壁紙を少しずらします。",
+  "Shift the wallpaper a little as the pointer moves.": "ポインターの動きに合わせて、壁紙を少しずらします。",
   "How much the wallpaper is enlarged, so moving it never shows an edge.": "ずらしても端が見えないように、壁紙を拡大する割合です。",
   "How far it shifts per workspace.": "ワークスペース 1 つごとにずらす量です。",
   "The folder the picker shows. Empty uses your Pictures folder.": "選択画面に表示するフォルダ。空欄ならピクチャ フォルダです。",

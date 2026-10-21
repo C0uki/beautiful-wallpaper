@@ -315,7 +315,7 @@ const HINTS: Record<string, string> = {
   "background.wallpaperAnimation": "How one wallpaper gives way to the next.",
   "background.transitionDuration": "Milliseconds the change takes.",
   "background.parallax.enable":
-    "Shift the wallpaper a little as you move between workspaces.",
+    "Shift the wallpaper a little as the pointer moves.",
   "background.parallax.zoom":
     "How much the wallpaper is enlarged, so moving it never shows an edge.",
   "background.parallax.workspacePan": "How far it shifts per workspace.",

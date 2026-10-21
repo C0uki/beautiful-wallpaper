@@ -198,7 +198,7 @@ config_struct! {
 
 config_struct! {
     pub struct Parallax {
-        pub enable: bool = true,
+        pub enable: bool = false,
         /// Zoom applied so panning never exposes an edge.
         pub zoom: f64 = 1.07,
         pub workspace_pan: f64 = 0.6,
