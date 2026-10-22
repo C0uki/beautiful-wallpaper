@@ -692,7 +692,7 @@ Four documents, and one of them writes itself.
 ### Done: updating itself
 
 Releases carry a signed `latest.json`; the shell checks it a minute after
-starting and every six hours, says which version it is moving to, gives the
+starting and every two hours, says which version it is moving to, gives the
 taskbar and the bar's edge back, and lets the installer restart it into the
 new one. `windows.autoUpdate` turns it off.
 

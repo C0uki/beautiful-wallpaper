@@ -556,7 +556,7 @@
   "Empty finds where you are from your internet connection.": "空欄なら、インターネット接続から現在地を調べます。",
   "Seconds between updates.": "更新の間隔（秒）。",
   "Start the shell when you sign in.": "サインインしたときにシェルを起動します。",
-  "Check for a new version a minute after starting and every six hours, and install it.": "起動の 1 分後と、その後 6 時間ごとに新しい版を確かめて入れます。",
+  "Check for a new version a minute after starting and every two hours, and install it.": "起動の 1 分後と、その後 2 時間ごとに新しい版を確かめて入れます。",
   "Automatic picks by how bright the wallpaper is.": "「自動」は壁紙の明るさで選びます。",
   "Everything else is sized from this.": "ほかの文字の大きさは、これを基準に決まります。",
   "How much more see-through panels are, on top of what the wallpaper calls for.": "壁紙に合わせた透明度に、さらに足す透明度です。",

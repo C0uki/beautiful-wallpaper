@@ -692,7 +692,7 @@ The things that only mean anything on Windows: the system taskbar, starting with
 | `windows.backdrop`          | text         | `"auto"` |
 
 - **`windows.hideSystemTaskbar`** — Hide the stock Windows taskbar while the shell's own bar is running.
-- **`windows.autoUpdate`** — Install new releases on its own. Checked a minute after starting and every six hours after that; the shell says which version it is moving to, then restarts into it.
+- **`windows.autoUpdate`** — Install new releases on its own. Checked a minute after starting and every two hours after that; the shell says which version it is moving to, then restarts into it.
 - **`windows.backdrop`** — Blur behind panels: `"auto"` picks Mica on Windows 11 and Acrylic on Windows 10; `"acrylic"`, `"mica"` and `"none"` force one.
 
 ### `windows.glazewm`
