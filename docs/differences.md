@@ -85,12 +85,13 @@ Windows counterpart to most of that. What is here:
 
 Everything else keeps its own colours.
 
-### One monitor, for now
+### The widgets stay on one monitor
 
-Only the primary monitor gets a background surface, and the region picker covers
-the primary monitor only. Upstream's `Variants { model: Quickshell.screens }`
-gives it every screen for free; the equivalent here is one window per monitor
-plus `WM_DISPLAYCHANGE` handling, which is not written yet.
+Every monitor gets the wallpaper, and the overlays open on whichever one the
+pointer is on. Upstream's `Variants { model: Quickshell.screens }` gives each
+screen its own copy of everything; here the desktop widgets, their controls and
+the widget overlay are on the primary monitor only, and the region picker
+captures one monitor at a time.
 
 ## What still means the same thing
 

@@ -192,16 +192,23 @@ pub fn copy_text(text: &str) -> Result<(), String> {
     }
 }
 
-/// The primary monitor's rectangle, in physical pixels.
+/// The rectangle of the monitor the pointer is on, in physical pixels: the
+/// region picker opens on that monitor too.
 ///
 /// One monitor only, deliberately: a window has a single scale factor, so an
 /// overlay spanning two monitors at different scales cannot map what was drawn
 /// on it back to pixels on both.
-pub fn primary_bounds() -> Option<Rect> {
+pub fn pointer_bounds() -> Option<Rect> {
+    let mut point = windows::Win32::Foundation::POINT::default();
+    let _ = unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut point) };
     let monitors = crate::platform::win::monitors();
     let monitor = monitors
         .iter()
-        .find(|monitor| monitor.primary)
+        .find(|monitor| {
+            (monitor.x..monitor.x + monitor.width).contains(&point.x)
+                && (monitor.y..monitor.y + monitor.height).contains(&point.y)
+        })
+        .or_else(|| monitors.iter().find(|monitor| monitor.primary))
         .or_else(|| monitors.first())?;
 
     Some(Rect {

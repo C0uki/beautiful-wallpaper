@@ -715,14 +715,17 @@ new one. `windows.autoUpdate` turns it off.
   All fourteen exist here as WebGL shaders under the same names, written from
   what they do on screen, and a check holds each to showing exactly the old
   picture at the start and the new one at the end.
-- **Per-monitor surfaces.** The bar is the only surface that can be put on
-  every monitor. Everything else, the background surface included, is on the
-  primary monitor only; `Variants { model: Quickshell.screens }` maps to one
-  window per monitor. A monitor plugged in, unplugged or rearranged is noticed
-  (`WM_DISPLAYCHANGE`), and the bars, the overlays and the background are put
-  back against the screens as they now are.
-- **Capturing across monitors.** The region picker covers the primary monitor
-  only. A window has a single scale factor, so an overlay spanning two
-  monitors at different scales cannot map what was drawn on it back to pixels
-  on both; doing it properly means one picker window per monitor, which is the
-  same work as the point above.
+- **Per-monitor surfaces.** The wallpaper is drawn on every monitor: the
+  background surface is one window over all of them, as Windows' own
+  wallpaper is, with a wallpaper in each monitor's part. The widgets and the
+  desktop's controls stay on the primary monitor, and so does the widget
+  overlay, whose widgets are placed in its pixels. Every other overlay — the
+  sidebars, search, the menus, settings, the region picker — opens on the
+  monitor the pointer is on. A monitor plugged in, unplugged or rearranged is
+  noticed (`WM_DISPLAYCHANGE`), and everything is put back against the screens
+  as they now are.
+- **Capturing across monitors.** The region picker opens on the pointer's
+  monitor and captures that one. A selection cannot cross into the next: a
+  window has a single scale factor, so an overlay spanning two monitors at
+  different scales cannot map what was drawn on it back to pixels on both;
+  doing that needs one picker window per monitor.

@@ -37,10 +37,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowThreadProcessId, IsZoomed, PostThreadMessageW, RegisterWindowMessageW,
     SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
-    SMTO_NORMAL, SM_CXSCREEN, SM_CYSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
-    WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
+    SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY,
+    WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
@@ -114,22 +114,24 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
             // the window the shell paints the wallpaper into, and it sits below
             // the icon list view.
             SetParent(hwnd, worker)?;
-            // That window spans every monitor, so its corner is only the
-            // primary monitor's when nothing sits above or left of it. With a
-            // second monitor above, the wallpaper went to the top of that one
-            // and left the primary monitor all but uncovered. So the surface
-            // is put over the primary monitor outright — its corner is the
-            // screen's origin, whatever else is plugged in — and sized to it,
-            // which is also what moves it when a monitor comes or goes.
-            let mut corner = POINT { x: 0, y: 0 };
+            // That window spans every monitor, and so does the surface: the
+            // page draws a wallpaper on each monitor's part of it. Its corner
+            // is the virtual screen's, which is the primary monitor's only
+            // when nothing sits above or left of it, so it is asked for rather
+            // than assumed. Done again on every monitor change, which is also
+            // what moves and resizes it when one comes or goes.
+            let mut corner = POINT {
+                x: GetSystemMetrics(SM_XVIRTUALSCREEN),
+                y: GetSystemMetrics(SM_YVIRTUALSCREEN),
+            };
             let _ = ScreenToClient(worker, &mut corner);
             SetWindowPos(
                 hwnd,
                 HWND_BOTTOM,
                 corner.x,
                 corner.y,
-                GetSystemMetrics(SM_CXSCREEN),
-                GetSystemMetrics(SM_CYSCREEN),
+                GetSystemMetrics(SM_CXVIRTUALSCREEN),
+                GetSystemMetrics(SM_CYVIRTUALSCREEN),
                 SWP_NOACTIVATE,
             )?;
         }
