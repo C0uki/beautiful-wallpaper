@@ -401,15 +401,91 @@ pub fn release_reservations(app: &AppHandle) {
     let _ = app;
 }
 
-/// One screen a surface can be put on: where its origin is, and how big it is.
+/// One monitor a surface can be put on.
 ///
-/// Logical rather than physical throughout, because that is what the window
-/// builder and every geometry function take. A second monitor can be at a
-/// different scale factor, so the division has to happen per screen rather
-/// than once against the primary one.
+/// The geometry is worked out in the monitor's own logical pixels and put on
+/// screen in physical ones. A second monitor can be at a different scale
+/// factor, so the division has to happen per monitor rather than once against
+/// the primary one, and a logical position names no one place on a desktop of
+/// mixed scales.
 struct Screen {
-    origin: (f64, f64),
+    /// Its corner, in physical pixels.
+    origin: (i32, i32),
+    /// Its size, in its own logical pixels.
     size: (f64, f64),
+    scale: f64,
+    /// Whether one of the bars is along its edge, for the overlays to keep
+    /// clear of.
+    has_bar: bool,
+}
+
+impl Screen {
+    fn of(monitor: &tauri::Monitor, primary: bool, config: &bw_core::Config) -> Self {
+        let scale = if monitor.scale_factor() > 0.0 {
+            monitor.scale_factor()
+        } else {
+            1.0
+        };
+        let size = monitor.size();
+        Self {
+            origin: (monitor.position().x, monitor.position().y),
+            size: (
+                f64::from(size.width) / scale,
+                f64::from(size.height) / scale,
+            ),
+            scale,
+            has_bar: config.bar.enable && (primary || config.bar.per_monitor),
+        }
+    }
+
+    /// The primary monitor.
+    fn primary(app: &AppHandle, config: &bw_core::Config) -> Self {
+        match app.primary_monitor() {
+            Ok(Some(monitor)) => Self::of(&monitor, true, config),
+            // A machine that will not name its monitor still gets its
+            // surfaces somewhere; 1080p is the safest guess to be wrong in the
+            // small direction.
+            _ => Self {
+                origin: (0, 0),
+                size: (1920.0, 1080.0),
+                scale: 1.0,
+                has_bar: config.bar.enable,
+            },
+        }
+    }
+
+    /// The monitor the pointer is on, which is where an overlay opens: on the
+    /// screen the user is looking at, rather than on the primary one whatever
+    /// they were doing.
+    fn under_pointer(app: &AppHandle, config: &bw_core::Config) -> Self {
+        let found = app
+            .cursor_position()
+            .ok()
+            .and_then(|at| app.monitor_from_point(at.x, at.y).ok().flatten());
+        Self::or_primary(app, found, config)
+    }
+
+    /// The monitor a window is mostly on.
+    fn of_window(app: &AppHandle, window: &tauri::WebviewWindow, config: &bw_core::Config) -> Self {
+        Self::or_primary(app, window.current_monitor().ok().flatten(), config)
+    }
+
+    fn or_primary(
+        app: &AppHandle,
+        found: Option<tauri::Monitor>,
+        config: &bw_core::Config,
+    ) -> Self {
+        let primary = app.primary_monitor().ok().flatten();
+        match found {
+            Some(monitor) => {
+                let is_primary = primary
+                    .as_ref()
+                    .is_some_and(|primary| primary.position() == monitor.position());
+                Self::of(&monitor, is_primary, config)
+            }
+            None => Self::primary(app, config),
+        }
+    }
 }
 
 /// Reserves a native bar's edge of its monitor — the top, or the left when it
@@ -457,116 +533,136 @@ fn reserve_native_bar(
 pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
     let config = app.state::<AppState>().config();
 
-    for screen in screens_for(app) {
-        let label = if surface.label == BACKGROUND.label {
-            background_label()
-        } else {
-            surface.label.to_owned()
-        };
-        if app.get_webview_window(&label).is_some() {
-            continue;
-        }
+    // Made on the primary monitor. An overlay is moved to the pointer's each
+    // time it opens, and the wallpaper surface is spread over every monitor by
+    // the layer it is put on.
+    let screen = Screen::primary(app, &config);
+    let label = if surface.label == BACKGROUND.label {
+        background_label()
+    } else {
+        surface.label.to_owned()
+    };
+    if app.get_webview_window(&label).is_some() {
+        return Ok(());
+    }
 
-        let (x, y, width, height) = geometry(surface, &config, screen.size);
+    let (x, y, width, height) = geometry(surface, &config, &screen);
 
-        let mut builder =
-            WebviewWindowBuilder::new(app, &label, WebviewUrl::App(surface.page.into()))
-                // Named after the surface. Nothing shows these titles — the
-                // windows have no decorations and stay out of the taskbar —
-                // but every tool that can look at a window shows one, and a
-                // screen full of identical "beautiful-wallpaper" entries is
-                // what makes "which surface is covering the desktop?" a guess.
-                .title(format!("beautiful-wallpaper — {label}"))
-                .decorations(false)
-                .transparent(true)
-                .shadow(false)
-                .resizable(false)
-                .position(x + screen.origin.0, y + screen.origin.1)
-                .inner_size(width, height)
-                // The shell's windows do not belong in Alt-Tab or on the taskbar.
-                .skip_taskbar(true)
-                // None of them takes the focus off whatever the user is working
-                // in, and all of this from birth rather than once built: the
-                // webview takes seconds to come up, and a window visible and
-                // activatable for that long is one Windows may hand the
-                // foreground to. `focused` also covers the hidden ones — left at
-                // Tauri's default, Wry moves focus into the webview the moment
-                // it exists, handing the keyboard to a window nobody can see.
-                // `set_visible` focuses the ones meant to have it, when opened.
-                //
-                // `focusable` is `WS_EX_NOACTIVATE`, through Tao so it survives
-                // Tao rewriting the styles; `focused` is what makes Tao show
-                // these with `SW_SHOWNOACTIVATE` every time, not just the first.
-                .focused(false)
-                .focusable(false);
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(surface.page.into()))
+        // Named after the surface. Nothing shows these titles — the
+        // windows have no decorations and stay out of the taskbar —
+        // but every tool that can look at a window shows one, and a
+        // screen full of identical "beautiful-wallpaper" entries is
+        // what makes "which surface is covering the desktop?" a guess.
+        .title(format!("beautiful-wallpaper — {label}"))
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(false)
+        .position(x, y)
+        .inner_size(width, height)
+        // The shell's windows do not belong in Alt-Tab or on the taskbar.
+        .skip_taskbar(true)
+        // None of them takes the focus off whatever the user is working
+        // in, and all of this from birth rather than once built: the
+        // webview takes seconds to come up, and a window visible and
+        // activatable for that long is one Windows may hand the
+        // foreground to. `focused` also covers the hidden ones — left at
+        // Tauri's default, Wry moves focus into the webview the moment
+        // it exists, handing the keyboard to a window nobody can see.
+        // `set_visible` focuses the ones meant to have it, when opened.
+        //
+        // `focusable` is `WS_EX_NOACTIVATE`, through Tao so it survives
+        // Tao rewriting the styles; `focused` is what makes Tao show
+        // these with `SW_SHOWNOACTIVATE` every time, not just the first.
+        .focused(false)
+        .focusable(false);
 
-        // Whether it is on screen from birth. Decided here rather than asked
-        // of the window once built: Tauri can still report a window it is
-        // about to show as hidden, and a page told it was hidden then stayed
-        // blank until something showed it again.
-        let born_visible = match surface.layer {
-            Layer::Overlay => false,
-            Layer::Background | Layer::Chrome => true,
-        };
+    // Whether it is on screen from birth. Decided here rather than asked
+    // of the window once built: Tauri can still report a window it is
+    // about to show as hidden, and a page told it was hidden then stayed
+    // blank until something showed it again.
+    let born_visible = match surface.layer {
+        Layer::Overlay => false,
+        Layer::Background | Layer::Chrome => true,
+    };
 
-        builder = match surface.layer {
-            Layer::Background => builder.always_on_bottom(true),
-            Layer::Chrome => builder.always_on_top(true),
-            // Every overlay starts hidden and is shown by its `GlobalStates`
-            // flag.
-            Layer::Overlay => builder.always_on_top(true).visible(born_visible),
-        };
+    builder = match surface.layer {
+        Layer::Background => builder.always_on_bottom(true),
+        Layer::Chrome => builder.always_on_top(true),
+        // Every overlay starts hidden and is shown by its `GlobalStates`
+        // flag.
+        Layer::Overlay => builder.always_on_top(true).visible(born_visible),
+    };
 
-        // Tauri takes every drag over its windows to report dropped files,
-        // and on Windows that ends a page's own drag the moment it starts: the
-        // pages' own drags could not move anything.
-        // Nor did a file dropped on the shelf ever reach it that way; the
-        // shelf has its own way in, below.
-        builder = builder.disable_drag_drop_handler();
+    // Tauri takes every drag over its windows to report dropped files,
+    // and on Windows that ends a page's own drag the moment it starts: the
+    // pages' own drags could not move anything.
+    // Nor did a file dropped on the shelf ever reach it that way; the
+    // shelf has its own way in, below.
+    builder = builder.disable_drag_drop_handler();
 
-        let window = builder.build()?;
-        apply_layer(app, &window, surface.layer, &config);
-        // Born hidden, it is told so: the webview itself starts out visible.
-        if !born_visible {
-            set_webview_visible(&window, false);
-        }
-        #[cfg(windows)]
-        if surface.label == SHELF.label {
-            let app = app.clone();
-            crate::platform::dragout::accept_drops(&window, move |_, paths| {
-                use tauri::Emitter;
-                let _ = app.emit_to(SHELF.label, crate::commands::event::SHELF_DROPPED, paths);
-            });
-        }
-        // A flag set before this window existed — `bw settings open` sent while
-        // the shell was still starting, say — found nothing to show and was
-        // dropped, and nothing looks at it again: the request vanished, and
-        // left the flag saying the surface was open when it was not.
-        if flagged_open(&app.state::<AppState>().states(), surface.label) {
-            set_visible(app, &label, true)?;
-        }
+    let window = builder.build()?;
+    apply_layer(app, &window, surface.layer, &config);
+    // Born hidden, it is told so: the webview itself starts out visible.
+    if !born_visible {
+        set_webview_visible(&window, false);
+    }
+    #[cfg(windows)]
+    if surface.label == SHELF.label {
+        let app = app.clone();
+        crate::platform::dragout::accept_drops(&window, move |_, paths| {
+            use tauri::Emitter;
+            let _ = app.emit_to(SHELF.label, crate::commands::event::SHELF_DROPPED, paths);
+        });
+    }
+    // A flag set before this window existed — `bw settings open` sent while
+    // the shell was still starting, say — found nothing to show and was
+    // dropped, and nothing looks at it again: the request vanished, and
+    // left the flag saying the surface was open when it was not.
+    if flagged_open(&app.state::<AppState>().states(), surface.label) {
+        set_visible(app, &label, true)?;
     }
     Ok(())
 }
 
-/// The screen a surface gets its window on: the primary one.
-fn screens_for(app: &AppHandle) -> Vec<Screen> {
-    vec![Screen {
-        origin: (0.0, 0.0),
-        size: primary_screen(app),
-    }]
-}
-
-/// Where a surface sits.
-fn geometry(
-    surface: &Surface,
-    config: &bw_core::Config,
-    screen: (f64, f64),
-) -> (f64, f64, f64, f64) {
+/// Where a surface sits on `screen`, in its logical pixels.
+fn geometry(surface: &Surface, config: &bw_core::Config, screen: &Screen) -> (f64, f64, f64, f64) {
     match surface.layer {
-        Layer::Background | Layer::Chrome => (0.0, 0.0, screen.0, screen.1),
+        Layer::Background | Layer::Chrome => (0.0, 0.0, screen.size.0, screen.size.1),
         Layer::Overlay => overlay_geometry(surface, config, screen),
     }
+}
+
+/// Puts a surface's window where [`geometry`] says on `screen`.
+fn put(
+    window: &tauri::WebviewWindow,
+    surface: &Surface,
+    config: &bw_core::Config,
+    screen: &Screen,
+) {
+    let (x, y, width, height) = geometry(surface, config, screen);
+    let physical = |value: f64| (value * screen.scale).round() as i32;
+    // Moved, then sized: moved onto a monitor at another scale, Windows
+    // resizes the window for that scale, and the size given after it is the
+    // one that stands.
+    let _ = window.set_position(tauri::PhysicalPosition::new(
+        screen.origin.0 + physical(x),
+        screen.origin.1 + physical(y),
+    ));
+    let _ = window.set_size(tauri::PhysicalSize::new(
+        physical(width).max(1) as u32,
+        physical(height).max(1) as u32,
+    ));
+}
+
+/// Whether an overlay opens on the monitor the pointer is on. The widget
+/// overlay does not: its widgets are placed in the primary monitor's pixels,
+/// and its window region is cut to them there.
+fn follows_the_pointer(surface: &Surface) -> bool {
+    surface.layer == Layer::Overlay
+        && surface.label != OVERLAY.label
+        && surface.label != OVERLAY_PINNED.label
 }
 
 /// Takes a native bar's window each time `bw-native` places it, on that
@@ -787,18 +883,27 @@ pub fn forget_dead_background(app: &AppHandle) {
 /// the bar, so moving the bar moves them too.
 pub fn place_overlays(app: &AppHandle) {
     let config = app.state::<AppState>().config();
-    let screen = primary_screen(app);
+    let primary = Screen::primary(app, &config);
     for surface in ALL.iter().filter(|surface| surface.layer == Layer::Overlay) {
         let Some(window) = app.get_webview_window(surface.label) else {
             continue;
         };
-        let (x, y, width, height) = overlay_geometry(surface, &config, screen);
-        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
-        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        // Left on the monitor it was opened on, unless that one has gone.
+        if follows_the_pointer(surface) {
+            put(
+                &window,
+                surface,
+                &config,
+                &Screen::of_window(app, &window, &config),
+            );
+        } else {
+            put(&window, surface, &config, &primary);
+        }
     }
 
     // The decorations cover the primary monitor, which a monitor change can
     // resize or replace.
+    let screen = primary.size;
     for surface in ALL.iter().filter(|surface| surface.layer == Layer::Chrome) {
         if let Some(window) = app.get_webview_window(surface.label) {
             // A maximized window keeps its maximized place whatever it is told.
@@ -821,12 +926,14 @@ pub fn place_overlays(app: &AppHandle) {
 fn overlay_geometry(
     surface: &Surface,
     config: &bw_core::Config,
-    screen: (f64, f64),
+    screen: &Screen,
 ) -> (f64, f64, f64, f64) {
+    let has_bar = screen.has_bar;
+    let screen = screen.size;
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
     // Along the top, or down the left side when it is vertical.
-    let (top, left) = match (config.bar.enable, config.bar.vertical) {
+    let (top, left) = match (has_bar, config.bar.vertical) {
         (false, _) => (0.0, 0.0),
         (true, false) => (f64::from(bw_native::HEIGHT), 0.0),
         (true, true) => (0.0, f64::from(bw_native::WIDTH)),
@@ -868,22 +975,6 @@ fn overlay_geometry(
         width,
         height,
     )
-}
-
-/// Logical size of the primary monitor.
-fn primary_screen(app: &AppHandle) -> (f64, f64) {
-    app.primary_monitor()
-        .ok()
-        .flatten()
-        .map(|monitor| {
-            let size = monitor.size();
-            let scale = monitor.scale_factor();
-            (
-                f64::from(size.width) / scale,
-                f64::from(size.height) / scale,
-            )
-        })
-        .unwrap_or((1920.0, 1080.0))
 }
 
 #[cfg(windows)]
@@ -993,6 +1084,21 @@ pub fn set_visible(app: &AppHandle, label: &str, visible: bool) -> tauri::Result
         return Ok(());
     };
     if visible {
+        // Only as it opens: every change of any flag comes through here for
+        // every surface still open, and an open sidebar would follow the
+        // pointer to the other monitor at the next one.
+        let opening = !window.is_visible().unwrap_or(false);
+        if let Some(surface) = ALL.iter().find(|surface| surface.label == label) {
+            if opening && follows_the_pointer(surface) {
+                let config = app.state::<AppState>().config();
+                put(
+                    &window,
+                    surface,
+                    &config,
+                    &Screen::under_pointer(app, &config),
+                );
+            }
+        }
         // An overlay only takes focus when the user opened it deliberately.
         // The readout and the toasts never do — taking focus from whatever the
         // user is typing into would be worse than the information is worth.

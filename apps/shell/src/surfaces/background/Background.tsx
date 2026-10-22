@@ -2,16 +2,19 @@
 //
 // On Windows this window is parented to WorkerW, which places it above the
 // desktop wallpaper and below the icons — the closest thing Windows has to the
-// `WlrLayer.Bottom` layer the original uses.
+// `WlrLayer.Bottom` layer the original uses. It spans every monitor, and the
+// wallpaper is drawn on each; the widgets and the desktop's controls are on
+// the primary one.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { WidgetPlacement } from "@bw/core";
+import { Command, type MonitorInfo, type WidgetPlacement } from "@bw/core";
 import { WallpaperCanvas } from "../../gl/WallpaperCanvas";
 import { backend } from "../../shell/backend";
 import { actions, useShell } from "../../shell/store";
 import { IconButton } from "../../widgets";
 import { tr } from "../../i18n";
 import { WidgetCanvas, type CanvasItem } from "./WidgetCanvas";
+import { monitorParts } from "./screens";
 import { ClockWidget } from "./widgets/ClockWidget";
 import {
   CalendarWidget,
@@ -62,16 +65,39 @@ export function Background() {
   );
   const [playing, setPlaying] = useState("");
 
+  // The monitors, asked again whenever the window is resized: it is moved
+  // and resized over the monitors as they now are each time one comes or goes.
+  const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+  const [size, setSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  useEffect(() => {
+    const look = () => {
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+      void backend()
+        .invoke<MonitorInfo[]>(Command.GetMonitors)
+        .then(setMonitors)
+        .catch(() => {});
+    };
+    look();
+    window.addEventListener("resize", look);
+    return () => window.removeEventListener("resize", look);
+  }, []);
+  const parts = monitorParts(monitors, size.width, size.height);
+
   // Nobody sees the wallpaper behind a full-screen program, and decoding a
   // video for nobody is a battery spent on nothing.
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // ponytail: one decoder per monitor for a video wallpaper; one video drawn
+  // into every monitor's canvas if that shows up in the battery.
+  const rootRef = useRef<HTMLDivElement>(null);
   const covered = useShell((state) => state.activeWindow?.fullscreen ?? false);
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (covered) video.pause();
-    else void video.play().catch(() => {});
-  }, [covered, videoSrc]);
+    for (const video of rootRef.current?.querySelectorAll("video") ?? []) {
+      if (covered) video.pause();
+      else void video.play().catch(() => {});
+    }
+  }, [covered, videoSrc, parts.length]);
 
   // Parallax: nudge the wallpaper as the pointer moves, within the headroom the
   // configured zoom provides.
@@ -110,15 +136,8 @@ export function Background() {
     item("userCard", widgets.userCard, <UserCardWidget />),
   ];
 
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-      }}
-    >
+  const drawn = (
+    <>
       {wallpaper.blanked || !src ? (
         <BlankedWallpaper />
       ) : (
@@ -135,7 +154,6 @@ export function Background() {
       {videoSrc && !wallpaper.blanked ? (
         <video
           key={videoSrc}
-          ref={videoRef}
           src={videoSrc}
           autoPlay
           muted
@@ -157,7 +175,11 @@ export function Background() {
           }}
         />
       ) : null}
+    </>
+  );
 
+  const furniture = (
+    <>
       {widgets.enable ? (
         <WidgetCanvas
           items={items}
@@ -199,6 +221,35 @@ export function Background() {
           onClick={() => void actions.toggleState("widgetEditMode")}
         />
       </div>
+    </>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
+      {parts.map((part, index) => (
+        <div
+          key={index}
+          style={{
+            position: "absolute",
+            left: part.left,
+            top: part.top,
+            width: part.width,
+            height: part.height,
+            overflow: "hidden",
+          }}
+        >
+          {drawn}
+          {part.primary ? furniture : null}
+        </div>
+      ))}
     </div>
   );
 }

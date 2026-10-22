@@ -1089,7 +1089,7 @@ pub fn start_capture(
         // them, so wait for it rather than guessing at a delay.
         capture::settle();
 
-        let bounds = capture::primary_bounds().ok_or_else(|| "no monitor to capture".to_owned())?;
+        let bounds = capture::pointer_bounds().ok_or_else(|| "no monitor to capture".to_owned())?;
         let frame = capture::grab(bounds)?;
 
         let image = write_frame(&frame)?;
@@ -1551,20 +1551,24 @@ pub fn place_desktop_menu(
     const MARGIN: i32 = 8;
 
     let anchor = menu.anchor();
-    let (screen, scale) = app
-        .primary_monitor()
-        .ok()
-        .flatten()
+    // The monitor the menu's window was opened on, which is the pointer's,
+    // and the anchor is taken from its corner rather than the screen's.
+    let monitor = app
+        .get_webview_window(crate::surfaces::DESKTOP_MENU.label)
+        .and_then(|window| window.current_monitor().ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    let (origin, screen, scale) = monitor
         .map(|monitor| {
             let size = monitor.size();
             (
+                (monitor.position().x, monitor.position().y),
                 (size.width as i32, size.height as i32),
                 monitor.scale_factor(),
             )
         })
         // A machine that will not name its monitor still gets a menu on
         // screen; 1080p is the safest guess to be wrong in the small direction.
-        .unwrap_or(((1920, 1080), 1.0));
+        .unwrap_or(((0, 0), (1920, 1080), 1.0));
 
     // The anchor and the screen are physical pixels, because that is what every
     // Win32 source of a point reports. The size arrives from the webview in CSS
@@ -1577,8 +1581,8 @@ pub fn place_desktop_menu(
 
     bw_core::menu::place(
         bw_core::menu::Placement {
-            x: to_css(anchor.x),
-            y: to_css(anchor.y),
+            x: to_css(anchor.x - origin.0),
+            y: to_css(anchor.y - origin.1),
         },
         (width, height),
         (to_css(screen.0), to_css(screen.1)),
