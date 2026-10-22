@@ -6,7 +6,7 @@ is the same shell for anyone who prefers it or deploys by policy.
 It installs for the current user only, so it does not ask for an administrator.
 
 Once installed, the shell updates itself: it checks for a new release a minute
-after starting and every six hours, says which version it is moving to, and
+after starting and every two hours, says which version it is moving to, and
 restarts into it. `windows.autoUpdate` turns that off.
 
 ## Windows will warn you, and it is right to

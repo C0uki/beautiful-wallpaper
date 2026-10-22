@@ -16,7 +16,7 @@ use tauri_plugin_updater::UpdaterExt;
 
 use crate::state::{AppState, NotificationStore};
 
-/// Checks a minute after starting, then every six hours, for as long as the
+/// Checks a minute after starting, then every two hours, for as long as the
 /// shell runs. The switch is read before each check, so turning it off needs
 /// no restart.
 pub fn start(app: &AppHandle) {
@@ -33,7 +33,7 @@ pub fn start(app: &AppHandle) {
                     tracing::warn!(%error, "could not check for an update");
                 }
             }
-            tokio::time::sleep(Duration::from_secs(6 * 60 * 60)).await;
+            tokio::time::sleep(Duration::from_secs(2 * 60 * 60)).await;
         }
     });
 }

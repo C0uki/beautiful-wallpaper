@@ -12,7 +12,7 @@ export type WindowsIntegration = {
   startWithWindows: boolean;
   /**
    * Install new releases on its own. Checked a minute after starting
-   * and every six hours after that; the shell says which version it is
+   * and every two hours after that; the shell says which version it is
    * moving to, then restarts into it.
    */
   autoUpdate: boolean;

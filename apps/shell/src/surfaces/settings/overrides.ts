@@ -293,7 +293,7 @@ const HINTS: Record<string, string> = {
   "weather.refreshInterval": "Seconds between updates.",
   "windows.startWithWindows": "Start the shell when you sign in.",
   "windows.autoUpdate":
-    "Check for a new version a minute after starting and every six hours, and install it.",
+    "Check for a new version a minute after starting and every two hours, and install it.",
   "appearance.palette.accentColor":
     "The colour of selections, switches and buttons. The first well takes it from the wallpaper.",
   "appearance.palette.mode": "Automatic picks by how bright the wallpaper is.",
