@@ -1088,39 +1088,74 @@ pub fn restore_taskbar_places() {
     }
 }
 
-/// Ends Explorer, does `between`, and starts it again.
+/// Ends Explorer and starts it again with `change` made, so it reads where
+/// its taskbars go anew.
 ///
-/// The change goes in while Explorer is gone: it writes its own idea of its
-/// taskbars back as it ends.
-fn restart_explorer(between: impl FnOnce()) {
-    use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+/// Ended outright rather than asked to go: asked, it writes its own idea of
+/// its taskbars back over the change on the way out, and Windows 11 no longer
+/// answers the taskbar menu's "Exit Explorer" sent from another process. The
+/// change is made before and again after, in case it wrote one in between.
+fn restart_explorer(change: impl Fn()) {
+    use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
         OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
     };
-    use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_USER};
 
-    if let Some(tray) = explorer_tray() {
+    change();
+    if let Some((_, id)) = explorer_taskbar() {
         unsafe {
-            let mut id = 0u32;
-            GetWindowThreadProcessId(tray, Some(&mut id));
-            let process = OpenProcess(PROCESS_SYNCHRONIZE | PROCESS_TERMINATE, false, id);
-            // What "Exit Explorer" on the taskbar's menu sends: Explorer ends
-            // tidily, as it does at sign-out.
-            let _ = PostMessageW(tray, WM_USER + 436, WPARAM(0), LPARAM(0));
-            if let Ok(process) = process {
-                if WaitForSingleObject(process, 10_000) != WAIT_OBJECT_0 {
-                    let _ = TerminateProcess(process, 1);
-                    let _ = WaitForSingleObject(process, 5_000);
-                }
+            if let Ok(process) = OpenProcess(PROCESS_SYNCHRONIZE | PROCESS_TERMINATE, false, id) {
+                let _ = TerminateProcess(process, 1);
+                let _ = WaitForSingleObject(process, 5_000);
                 let _ = CloseHandle(process);
             }
         }
     }
-    between();
+    change();
+
+    // Windows starts the shell again itself when it ends unexpectedly, and a
+    // second `explorer.exe` with one already running only opens a folder.
+    for _ in 0..20 {
+        if explorer_taskbar().is_some() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
     let folder = std::env::var_os("WINDIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows"));
     let _ = std::process::Command::new(folder.join("explorer.exe")).spawn();
+}
+
+/// Explorer's own taskbar and its process. Not [`explorer_tray`], which only
+/// steps over this process's stand-in: `bw taskbar show`, run as a shell goes
+/// away, would find that shell's and end it instead.
+fn explorer_taskbar() -> Option<(HWND, u32)> {
+    let mut previous = HWND::default();
+    loop {
+        let found = unsafe {
+            FindWindowExW(
+                HWND::default(),
+                previous,
+                w!("Shell_TrayWnd"),
+                PCWSTR::null(),
+            )
+        }
+        .ok()?;
+        if found.0.is_null() {
+            return None;
+        }
+        let mut id = 0u32;
+        unsafe { GetWindowThreadProcessId(found, Some(&mut id)) };
+        let explorer = super::appicon::executable_path(id).is_some_and(|path| {
+            path.file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("explorer.exe"))
+        });
+        if explorer {
+            return Some((found, id));
+        }
+        previous = found;
+    }
 }
 
 /// Puts back the taskbar setting a killed shell left behind, if it left one.
