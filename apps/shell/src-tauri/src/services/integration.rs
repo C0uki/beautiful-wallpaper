@@ -93,8 +93,25 @@ fn taskbar(app: &AppHandle, hide: bool) {
         // Not hidden, and not asked to be — but a shell killed while it was
         // may have left the taskbar set to hide itself. A no-op otherwise.
         (false, false) => unsafe { crate::platform::win::restore_saved_taskbar_state() },
-        (true, false) => *guard = Some(unsafe { crate::platform::win::HiddenTaskbar::hide() }),
-        (false, true) => drop(guard.take()),
+        (true, false) => {
+            let hidden = unsafe { crate::platform::win::HiddenTaskbar::hide() };
+            let moved = hidden.moved();
+            *guard = Some(hidden);
+            drop(guard);
+            // Moved to the bottom, it has given its edge back, and the bar
+            // asks again for the space that leaves.
+            if moved {
+                crate::surfaces::desktop_changed(app);
+            }
+        }
+        (false, true) => {
+            let moved = guard.take().is_some_and(|hidden| hidden.moved());
+            drop(guard);
+            // Back on its own edge, it holds it again.
+            if moved {
+                crate::surfaces::desktop_changed(app);
+            }
+        }
     }
 }
 

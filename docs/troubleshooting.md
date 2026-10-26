@@ -37,6 +37,11 @@ before the shell touched it; the shell keeps that in
 `%LOCALAPPDATA%\beautiful-wallpaper\taskbar-state` while it runs. Starting the
 shell again does the same.
 
+A taskbar moved to the top in Settings is put along the bottom while the shell
+hides it, because only there does hiding it give its strip of the screen back.
+Where it was is kept in `%LOCALAPPDATA%\beautiful-wallpaper\taskbar-location`,
+and `bw taskbar show` puts it back there too.
+
 This is the reason the setting is off by default.
 
 ## A key does nothing

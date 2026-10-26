@@ -37,10 +37,11 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowThreadProcessId, IsZoomed, PostThreadMessageW, RegisterWindowMessageW,
     SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
-    SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-    STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
-    SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE, WM_NCDESTROY,
-    WM_QUIT, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    SMTO_ABORTIFHUNG, SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+    SM_YVIRTUALSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
+    SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE,
+    WM_NCDESTROY, WM_QUIT, WM_SETTINGCHANGE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
@@ -911,6 +912,9 @@ pub struct HiddenTaskbar {
     /// pointer at the bottom of the screen. Every process's, not only the
     /// Explorer running now: a restarted Explorer makes a new taskbar.
     keeper: Option<(std::thread::JoinHandle<()>, u32)>,
+    /// The edge the user had it on, when that was not the bottom and it was
+    /// moved there for as long as it is held.
+    location: Option<u32>,
 }
 
 impl HiddenTaskbar {
@@ -918,6 +922,7 @@ impl HiddenTaskbar {
     /// Changes global desktop state; the returned value must be kept until the
     /// taskbar should come back.
     pub unsafe fn hide() -> Self {
+        let location = move_taskbar_to_the_bottom();
         let keeper = keep_taskbar_hidden();
         // A setting left on disk is from a shell that was killed while holding
         // the taskbar, and is what it had before that one: the taskbar's own
@@ -934,7 +939,17 @@ impl HiddenTaskbar {
         });
         taskbar_state(ABM_SETSTATE, state | ABS_AUTOHIDE);
         set_taskbar_visible(false);
-        Self { state, keeper }
+        Self {
+            state,
+            keeper,
+            location,
+        }
+    }
+
+    /// Whether it was moved to the bottom, which changes every monitor's work
+    /// area, and will move back when this is dropped.
+    pub fn moved(&self) -> bool {
+        self.location.is_some()
     }
 
     /// Hides it again, set to hide itself, after Explorer has made it anew.
@@ -976,6 +991,83 @@ impl Drop for HiddenTaskbar {
             set_taskbar_visible(true);
         }
         let _ = std::fs::remove_file(taskbar_state_file());
+        if let Some(location) = self.location {
+            put_taskbar_location(location);
+        }
+    }
+}
+
+/// Where Windows 11 keeps the edge the taskbar was moved to in Settings, by
+/// the `ABE_*` numbers.
+const TASKBAR_LOCATION_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
+const TASKBAR_LOCATION: &str = "TaskbarLocation";
+
+/// Where the taskbar was, kept while the shell has it at the bottom.
+fn taskbar_location_file() -> std::path::PathBuf {
+    bw_core::paths::state_dir().join("taskbar-location")
+}
+
+fn saved_taskbar_location() -> Option<u32> {
+    std::fs::read_to_string(taskbar_location_file())
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
+/// Puts the taskbar along the bottom while the shell hides it, and answers
+/// the edge it was on if it moved it.
+///
+/// Set to hide itself, a taskbar gives its edge back only at the bottom.
+/// Moved to the top in Settings, it went on holding it hidden: an empty strip
+/// across the top of every monitor, and the bar below it. Settings moves it
+/// without restarting Explorer, by writing where and saying so, and this does
+/// the same.
+fn move_taskbar_to_the_bottom() -> Option<u32> {
+    let key = windows_registry::CURRENT_USER
+        .create(TASKBAR_LOCATION_KEY)
+        .ok()?;
+    let now = key.get_u32(TASKBAR_LOCATION).ok()?;
+    // Left by a shell that ended without putting it back, this is the user's
+    // edge; the bottom in the registry is that shell's.
+    let was = saved_taskbar_location().unwrap_or(now);
+    if was == ABE_BOTTOM {
+        return None;
+    }
+    let file = taskbar_location_file();
+    if let Some(directory) = file.parent() {
+        let _ = std::fs::create_dir_all(directory);
+    }
+    let _ = std::fs::write(file, was.to_string());
+    if now != ABE_BOTTOM && key.set_u32(TASKBAR_LOCATION, ABE_BOTTOM).is_ok() {
+        announce_taskbar_settings();
+    }
+    Some(was)
+}
+
+/// Puts the taskbar back on the edge the user had it on.
+fn put_taskbar_location(location: u32) {
+    if let Ok(key) = windows_registry::CURRENT_USER.create(TASKBAR_LOCATION_KEY) {
+        if key.set_u32(TASKBAR_LOCATION, location).is_ok() {
+            announce_taskbar_settings();
+        }
+    }
+    let _ = std::fs::remove_file(taskbar_location_file());
+}
+
+/// Tells Explorer the taskbar's settings have changed, as Settings does. Every
+/// window hears it, and one that has stopped answering is passed over.
+fn announce_taskbar_settings() {
+    unsafe {
+        let _ = SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            WPARAM(0),
+            LPARAM(w!("TraySettings").as_ptr() as isize),
+            SMTO_ABORTIFHUNG,
+            1000,
+            None,
+        );
     }
 }
 
@@ -987,6 +1079,10 @@ pub unsafe fn restore_saved_taskbar_state() {
     if let Some(state) = saved_taskbar_state() {
         taskbar_state(ABM_SETSTATE, state);
         let _ = std::fs::remove_file(taskbar_state_file());
+    }
+    // And the edge it was on, if it was moved to the bottom.
+    if let Some(location) = saved_taskbar_location() {
+        put_taskbar_location(location);
     }
 }
 
