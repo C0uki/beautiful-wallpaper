@@ -918,6 +918,9 @@ impl HiddenTaskbar {
     /// Changes global desktop state; the returned value must be kept until the
     /// taskbar should come back.
     pub unsafe fn hide() -> Self {
+        // Before the state below changes, which Explorer records in the same
+        // place.
+        move_taskbars_to_the_bottom();
         let keeper = keep_taskbar_hidden();
         // A setting left on disk is from a shell that was killed while holding
         // the taskbar, and is what it had before that one: the taskbar's own
@@ -976,7 +979,148 @@ impl Drop for HiddenTaskbar {
             set_taskbar_visible(true);
         }
         let _ = std::fs::remove_file(taskbar_state_file());
+        // Moved to the bottom for the shell: put back where the user had
+        // them. That restarts Explorer, which this process may be about to
+        // leave halfway through, so a process of its own does it, the same
+        // `bw taskbar show` that rescues a shell killed while holding them.
+        if taskbar_places_file().exists() {
+            if let Ok(exe) = std::env::current_exe() {
+                let _ = std::process::Command::new(exe)
+                    .args(["taskbar", "show"])
+                    .spawn();
+            }
+        }
     }
+}
+
+/// Where Explorer keeps each taskbar's edge: `StuckRects3` for the primary
+/// monitor's, and a value per monitor in `MMStuckRects3` for the others. Byte
+/// 12 of each is the edge.
+const TASKBAR_PLACES: [&str; 2] = [
+    r"Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3",
+    r"Software\Microsoft\Windows\CurrentVersion\Explorer\MMStuckRects3",
+];
+const EDGE: usize = 12;
+const BOTTOM: u8 = 3;
+
+/// Each taskbar record as it was: its key, its value's name, its bytes.
+type Places = Vec<(String, String, Vec<u8>)>;
+
+/// Where the taskbars were, kept while the shell has them at the bottom.
+fn taskbar_places_file() -> std::path::PathBuf {
+    bw_core::paths::state_dir().join("taskbar-places")
+}
+
+fn saved_taskbar_places() -> Option<Places> {
+    serde_json::from_slice(&std::fs::read(taskbar_places_file()).ok()?).ok()
+}
+
+/// Every taskbar record whose edge is not the bottom.
+fn taskbars_off_the_bottom() -> Places {
+    let mut found = Places::new();
+    for key in TASKBAR_PLACES {
+        let Ok(opened) = windows_registry::CURRENT_USER.open(key) else {
+            continue;
+        };
+        let Ok(values) = opened.values() else {
+            continue;
+        };
+        for (name, value) in values {
+            if value.get(EDGE).is_some_and(|edge| *edge != BOTTOM) {
+                found.push((key.to_owned(), name, value.to_vec()));
+            }
+        }
+    }
+    found
+}
+
+/// Writes the records back, along `edge` if one is given.
+fn write_taskbar_places(places: &Places, edge: Option<u8>) {
+    for (key, name, bytes) in places {
+        let mut bytes = bytes.clone();
+        if let (Some(edge), Some(slot)) = (edge, bytes.get_mut(EDGE)) {
+            *slot = edge;
+        }
+        if let Ok(opened) = windows_registry::CURRENT_USER.create(key) {
+            let _ = opened.set_bytes(name, windows_registry::Type::Bytes, &bytes);
+        }
+    }
+}
+
+/// Puts every taskbar along the bottom while the shell hides them.
+///
+/// Set to hide itself, a taskbar gives its edge back only at the bottom.
+/// Along the top it went on holding it hidden: a strip the height of the
+/// taskbar, with nothing in it, across the top of every monitor, and the bar
+/// below it. So it is moved, and moved back on the way out.
+///
+/// Explorer reads where its taskbars go only as it starts, so it is
+/// restarted for it, on a thread of its own: Explorer sends to every
+/// top-level window as it goes and comes, and waits on each, and this
+/// process's windows have to be free to answer.
+fn move_taskbars_to_the_bottom() {
+    if taskbars_off_the_bottom().is_empty() {
+        return;
+    }
+    // Left by a shell that ended without putting them back, these are the
+    // user's places; the ones in the registry may be that shell's.
+    let places = saved_taskbar_places().unwrap_or_else(|| {
+        let places = taskbars_off_the_bottom();
+        let file = taskbar_places_file();
+        if let Some(directory) = file.parent() {
+            let _ = std::fs::create_dir_all(directory);
+        }
+        if let Ok(text) = serde_json::to_vec(&places) {
+            let _ = std::fs::write(file, text);
+        }
+        places
+    });
+    std::thread::spawn(move || restart_explorer(|| write_taskbar_places(&places, Some(BOTTOM))));
+}
+
+/// Puts the taskbars back where the user had them, if the shell moved them
+/// and did not get to. Restarts Explorer, and waits for it to go: never on a
+/// thread with windows, for the reason [`move_taskbars_to_the_bottom`] gives.
+pub fn restore_taskbar_places() {
+    if let Some(places) = saved_taskbar_places() {
+        restart_explorer(|| write_taskbar_places(&places, None));
+        let _ = std::fs::remove_file(taskbar_places_file());
+    }
+}
+
+/// Ends Explorer, does `between`, and starts it again.
+///
+/// The change goes in while Explorer is gone: it writes its own idea of its
+/// taskbars back as it ends.
+fn restart_explorer(between: impl FnOnce()) {
+    use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+    use windows::Win32::System::Threading::{
+        OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_USER};
+
+    if let Some(tray) = explorer_tray() {
+        unsafe {
+            let mut id = 0u32;
+            GetWindowThreadProcessId(tray, Some(&mut id));
+            let process = OpenProcess(PROCESS_SYNCHRONIZE | PROCESS_TERMINATE, false, id);
+            // What "Exit Explorer" on the taskbar's menu sends: Explorer ends
+            // tidily, as it does at sign-out.
+            let _ = PostMessageW(tray, WM_USER + 436, WPARAM(0), LPARAM(0));
+            if let Ok(process) = process {
+                if WaitForSingleObject(process, 10_000) != WAIT_OBJECT_0 {
+                    let _ = TerminateProcess(process, 1);
+                    let _ = WaitForSingleObject(process, 5_000);
+                }
+                let _ = CloseHandle(process);
+            }
+        }
+    }
+    between();
+    let folder = std::env::var_os("WINDIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows"));
+    let _ = std::process::Command::new(folder.join("explorer.exe")).spawn();
 }
 
 /// Puts back the taskbar setting a killed shell left behind, if it left one.

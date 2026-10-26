@@ -59,6 +59,7 @@ pub fn uninstalling(quiet: bool) {
     unsafe {
         // A shell killed while hiding it also left it set to hide itself.
         super::win::restore_saved_taskbar_state();
+        super::win::restore_taskbar_places();
         super::win::set_taskbar_visible(true);
     }
     if let Err(error) = super::autostart::apply(false) {

@@ -420,8 +420,10 @@ fn handle_taskbar_offline(arguments: &[String]) -> Result<(), String> {
     #[cfg(windows)]
     unsafe {
         if visible {
-            // A shell killed while hiding it also left it set to hide itself.
+            // A shell killed while hiding it also left it set to hide itself,
+            // and at the bottom if the user had it elsewhere.
             crate::platform::win::restore_saved_taskbar_state();
+            crate::platform::win::restore_taskbar_places();
         }
         crate::platform::win::set_taskbar_visible(visible);
     }
