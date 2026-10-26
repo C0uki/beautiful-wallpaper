@@ -61,7 +61,7 @@ pub fn executable_for(process_id: u32) -> Option<String> {
 /// `PROCESS_QUERY_LIMITED_INFORMATION` is deliberate: it works for processes
 /// at a higher integrity level, where the fuller access right is refused, and
 /// the shell only ever wants the path.
-pub(crate) fn executable_path(process_id: u32) -> Option<PathBuf> {
+fn executable_path(process_id: u32) -> Option<PathBuf> {
     if process_id == 0 {
         return None;
     }
