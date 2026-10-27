@@ -27,11 +27,11 @@ export function Tips() {
 
   const close = useCallback(() => void actions.setState("tipsOpen", false), []);
 
-  // Put away first: what it opens is a surface of its own, and the tips would
-  // otherwise sit over it.
+  // What it opens first, and only then put away: closed, this window is
+  // destroyed, and a request it had not sent yet went with it.
   const go = useCallback(async (flag: StateFlagName) => {
-    await actions.setState("tipsOpen", false);
     await actions.setState(flag, true);
+    await actions.setState("tipsOpen", false);
   }, []);
 
   if (!ready || !open) return null;
