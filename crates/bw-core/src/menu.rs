@@ -30,6 +30,8 @@ pub enum MenuItem {
     Screenshot,
     /// The way out of the session.
     Session,
+    /// What the shell can do, a card at a time.
+    Tips,
     /// Windows' own display settings.
     DisplaySettings,
     /// Windows' own personalisation settings.
@@ -43,13 +45,14 @@ impl MenuItem {
     /// with a rule drawn between them by the frontend: they go somewhere
     /// entirely different when picked, and a menu that mixes them without
     /// saying so is a menu that surprises people.
-    pub const ORDER: [Self; 8] = [
+    pub const ORDER: [Self; 9] = [
         Self::ChangeWallpaper,
         Self::NextWallpaper,
         Self::EditWidgets,
         Self::Overview,
         Self::Screenshot,
         Self::Session,
+        Self::Tips,
         Self::DisplaySettings,
         Self::Personalise,
     ];
@@ -62,6 +65,7 @@ impl MenuItem {
             Self::Overview => "search",
             Self::Screenshot => "photo_camera",
             Self::Session => "power_settings_new",
+            Self::Tips => "lightbulb",
             Self::DisplaySettings => "desktop_windows",
             Self::Personalise => "palette",
         }
@@ -94,6 +98,7 @@ pub fn items(config: &Config) -> Vec<MenuItem> {
             MenuItem::Overview => menu.overview && config.overview.enable,
             MenuItem::Screenshot => menu.screenshot && config.capture.enable,
             MenuItem::Session => menu.session && config.session.enable,
+            MenuItem::Tips => menu.tips,
             MenuItem::DisplaySettings => menu.display_settings,
             MenuItem::Personalise => menu.personalise,
         })

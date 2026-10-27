@@ -32,6 +32,9 @@ pub struct GlobalStates {
     /// The first-run screen. Opened by the shell itself when the state file
     /// says it has not been through, and by `bw wizard open` after that.
     pub wizard_open: bool,
+    /// The tips: what the shell can do, how to reach it, and the way out when
+    /// something goes wrong.
+    pub tips_open: bool,
 }
 
 impl GlobalStates {

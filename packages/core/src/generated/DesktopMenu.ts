@@ -15,6 +15,7 @@ export type DesktopMenu = {
   overview: boolean;
   screenshot: boolean;
   session: boolean;
+  tips: boolean;
   displaySettings: boolean;
   personalise: boolean;
 };

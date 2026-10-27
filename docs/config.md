@@ -320,6 +320,7 @@ The menu the desktop's right button opens, and which entries it offers. Opening 
 | `desktopMenu.overview`        | true / false | `true`  |
 | `desktopMenu.screenshot`      | true / false | `true`  |
 | `desktopMenu.session`         | true / false | `true`  |
+| `desktopMenu.tips`            | true / false | `true`  |
 | `desktopMenu.displaySettings` | true / false | `true`  |
 | `desktopMenu.personalise`     | true / false | `true`  |
 

@@ -630,6 +630,13 @@
     "kind": "toggle"
   },
   {
+    "path": "desktopMenu.tips",
+    "section": "desktopMenu",
+    "label": "Tips",
+    "group": "",
+    "kind": "toggle"
+  },
+  {
     "path": "desktopMenu.displaySettings",
     "section": "desktopMenu",
     "label": "Display settings",

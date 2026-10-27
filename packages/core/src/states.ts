@@ -23,6 +23,8 @@ export const StateFlag = {
   /** The first-run screen. Opened by the shell itself on a machine that has
    * not been through it, and by `bw wizard open` after that. */
   WizardOpen: "wizardOpen",
+  /** The tips: what the shell can do and how to reach it. */
+  TipsOpen: "tipsOpen",
 } as const;
 
 export type StateFlagName = (typeof StateFlag)[keyof typeof StateFlag];
@@ -43,6 +45,7 @@ export const defaultStates: GlobalStates = {
   overlayOpen: false,
   widgetEditMode: false,
   wizardOpen: false,
+  tipsOpen: false,
 };
 
 export const stateFlagNames = Object.values(StateFlag);

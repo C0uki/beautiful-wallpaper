@@ -28,6 +28,7 @@ beautiful-wallpaper — a macOS-style desktop shell for Windows
   bw sidebarLeft toggle|open|close       the left sidebar
   bw sidebarRight toggle|open|close      the right sidebar
   bw wizard toggle|open|close            the first-run screen, again
+  bw tips toggle|open|close              tips on using the shell
   bw config set <a.b.c> <value>          change one setting
   bw config get <a.b.c>                  print one setting
   bw preset list                         the saved configurations
@@ -188,6 +189,7 @@ pub fn dispatch(app: &AppHandle, arguments: &[String]) -> Result<(), String> {
         ("sidebarLeft", action) => toggle_surface(app, "sidebarLeftOpen", action),
         ("sidebarRight", action) => toggle_surface(app, "sidebarRightOpen", action),
         ("wizard", action) => toggle_surface(app, "wizardOpen", action),
+        ("tips", action) => toggle_surface(app, "tipsOpen", action),
         // Not `toggle_surface`: the menu opens where the pointer is, so the
         // anchor has to be taken before the surface is shown.
         ("desktopMenu", action) => crate::commands::toggle_desktop_menu(

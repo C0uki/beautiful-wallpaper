@@ -412,6 +412,7 @@ config_struct! {
         pub overview: bool = true,
         pub screenshot: bool = true,
         pub session: bool = true,
+        pub tips: bool = true,
         pub display_settings: bool = true,
         pub personalise: bool = true,
     }
