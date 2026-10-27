@@ -37,6 +37,7 @@ export default defineConfig({
         overlayPinned: surface("overlayPinned"),
         settings: surface("settings"),
         wizard: surface("wizard"),
+        tips: surface("tips"),
         sidebarLeft: surface("sidebarLeft"),
         sidebarRight: surface("sidebarRight"),
         wallpaperSelector: surface("wallpaperSelector"),

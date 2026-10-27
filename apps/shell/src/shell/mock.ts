@@ -1468,6 +1468,7 @@ export function mockBackend(): Backend {
             ["overview", menu.overview && config.overview.enable],
             ["screenshot", menu.screenshot && config.capture.enable],
             ["session", menu.session && config.session.enable],
+            ["tips", menu.tips],
             ["displaySettings", menu.displaySettings],
             ["personalise", menu.personalise],
           ];
@@ -1514,6 +1515,9 @@ export function mockBackend(): Backend {
               break;
             case "session":
               states.sessionOpen = true;
+              break;
+            case "tips":
+              states.tipsOpen = true;
               break;
             default:
               // The rest need a machine — a wallpaper folder, a shutter, the

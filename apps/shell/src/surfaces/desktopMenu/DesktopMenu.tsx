@@ -39,6 +39,8 @@ function label(item: MenuItem): string {
       return tr("Screenshot");
     case "session":
       return tr("Session");
+    case "tips":
+      return tr("Tips");
     case "displaySettings":
       return tr("Display settings");
     case "personalise":
@@ -61,6 +63,8 @@ function symbol(item: MenuItem): string {
       return "photo_camera";
     case "session":
       return "power_settings_new";
+    case "tips":
+      return "lightbulb";
     case "displaySettings":
       return "desktop_windows";
     case "personalise":

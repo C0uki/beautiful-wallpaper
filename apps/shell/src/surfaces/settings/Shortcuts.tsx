@@ -17,7 +17,7 @@ import { actions } from "../../shell/store";
 import { explain } from "../wizard/Wizard";
 import { capsOf, chordFrom } from "./chord";
 
-type Binding = Exclude<keyof Config["keybinds"], "enable">;
+export type Binding = Exclude<keyof Config["keybinds"], "enable">;
 
 /** The sheet's left column: what each shortcut opens, grouped as the pages
  *  that hold those features are. English, translated when drawn. */
@@ -48,7 +48,7 @@ const CATEGORIES: { title: string; icon: string; bindings: Binding[] }[] = [
 ];
 
 /** What each shortcut does, said as the row's name. */
-const NAMES: Record<Binding, string> = {
+export const NAMES: Record<Binding, string> = {
   sidebarLeft: "Open the left sidebar",
   sidebarRight: "Open the right sidebar",
   wallpaperSelector: "Choose a wallpaper",

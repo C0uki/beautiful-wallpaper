@@ -124,6 +124,15 @@ pub const WIZARD: Surface = Surface {
     size: Some((1.0, 1.0)),
 };
 
+/// The tips, as Apple's Tips app has them: what the shell can do, a card at a
+/// time. Opened by the user and only then, so made on demand.
+pub const TIPS: Surface = Surface {
+    label: "tips",
+    page: "tips.html",
+    layer: Layer::Overlay,
+    size: Some((1.0, 1.0)),
+};
+
 /// The floating overlay's canvas. Covers the screen; its input region is cut
 /// down to the pinned widgets whenever the overlay itself is shut, so it is
 /// deliberately not click-through — the region is the mask.
@@ -178,6 +187,7 @@ pub const ALL: &[Surface] = &[
     OVERLAY_PINNED,
     SETTINGS,
     WIZARD,
+    TIPS,
 ];
 
 /// What the startup makes first: everything on screen from the start. A start
@@ -201,8 +211,8 @@ pub const AFTER: &[Surface] = &[
 /// Each surface is a webview of its own, tens of megabytes and seconds to make
 /// on a slow machine, and these are opened rarely enough that keeping them
 /// around cost more than the wait does: the settings, the first-run screen, the
-/// way out of the session, the wallpaper picker and the shelf.
-const ON_DEMAND: &[Surface] = &[SETTINGS, WIZARD, SESSION, WALLPAPER_SELECTOR, SHELF];
+/// tips, the way out of the session, the wallpaper picker and the shelf.
+const ON_DEMAND: &[Surface] = &[SETTINGS, WIZARD, TIPS, SESSION, WALLPAPER_SELECTOR, SHELF];
 
 fn on_demand(label: &str) -> Option<&'static Surface> {
     ON_DEMAND.iter().find(|surface| surface.label == label)
@@ -262,6 +272,7 @@ pub fn surface_for_flag(flag: &str) -> Option<&'static str> {
         "shelfOpen" => Some(SHELF.label),
         "settingsOpen" => Some(SETTINGS.label),
         "wizardOpen" => Some(WIZARD.label),
+        "tipsOpen" => Some(TIPS.label),
         // `overlayOpen` is deliberately absent: the overlay stays on screen
         // after the flag clears if anything on it was pinned, so only
         // `services::overlay::apply` can decide whether its windows are up.
@@ -1269,6 +1280,7 @@ mod tests {
             SESSION,
             SHELF,
             WIZARD,
+            TIPS,
             WALLPAPER_SELECTOR,
             SIDEBAR_LEFT,
             SIDEBAR_RIGHT,

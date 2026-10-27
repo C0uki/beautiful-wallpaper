@@ -17,6 +17,7 @@ import { Shelf } from "./surfaces/shelf/Shelf";
 import { ScreenChrome } from "./surfaces/screenChrome/ScreenChrome";
 import { Settings } from "./surfaces/settings/Settings";
 import { Wizard } from "./surfaces/wizard/Wizard";
+import { Tips } from "./surfaces/tips/Tips";
 import { Overlay } from "./surfaces/overlay/Overlay";
 import { OverlayPinned } from "./surfaces/overlay/OverlayPinned";
 import { actions, connect, useShell } from "./shell/store";
@@ -284,6 +285,12 @@ function Harness() {
         >
           first run
         </Button>
+        <Button
+          icon="lightbulb"
+          onClick={() => void actions.toggleState("tipsOpen")}
+        >
+          tips
+        </Button>
       </header>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -355,6 +362,7 @@ function Harness() {
       <OverlayPinned />
       <Settings />
       <Wizard />
+      <Tips />
     </div>
   );
 }

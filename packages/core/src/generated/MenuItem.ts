@@ -10,5 +10,6 @@ export type MenuItem =
   | "overview"
   | "screenshot"
   | "session"
+  | "tips"
   | "displaySettings"
   | "personalise";

@@ -490,6 +490,27 @@ const SHOTS: Shot[] = [
       await page.locator(".bw-wizard-keys li").first().waitFor();
     },
   },
+  // The tips, and the keyboard's, which are read from the config.
+  {
+    name: "47-tips",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "tips" }).click();
+      await page.getByRole("dialog", { name: "Tips" }).waitFor();
+    },
+  },
+  {
+    name: "48-tips-keyboard",
+    url: "/index.html",
+    viewport: { width: 1280, height: 820 },
+    setup: async (page) => {
+      await page.getByRole("button", { name: "tips" }).click();
+      await page.getByRole("dialog", { name: "Tips" }).waitFor();
+      await page.getByRole("button", { name: "Keyboard", exact: true }).click();
+      await page.locator(".bw-tips-keys li").first().waitFor();
+    },
+  },
   {
     name: "20-sidebar-left-media",
     url: "/sidebarLeft.html",

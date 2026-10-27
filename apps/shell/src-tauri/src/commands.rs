@@ -1620,6 +1620,7 @@ pub fn run_desktop_menu_item(
         }
         MenuItem::Overview => open_flag(&app, &state, "overviewOpen"),
         MenuItem::Session => open_flag(&app, &state, "sessionOpen"),
+        MenuItem::Tips => open_flag(&app, &state, "tipsOpen"),
         MenuItem::Screenshot => start_capture(
             app,
             state,

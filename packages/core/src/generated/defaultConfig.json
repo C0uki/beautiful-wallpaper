@@ -130,6 +130,7 @@
     "overview": true,
     "screenshot": true,
     "session": true,
+    "tips": true,
     "displaySettings": true,
     "personalise": true
   },
