@@ -1,0 +1,56 @@
+name: 不具合の報告 / Bug report
+description: 動きがおかしい、止まる、表示が崩れる / Something does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先に [困ったとき](https://github.com/C0uki/beautiful-wallpaper/blob/main/docs/troubleshooting.md) に同じ症状がないか見てください。
+        Please check [the troubleshooting page](https://github.com/C0uki/beautiful-wallpaper/blob/main/docs/troubleshooting.md) first.
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか / What happened
+      description: 画面写真や動画があれば貼ってください。 / Screenshots or a video help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 起こし方 / Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: expected
+    attributes:
+      label: 本当はどうなってほしいか / What you expected
+  - type: input
+    id: version
+    attributes:
+      label: シェルの版 / Shell version
+      description: 設定画面の左下に出ている版 / Shown at the bottom left of Settings
+      placeholder: 0.5.6
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows の版 / Windows version
+      description: "`winver` で出る版 / What `winver` shows"
+      placeholder: Windows 11 24H2 (26100)
+    validations:
+      required: true
+  - type: input
+    id: monitors
+    attributes:
+      label: モニター / Monitors
+      description: 台数・並べ方・拡大率 / How many, how they are arranged, and their scale
+      placeholder: 2 台、2 台目は上、100% と 150% / two, the second above, 100% and 150%
+  - type: textarea
+    id: log
+    attributes:
+      label: エラーやログ / Errors or log
+      description: 出ていたエラーの文言やログがあれば / Any error message or log output
+      render: text

@@ -1,0 +1,19 @@
+name: 機能の要望 / Feature request
+description: あったらいいもの、変えてほしいところ / Something to add or change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: ほしいもの / What you would like
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 困っていること・使う場面 / The problem it solves, or when you would use it
+  - type: textarea
+    id: like
+    attributes:
+      label: 参考になるもの / Anything similar elsewhere
+      description: ほかのアプリや OS で似た機能があれば / A similar feature in another app or OS
