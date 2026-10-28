@@ -1,12 +1,12 @@
-// Picking a colour or a font instead of typing one.
+// Picking a colour or a font instead of typing one, and typing the rest.
 //
 // Colours are a row of wells, as the Mac's accent colour is: the ones worth
 // offering, and a last well that opens the system colour picker for anything
 // else. Fonts are a list of the families actually installed, each drawn in
 // itself, so a name is chosen by what it looks like.
 
-import { useMemo } from "react";
-import { Symbol } from "../../widgets";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { pressedEnter, Symbol } from "../../widgets";
 import { tr } from "../../i18n";
 
 export interface Swatch {
@@ -167,5 +167,58 @@ export function FontPicker({
         </option>
       ))}
     </select>
+  );
+}
+
+/** A box typed into, written to the config once the typing is done — on Enter
+ *  or on leaving it — rather than on every keystroke. Each keystroke went to
+ *  the config and came back a moment later, and the older value it came back
+ *  with was drawn over the IME's unfinished word, so Japanese could not be
+ *  typed at all (#227, #228). Multiline, Enter is a new line and only leaving
+ *  writes. */
+export function Typed({
+  value,
+  multiline,
+  onCommit,
+}: {
+  value: string;
+  multiline?: boolean;
+  onCommit: (next: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const typing = useRef(false);
+
+  // Follows the config while nobody is typing here: `bw config set`, a preset.
+  useEffect(() => {
+    if (!typing.current) setDraft(value);
+  }, [value]);
+
+  const commit = () => {
+    typing.current = false;
+    if (draft !== value) onCommit(draft);
+  };
+  const shared = {
+    value: draft,
+    spellCheck: false,
+    onChange: (event: { target: { value: string } }) => {
+      typing.current = true;
+      setDraft(event.target.value);
+    },
+    onBlur: commit,
+  };
+
+  return multiline ? (
+    <textarea
+      rows={Math.min(6, Math.max(2, draft.split("\n").length))}
+      {...shared}
+    />
+  ) : (
+    <input
+      type="text"
+      {...shared}
+      onKeyDown={(event) => {
+        if (pressedEnter(event)) commit();
+      }}
+    />
   );
 }

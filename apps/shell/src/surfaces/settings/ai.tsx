@@ -12,6 +12,7 @@ import { Button } from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
+import { Typed } from "./pickers";
 
 const SERVICES: { provider: AiProvider; name: string }[] = [
   { provider: "anthropic", name: "Claude (Anthropic)" },
@@ -120,12 +121,7 @@ export function ModelPicker({
   if (models.length === 0) {
     return (
       <div className="bw-model-picker">
-        <input
-          type="text"
-          value={value}
-          spellCheck={false}
-          onChange={(event) => onChange(event.target.value)}
-        />
+        <Typed value={value} onCommit={onChange} />
         {problem ? (
           <small>
             {problem === "noKey"

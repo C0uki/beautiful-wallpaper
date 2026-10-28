@@ -553,7 +553,7 @@
   "24-hour": "24 時間",
   "24-hour, with seconds": "24 時間（秒まで）",
   "12-hour": "12 時間",
-  "Empty finds where you are from your internet connection.": "空欄なら、インターネット接続から現在地を調べます。",
+  "Empty finds where you are from your internet connection. Any city's name works, in Japanese or English, such as 東京 or Osaka.": "空欄なら、インターネット接続から現在地を調べます。都市名は日本語でも英語でも書けます（例：東京、Osaka）。",
   "Seconds between updates.": "更新の間隔（秒）。",
   "Start the shell when you sign in.": "サインインしたときにシェルを起動します。",
   "Check for a new version a minute after starting and every two hours, and install it.": "起動の 1 分後と、その後 2 時間ごとに新しい版を確かめて入れます。",

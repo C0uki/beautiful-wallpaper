@@ -5,7 +5,13 @@
 // sorted for display and the store keeps the real order.
 
 import { useState } from "react";
-import { Check, IconButton, Placeholder, ScrollArea } from "../../widgets";
+import {
+  Check,
+  IconButton,
+  Placeholder,
+  pressedEnter,
+  ScrollArea,
+} from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, useShell } from "../../shell/store";
 
@@ -32,7 +38,7 @@ export function TodoList() {
           aria-label={tr("Add a task")}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") submit();
+            if (pressedEnter(event)) submit();
           }}
         />
         <IconButton

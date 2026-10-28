@@ -181,6 +181,16 @@ export function Segmented<T extends string>({
   );
 }
 
+/** An Enter that means "done": not the one that confirms what the IME is
+ *  converting, which arrives as a keystroke too and, taken for done, sends a
+ *  Japanese word off half-made. */
+export function pressedEnter(event: {
+  key: string;
+  nativeEvent: KeyboardEvent;
+}): boolean {
+  return event.key === "Enter" && !event.nativeEvent.isComposing;
+}
+
 export interface SearchFieldProps {
   value: string;
   placeholder?: string;
@@ -202,7 +212,7 @@ export function SearchField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") onSubmit?.(value);
+          if (pressedEnter(event)) onSubmit?.(value);
         }}
       />
       {value ? (

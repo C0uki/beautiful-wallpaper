@@ -22,7 +22,14 @@ import { Command, configSchema } from "@bw/core";
 import { backend } from "../../shell/backend";
 import { actions } from "../../shell/store";
 import { describeError } from "../../shell/errors";
-import { Button, Check, Dialog, Placeholder, Symbol } from "../../widgets";
+import {
+  Button,
+  Check,
+  Dialog,
+  Placeholder,
+  pressedEnter,
+  Symbol,
+} from "../../widgets";
 import { tr } from "../../i18n";
 import { contrast } from "./diff";
 import "./presets.css";
@@ -187,7 +194,7 @@ export function Presets() {
           aria-label={tr("Preset name")}
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && name.trim()) void save();
+            if (pressedEnter(event) && name.trim()) void save();
           }}
         />
         <input
@@ -197,7 +204,7 @@ export function Presets() {
           aria-label={tr("Preset description")}
           onChange={(event) => setDescription(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && name.trim()) void save();
+            if (pressedEnter(event) && name.trim()) void save();
           }}
         />
         <Button

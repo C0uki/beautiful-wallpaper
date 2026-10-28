@@ -399,6 +399,7 @@ export interface PairingPrompt {
 
 /** What the sidebar banner shows about the machine. */
 export interface SystemInfo {
+  /** The Windows account's name; `sidebar.profile.displayName` goes over it. */
   username: string;
   hostname: string;
   /** Already formatted by the backend, so every surface words it identically. */

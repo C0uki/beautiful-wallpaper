@@ -16,6 +16,9 @@ export function Banner() {
   const states = useShell((state) => state.states);
 
   const image = config.bannerImage || wallpaper.path;
+  // Read from the config each time rather than from `info`, which is fetched
+  // once: a name typed into the settings showed only after a restart.
+  const name = config.profile.displayName || info?.username;
 
   const buttons = (
     <div className="bw-banner-buttons">
@@ -50,7 +53,7 @@ export function Banner() {
       <div className="bw-banner bw-banner-plain">
         <div className="bw-banner-text">
           <span className="bw-banner-name">
-            {info ? `${info.username}@${info.hostname}` : " "}
+            {info ? `${name}@${info.hostname}` : " "}
           </span>
           <span className="bw-banner-uptime">
             {info ? tr("Up • %1").replace("%1", info.uptime) : " "}
@@ -101,7 +104,7 @@ export function Banner() {
 
         <div className="bw-banner-text">
           <span className="bw-banner-name">
-            {info ? `${info.username}@${info.hostname}` : " "}
+            {info ? `${name}@${info.hostname}` : " "}
           </span>
           <span className="bw-banner-uptime">
             {info ? tr("Up • %1").replace("%1", info.uptime) : " "}

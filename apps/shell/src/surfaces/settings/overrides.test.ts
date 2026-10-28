@@ -103,6 +103,20 @@ describe("the settings overrides", () => {
     );
   });
 
+  it("ticks a list only where the schema has a list, and can tick its default", () => {
+    // `options` is only read inside the textList case, and a default no box
+    // stands for would be ticked off by nobody and listed as if typed.
+    for (const [path, override] of entries) {
+      if (!override.options) continue;
+      expect(kinds.get(path), `${path} kind`).toBe("textList");
+      const shipped = valueAt(defaultConfig, path) as string[];
+      expect(
+        shipped.filter((value) => !override.options!.includes(value)),
+        `${path} defaults with no box`,
+      ).toEqual([]);
+    }
+  });
+
   it("labels every choice", () => {
     for (const [path, override] of entries) {
       for (const choice of override.choices ?? []) {
