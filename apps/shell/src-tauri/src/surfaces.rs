@@ -617,7 +617,9 @@ pub fn ensure(app: &AppHandle, surface: &Surface) -> tauri::Result<()> {
         Layer::Chrome => builder.always_on_top(true),
         // Every overlay starts hidden and is shown by its `GlobalStates`
         // flag.
-        Layer::Overlay => builder.always_on_top(true).visible(born_visible),
+        Layer::Overlay => builder
+            .always_on_top(stays_on_top(surface.label))
+            .visible(born_visible),
     };
 
     // Tauri takes every drag over its windows to report dropped files,
@@ -679,6 +681,13 @@ fn put(
         physical(width).max(1) as u32,
         physical(height).max(1) as u32,
     ));
+}
+
+/// Whether a surface is kept above every other program's windows. Not the
+/// ones that are windows to work in, which another program's window or menu
+/// may come over: Win+X's menu opened behind the settings (#231).
+fn stays_on_top(label: &str) -> bool {
+    ![SETTINGS.label, TIPS.label, WIZARD.label].contains(&label)
 }
 
 /// Whether an overlay opens on the monitor the pointer is on. The widget
@@ -1030,6 +1039,7 @@ fn apply_layer(
 
     let target = match layer {
         Layer::Background => WinLayer::Wallpaper,
+        _ if !stays_on_top(window.label()) => WinLayer::Normal,
         Layer::Overlay | Layer::Chrome => WinLayer::Overlay,
     };
 
@@ -1342,6 +1352,16 @@ mod tests {
         assert!(BACKGROUND.size.is_none());
         let (w, h) = WALLPAPER_SELECTOR.size.expect("an overlay needs a size");
         assert!((0.0..=1.0).contains(&w) && (0.0..=1.0).contains(&h));
+    }
+
+    #[test]
+    fn only_the_windows_to_work_in_let_others_over_them() {
+        for surface in [SETTINGS, TIPS, WIZARD] {
+            assert!(!stays_on_top(surface.label), "{}", surface.label);
+        }
+        for surface in [SIDEBAR_RIGHT, OVERVIEW, SCREEN_CHROME] {
+            assert!(stays_on_top(surface.label), "{}", surface.label);
+        }
     }
 
     /// A Windows taskbar left showing along the bottom: the sidebars stop

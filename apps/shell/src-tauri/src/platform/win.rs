@@ -36,12 +36,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetMessageW, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
     GetWindowThreadProcessId, IsZoomed, PostThreadMessageW, RegisterWindowMessageW,
     SendMessageTimeoutW, SendNotifyMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_TOPMOST, MSG,
-    SMTO_ABORTIFHUNG, SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-    SM_YVIRTUALSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
-    SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT, WM_DISPLAYCHANGE,
-    WM_NCDESTROY, WM_QUIT, WM_SETTINGCHANGE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    ShowWindow, EVENT_OBJECT_SHOW, GWL_EXSTYLE, HWND_BOTTOM, HWND_BROADCAST, HWND_NOTOPMOST,
+    HWND_TOPMOST, MSG, SMTO_ABORTIFHUNG, SMTO_NORMAL, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+    SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_NOZORDER, SW_HIDE, SW_SHOW, SW_SHOWNOACTIVATE, WINDOW_EX_STYLE, WINEVENT_OUTOFCONTEXT,
+    WM_DISPLAYCHANGE, WM_NCDESTROY, WM_QUIT, WM_SETTINGCHANGE, WM_STYLECHANGING, WS_EX_APPWINDOW,
+    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, SWP_FRAMECHANGED, WM_NCCALCSIZE, WM_NCHITTEST,
@@ -53,7 +53,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 pub enum Layer {
     /// Under the desktop icons, above the wallpaper. The background surface.
     Wallpaper,
-    /// An ordinary window, above the desktop but below other windows.
+    /// Off Alt-Tab and the taskbar as an overlay is, but not above other
+    /// programs' windows: a window to work in, such as the settings.
     Normal,
     /// Always on top, never focused. Bars, popups, OSDs.
     Overlay,
@@ -136,8 +137,7 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
                 SWP_NOACTIVATE,
             )?;
         }
-        Layer::Normal => {}
-        Layer::Overlay => {
+        Layer::Normal | Layer::Overlay => {
             // `WS_EX_NOACTIVATE` is Tao's to set, through `focusable`:
             // anything added here is erased the next time Tao writes the
             // styles, and it writes them whole, from its own flags.
@@ -149,7 +149,11 @@ pub unsafe fn set_layer(hwnd: HWND, layer: Layer) -> Result<()> {
             let _ = SetWindowSubclass(hwnd, Some(keep_tool_window), KEEP_TOOL_WINDOW, 0);
             SetWindowPos(
                 hwnd,
-                HWND_TOPMOST,
+                if layer == Layer::Overlay {
+                    HWND_TOPMOST
+                } else {
+                    HWND_NOTOPMOST
+                },
                 0,
                 0,
                 0,
