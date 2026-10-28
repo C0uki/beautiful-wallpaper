@@ -15,7 +15,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import type { Field } from "@bw/core";
 import { configSchema } from "@bw/core";
-import { IconButton, SearchField, Slider, Switch, Symbol } from "../../widgets";
+import {
+  Check,
+  IconButton,
+  SearchField,
+  Slider,
+  Switch,
+  Symbol,
+} from "../../widgets";
 import { tr } from "../../i18n";
 import { actions, connect, useShell } from "../../shell/store";
 import { describeError } from "../../shell/errors";
@@ -23,7 +30,7 @@ import { OVERRIDES } from "./overrides";
 import { PAGES, orderOn, pageFor } from "./pages";
 import { Presets } from "./Presets";
 import { Shortcuts } from "./Shortcuts";
-import { ColorPicker, FontPicker } from "./pickers";
+import { ColorPicker, FontPicker, Typed } from "./pickers";
 import { ApiKeys, ModelPicker } from "./ai";
 import "./settings.css";
 
@@ -130,6 +137,23 @@ export function Settings() {
     () => void actions.setState("settingsOpen", false),
     [],
   );
+
+  // Escape closes it, as it does every other overlay (#232) — but not while
+  // the IME is converting, where Escape takes the conversion back. Recording
+  // a shortcut takes its Escape first (`Shortcuts.tsx`), and a preset's
+  // dialog closes on its own. Whatever box has the focus is left first, so a
+  // value still being typed is written, not lost.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.isComposing) return;
+      if (document.querySelector(".bw-dialog")) return;
+      (document.activeElement as HTMLElement | null)?.blur();
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, close]);
 
   if (!ready || !open) return null;
 
@@ -428,27 +452,50 @@ function Control({
 
     case "text":
       return (
-        <input
-          type="text"
+        <Typed
           value={typeof value === "string" ? value : ""}
-          onChange={(event) => onSet(field.path, event.target.value)}
+          onCommit={(next) => onSet(field.path, next)}
         />
       );
 
-    case "textList":
+    case "textList": {
+      const list = Array.isArray(value) ? (value as string[]) : [];
+      // Picked from what the shell can use, rather than typed (#229). One
+      // written into the file by hand is still listed, so it can be undone.
+      if (override?.options) {
+        return (
+          <div className="bw-settings-options">
+            {[...new Set([...override.options, ...list])].map((option) => (
+              <Check
+                key={option}
+                label={option}
+                checked={list.includes(option)}
+                onChange={(on) =>
+                  onSet(
+                    field.path,
+                    on
+                      ? [...list, option]
+                      : list.filter((entry) => entry !== option),
+                  )
+                }
+              />
+            ))}
+          </div>
+        );
+      }
       return (
-        <textarea
-          rows={Math.min(6, Math.max(2, (value as string[])?.length ?? 2))}
-          value={Array.isArray(value) ? value.join("\n") : ""}
-          spellCheck={false}
-          onChange={(event) =>
+        <Typed
+          multiline
+          value={list.join("\n")}
+          onCommit={(next) =>
             onSet(
               field.path,
-              event.target.value.split("\n").filter((line) => line.length > 0),
+              next.split("\n").filter((line) => line.length > 0),
             )
           }
         />
       );
+    }
 
     case "unsupported":
       // Said rather than hidden: only a row that admits it exists tells the

@@ -209,6 +209,14 @@
   justify-content: flex-end;
 }
 
+/* A list ticked rather than typed, such as the wallpaper file types. */
+.bw-settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 14px;
+}
+
 /* The bar's slots: widgets as chips, dragged between the three rows. */
 .bw-bar-slot {
   display: flex;

@@ -129,6 +129,9 @@ export function Overview() {
   );
 
   const onKeyDown = (event: React.KeyboardEvent) => {
+    // While the IME is converting, Enter confirms the word and Escape takes
+    // it back; neither is meant for the list.
+    if (event.nativeEvent.isComposing) return;
     switch (event.key) {
       case "Escape":
         event.preventDefault();

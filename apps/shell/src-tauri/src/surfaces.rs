@@ -428,6 +428,10 @@ struct Screen {
     /// Whether one of the bars is along its edge, for the overlays to keep
     /// clear of.
     has_bar: bool,
+    /// How far the work area stops short of each edge — left, top, right,
+    /// bottom — in logical pixels: the Windows taskbar, while it is showing,
+    /// or another program's app bar.
+    work_inset: (f64, f64, f64, f64),
 }
 
 impl Screen {
@@ -438,14 +442,23 @@ impl Screen {
             1.0
         };
         let size = monitor.size();
+        let (at, work) = (monitor.position(), monitor.work_area());
+        let inset = |gap: i32| f64::from(gap.max(0)) / scale;
+        let far = |start: i32, length: u32| start + length as i32;
         Self {
-            origin: (monitor.position().x, monitor.position().y),
+            origin: (at.x, at.y),
             size: (
                 f64::from(size.width) / scale,
                 f64::from(size.height) / scale,
             ),
             scale,
             has_bar: config.bar.enable && (primary || config.bar.per_monitor),
+            work_inset: (
+                inset(work.position.x - at.x),
+                inset(work.position.y - at.y),
+                inset(far(at.x, size.width) - far(work.position.x, work.size.width)),
+                inset(far(at.y, size.height) - far(work.position.y, work.size.height)),
+            ),
         }
     }
 
@@ -461,6 +474,7 @@ impl Screen {
                 size: (1920.0, 1080.0),
                 scale: 1.0,
                 has_bar: config.bar.enable,
+                work_inset: (0.0, 0.0, 0.0, 0.0),
             },
         }
     }
@@ -940,17 +954,24 @@ fn overlay_geometry(
     screen: &Screen,
 ) -> (f64, f64, f64, f64) {
     let has_bar = screen.has_bar;
+    let (inset_left, inset_top, inset_right, inset_bottom) = screen.work_inset;
     let screen = screen.size;
     let (fraction_w, fraction_h) = surface.size.unwrap_or((0.5, 0.5));
     let (width, height) = (screen.0 * fraction_w, screen.1 * fraction_h);
     // Along the top, or down the left side when it is vertical.
-    let (top, left) = match (has_bar, config.bar.vertical) {
+    let (bar_top, bar_left) = match (has_bar, config.bar.vertical) {
         (false, _) => (0.0, 0.0),
         (true, false) => (f64::from(bw_native::HEIGHT), 0.0),
         (true, true) => (0.0, f64::from(bw_native::WIDTH)),
     };
+    // Inside the work area too: a Windows taskbar left showing covered the
+    // foot of the sidebars, which is where the calendar is (#230). The bar's
+    // own reservation is part of the work area already, hence the larger of
+    // the two rather than both.
+    let (top, left) = (bar_top.max(inset_top), bar_left.max(inset_left));
+    let right = screen.0 - inset_right;
     let margin = 8.0;
-    let tall = (screen.1 - top - margin * 2.0).max(1.0);
+    let tall = (screen.1 - inset_bottom - top - margin * 2.0).max(1.0);
 
     if surface.label == SIDEBAR_LEFT.label {
         return (
@@ -968,7 +989,7 @@ fn overlay_geometry(
         let x = if config.shelf.edge == "left" {
             left + margin
         } else {
-            screen.0 - width - margin
+            right - width - margin
         };
         return (x, top + margin, width, tall);
     }
@@ -977,7 +998,7 @@ fn overlay_geometry(
         // Pinned to the right edge and as tall as the work area allows, kept
         // clear of the bar rather than sliding under it.
         let width = screen.0 * config.sidebar.width;
-        return (screen.0 - width - margin, top + margin, width, tall);
+        return (right - width - margin, top + margin, width, tall);
     }
 
     (
@@ -1321,5 +1342,31 @@ mod tests {
         assert!(BACKGROUND.size.is_none());
         let (w, h) = WALLPAPER_SELECTOR.size.expect("an overlay needs a size");
         assert!((0.0..=1.0).contains(&w) && (0.0..=1.0).contains(&h));
+    }
+
+    /// A Windows taskbar left showing along the bottom: the sidebars stop
+    /// above it, where the calendar at their foot can be seen (#230).
+    #[test]
+    fn the_sidebars_stop_short_of_a_taskbar() {
+        let config = bw_core::Config::default();
+        let screen = Screen {
+            origin: (0, 0),
+            size: (1920.0, 1080.0),
+            scale: 1.0,
+            has_bar: true,
+            work_inset: (0.0, 0.0, 0.0, 48.0),
+        };
+        for surface in [SIDEBAR_LEFT, SIDEBAR_RIGHT, SHELF] {
+            let (_, y, _, height) = overlay_geometry(&surface, &config, &screen);
+            assert_eq!(y + height, 1080.0 - 48.0 - 8.0, "{}", surface.label);
+        }
+
+        // With nothing reserved, the bar alone decides the top.
+        let bare = Screen {
+            work_inset: (0.0, 0.0, 0.0, 0.0),
+            ..screen
+        };
+        let (_, y, _, _) = overlay_geometry(&SIDEBAR_RIGHT, &config, &bare);
+        assert_eq!(y, f64::from(bw_native::HEIGHT) + 8.0);
     }
 }

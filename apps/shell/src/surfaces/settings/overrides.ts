@@ -38,6 +38,8 @@ export interface Override {
   font?: "sans" | "mono";
   /** A model: chosen from the ones this service lists. */
   model?: AiProvider;
+  /** A list ticked from these instead of typed, one per line. */
+  options?: string[];
 }
 
 /** Values that are really a choice, keyed by config path. */
@@ -258,6 +260,11 @@ export const OVERRIDES: Record<string, Override> = {
   "sidebar.nightLight.temperature": {
     range: { min: 1200, max: 6500, step: 100 },
   },
+  // What the background can draw. ponytail: the defaults only; add avif and
+  // the like once the thumbnails are known to decode them.
+  "wallpaperSelector.extensions": {
+    options: ["jpg", "jpeg", "png", "webp", "bmp", "gif"],
+  },
 };
 
 /** Labels the mechanical ones get wrong: the same word meaning two things,
@@ -289,7 +296,8 @@ const LABELS: Record<string, string> = {
 const HINTS: Record<string, string> = {
   "language.ui": "Automatic follows the language Windows is set to.",
   "time.format": "The date beside the clock follows the language.",
-  "weather.city": "Empty finds where you are from your internet connection.",
+  "weather.city":
+    "Empty finds where you are from your internet connection. Any city's name works, in Japanese or English, such as 東京 or Osaka.",
   "weather.refreshInterval": "Seconds between updates.",
   "windows.startWithWindows": "Start the shell when you sign in.",
   "windows.autoUpdate":
