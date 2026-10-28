@@ -858,6 +858,9 @@ fn power_mode_name(mode: crate::platform::power::PowerMode) -> String {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemInfo {
+    /// The Windows account's name. The banner puts the configured display
+    /// name over it itself: this is read once, and a name changed in the
+    /// settings afterwards never reached the banner.
     pub username: String,
     pub hostname: String,
     /// Already formatted: the exact wording is shared with the tests in
@@ -867,9 +870,7 @@ pub struct SystemInfo {
 }
 
 #[tauri::command]
-pub fn get_system_info(state: State<'_, AppState>) -> SystemInfo {
-    let config = state.config();
-
+pub fn get_system_info() -> SystemInfo {
     // `USERNAME` is set for every interactive session, and reading it avoids a
     // Win32 call for something the environment already knows.
     let username = std::env::var("USERNAME")
@@ -878,11 +879,7 @@ pub fn get_system_info(state: State<'_, AppState>) -> SystemInfo {
         .unwrap_or_else(|| "user".to_owned());
 
     SystemInfo {
-        username: if config.sidebar.profile.display_name.is_empty() {
-            username
-        } else {
-            config.sidebar.profile.display_name.clone()
-        },
+        username,
         hostname: sysinfo::System::host_name().unwrap_or_default(),
         uptime: bw_core::sysinfo::format_uptime(sysinfo::System::uptime()),
     }

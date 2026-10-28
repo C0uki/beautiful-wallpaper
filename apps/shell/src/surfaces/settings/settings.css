@@ -217,6 +217,14 @@
   gap: 6px 14px;
 }
 
+.bw-settings-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* The bar's slots: widgets as chips, dragged between the three rows. */
 .bw-bar-slot {
   display: flex;

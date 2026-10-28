@@ -466,19 +466,23 @@ function Control({
         return (
           <div className="bw-settings-options">
             {[...new Set([...override.options, ...list])].map((option) => (
-              <Check
-                key={option}
-                label={option}
-                checked={list.includes(option)}
-                onChange={(on) =>
-                  onSet(
-                    field.path,
-                    on
-                      ? [...list, option]
-                      : list.filter((entry) => entry !== option),
-                  )
-                }
-              />
+              // Named beside the box rather than through `label`, which a
+              // ticked box strikes through as a done to-do.
+              <label key={option}>
+                <Check
+                  ariaLabel={option}
+                  checked={list.includes(option)}
+                  onChange={(on) =>
+                    onSet(
+                      field.path,
+                      on
+                        ? [...list, option]
+                        : list.filter((entry) => entry !== option),
+                    )
+                  }
+                />
+                <span>{option}</span>
+              </label>
             ))}
           </div>
         );
