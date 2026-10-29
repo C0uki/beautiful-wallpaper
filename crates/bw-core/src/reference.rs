@@ -329,8 +329,10 @@ Everything `config.json` accepts, with the value it has when nothing sets it.
 The file lives at `%APPDATA%\beautiful-wallpaper\config.json`. It is watched
 both ways: an edit in any editor reaches the shell without a restart, and a
 change made in the shell is written back. Anything the shell cannot parse is
-ignored until the next save, so a half-written file mid-edit is not a problem —
-but an unknown key **is** rejected, which is deliberate: a typo that silently
+ignored until the next save, so a half-written file mid-edit is not a problem.
+A key no setting reads — a typo, or one a newer version added — is skipped and
+kept in the file, and the rest of the file still applies. Saved from an editor,
+it is named in a notification ("Not a setting: …"), since a typo that silently
 did nothing would look exactly like a setting that does not work.
 
 Three ways to change a value:
