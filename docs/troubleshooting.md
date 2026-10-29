@@ -11,9 +11,10 @@ Two things worth knowing first:
 
 - **The config is `%APPDATA%\beautiful-wallpaper\config.json`**, watched both
   ways. An edit reaches the shell without a restart.
-- **Unknown keys are rejected.** A whole file is refused if one key in it is
-  misspelt, which is deliberate — a typo that silently did nothing would look
-  exactly like a setting that does not work. Every accepted key is in
+- **Unknown keys are skipped, and named.** A misspelt key does nothing, but
+  the rest of the file still applies, and a notification says "Not a setting:"
+  with the key — a typo that silently did nothing would look exactly like a
+  setting that does not work. Every accepted key is in
   [the configuration reference](config.md).
 
 ## The taskbar is gone and the shell is not running
@@ -143,8 +144,9 @@ is one.
 
 ## An edit to `config.json` did nothing
 
-The whole file is rejected when any key in it is unknown, so a single typo
-means none of that save took effect. Check the spelling against
+A misspelt key is skipped, and the notification "Not a setting:" names it;
+the rest of that save still took effect. A file that is not valid JSON is
+ignored as a whole until the next save that is. Check the spelling against
 [the reference](config.md), or set the value through the CLI, which takes the
 same dotted paths and will tell you if the path is wrong:
 
