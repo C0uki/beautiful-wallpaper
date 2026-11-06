@@ -799,8 +799,20 @@ pub fn desktop_changed(app: &AppHandle) {
 pub fn place_bars(app: &AppHandle) {
     let config = app.state::<AppState>().config();
     release_reservations(app);
-    bw_native::bar_shown(config.bar.enable);
+    bw_native::bar_shown(config.bar.enable && !COVERED.load(std::sync::atomic::Ordering::SeqCst));
     bw_native::bars(bar_layout(&config));
+}
+
+/// Whether a full-screen program is in front.
+static COVERED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Puts the bars away while a full-screen program is in front of them, and
+/// back when it is not. Called with every reading of the active window; only
+/// a change does anything.
+pub fn bar_covered(app: &AppHandle, covered: bool) {
+    if COVERED.swap(covered, std::sync::atomic::Ordering::SeqCst) != covered {
+        bw_native::bar_shown(app.state::<AppState>().config().bar.enable && !covered);
+    }
 }
 
 /// The wallpaper surface's window label: `background`, until Explorer takes
