@@ -206,22 +206,20 @@ export function ResourcesWidget() {
 export function MediaWidget() {
   const media = useShell((state) => state.media);
 
-  if (!media || !media.title) {
-    return (
-      <Card style={{ minWidth: 340, color: "var(--on-surface-variant)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Symbol name="music_note" size={20} />
-          {tr("Nothing playing")}
-        </div>
-      </Card>
-    );
-  }
-
-  const progress =
-    media.duration > 0 ? (media.position / media.duration) * 100 : 0;
+  // The same card whether or not something is playing, so it does not grow
+  // when playback starts.
+  const idle = !media || !media.title;
+  const position = media?.position ?? 0;
+  const duration = media?.duration ?? 0;
+  const progress = duration > 0 ? (position / duration) * 100 : 0;
 
   return (
-    <Card style={{ minWidth: 360 }}>
+    <Card
+      style={{
+        minWidth: 360,
+        color: idle ? "var(--on-surface-variant)" : undefined,
+      }}
+    >
       <div style={{ display: "flex", gap: 14 }}>
         <div
           style={{
@@ -235,7 +233,7 @@ export function MediaWidget() {
             placeItems: "center",
           }}
         >
-          {media.artwork ? (
+          {!idle && media.artwork ? (
             <img
               src={backend().assetUrl(media.artwork)}
               alt=""
@@ -257,7 +255,7 @@ export function MediaWidget() {
               whiteSpace: "nowrap",
             }}
           >
-            {media.title}
+            {idle ? tr("Nothing playing") : media.title}
           </div>
           <div
             style={{
@@ -268,7 +266,7 @@ export function MediaWidget() {
               whiteSpace: "nowrap",
             }}
           >
-            {media.artist}
+            {(!idle && media.artist) || "\u00a0"}
           </div>
 
           <div
@@ -281,18 +279,21 @@ export function MediaWidget() {
           >
             <IconButton
               icon="skip_previous"
+              disabled={idle}
               size={32}
               label={tr("Previous track")}
               onClick={() => void actions.mediaCommand("previous")}
             />
             <IconButton
-              icon={media.playing ? "pause" : "play_arrow"}
+              icon={media?.playing ? "pause" : "play_arrow"}
+              disabled={idle}
               size={38}
-              label={media.playing ? tr("Pause") : tr("Play")}
+              label={media?.playing ? tr("Pause") : tr("Play")}
               onClick={() => void actions.mediaCommand("playPause")}
             />
             <IconButton
               icon="skip_next"
+              disabled={idle}
               size={32}
               label={tr("Next track")}
               onClick={() => void actions.mediaCommand("next")}
@@ -305,7 +306,7 @@ export function MediaWidget() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {formatClock(media.position)} / {formatClock(media.duration)}
+              {formatClock(position)} / {formatClock(duration)}
             </span>
           </div>
         </div>
