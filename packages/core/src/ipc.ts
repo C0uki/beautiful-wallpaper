@@ -279,6 +279,8 @@ export interface WeatherState {
   description: string;
   /** Celsius unless the config asks for USC units. */
   temperature: number;
+  /** Whether `temperature` is Fahrenheit. */
+  usc: boolean;
   humidity: number;
   windSpeed: number;
   /** Material Symbols icon name. */

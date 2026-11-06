@@ -16,6 +16,8 @@ pub struct WeatherState {
     pub description: String,
     /// Celsius, or Fahrenheit with `weather.useUscUnits`.
     pub temperature: f64,
+    /// Whether `temperature` is in Fahrenheit, so a surface can say which.
+    pub usc: bool,
     pub humidity: f64,
     /// Metres per second, which is what the widgets label it.
     pub wind_speed: f64,
@@ -52,6 +54,7 @@ pub fn parse(body: &str, usc: bool, lang: &str) -> Option<WeatherState> {
             .or_else(|| first(now, "weatherDesc"))
             .unwrap_or_default(),
         temperature: number(if usc { "temp_F" } else { "temp_C" })?,
+        usc,
         humidity: number("humidity").unwrap_or_default(),
         wind_speed: number("windspeedKmph").unwrap_or_default() / 3.6,
         icon: icon(number("weatherCode").unwrap_or_default() as u32, night).to_owned(),
@@ -88,6 +91,7 @@ mod tests {
         assert_eq!(weather.city, "Komaki");
         assert_eq!(weather.description, "曇り");
         assert_eq!(weather.temperature, 20.0);
+        assert!(!weather.usc);
         assert_eq!(weather.humidity, 74.0);
         assert!((weather.wind_speed - 6.0 / 3.6).abs() < 1e-9);
         assert_eq!(weather.icon, "cloudy");
@@ -96,6 +100,7 @@ mod tests {
         let english = parse(KOMAKI, true, "").expect("parses");
         assert_eq!(english.description, "Overcast");
         assert_eq!(english.temperature, 68.0);
+        assert!(english.usc);
     }
 
     /// Trimmed from a real `wttr.in/New+York?format=j1`, at night there.
