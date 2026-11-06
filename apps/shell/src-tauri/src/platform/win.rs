@@ -23,7 +23,7 @@ use windows::Win32::Graphics::Gdi::{
     MonitorFromWindow, ScreenToClient, HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
     MONITOR_DEFAULTTONEAREST, RGN_ERROR,
 };
-use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::Controls::MARGINS;
 use windows::Win32::UI::Shell::{
@@ -755,11 +755,21 @@ pub fn active_window() -> ActiveWindow {
 /// The shell's own furniture is excluded by class. Explorer's desktop spans
 /// the monitor by definition and the taskbar's parent does too, so without
 /// this the corners would vanish the moment the user clicked the wallpaper.
+///
+/// So are the shell's own windows, by process: search, the session screen and
+/// the region picker span the monitor and take focus, and the bar must not
+/// get out of the way of the very screen it belongs to.
 unsafe fn is_fullscreen(hwnd: HWND, class: &str) -> bool {
     if matches!(
         class,
         "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "SysListView32"
     ) {
+        return false;
+    }
+
+    let mut process = 0u32;
+    GetWindowThreadProcessId(hwnd, Some(&mut process));
+    if process == GetCurrentProcessId() {
         return false;
     }
 

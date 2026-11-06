@@ -502,6 +502,7 @@ fn spawn_providers(app: tauri::AppHandle, state: AppState) {
             // The title bar changes as fast as the user alt-tabs, so this is
             // sampled at the same rate as the transport state.
             let active = bw_shell::providers::active_window();
+            surfaces::bar_covered(&app, active.fullscreen);
             commands::emit_reading(&app, event::ACTIVE_WINDOW, active);
 
             // Rides this timer rather than one of its own: it reads the same
