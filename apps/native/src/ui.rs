@@ -180,7 +180,7 @@ slint::slint! {
         default-font-size: 13px;
 
         if !root.vertical: Rectangle {
-            HorizontalLayout {
+            left-group := HorizontalLayout {
                 x: 6px;
                 width: self.preferred-width;
                 spacing: 2px;
@@ -216,9 +216,11 @@ slint::slint! {
             }
 
             // Centred on the screen, not on what the two sides leave over, so the
-            // clock does not drift as the title grows.
+            // clock does not drift as the title grows. It stops short of whichever
+            // side is wider, so a long title is cut with an ellipsis rather than
+            // running under the tray.
             HorizontalLayout {
-                width: min(self.preferred-width, root.width * 60%);
+                width: min(min(self.preferred-width, root.width * 60%), max(0px, root.width - 2 * (max(left-group.width, right-group.width) + 12px)));
                 x: (root.width - self.width) / 2;
                 spacing: 4px;
                 for workspace in root.workspaces: Rectangle {
@@ -249,7 +251,7 @@ slint::slint! {
                 }
             }
 
-            HorizontalLayout {
+            right-group := HorizontalLayout {
                 width: self.preferred-width;
                 x: root.width - self.width - 6px;
                 spacing: 2px;
