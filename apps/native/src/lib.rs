@@ -816,11 +816,13 @@ fn apply(bar: &Bar, event: &str, value: &Value) {
             #[derive(Deserialize)]
             struct Weather {
                 temperature: f64,
+                usc: bool,
                 icon: String,
             }
             if let Ok(w) = Weather::deserialize(value) {
                 bar.set_weather_icon(icon(&w.icon, 17.0, true));
-                bar.set_weather(format!("{}°", w.temperature.round()).into());
+                let unit = if w.usc { 'F' } else { 'C' };
+                bar.set_weather(format!("{}°{unit}", w.temperature.round()).into());
             }
         }
         "bw://media" => {

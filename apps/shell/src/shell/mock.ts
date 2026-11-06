@@ -470,6 +470,7 @@ export function mockBackend(): Backend {
     city: "Kyoto",
     description: "overcast clouds",
     temperature: 21,
+    usc: false,
     humidity: 62,
     windSpeed: 2.2,
     icon: "cloud",
